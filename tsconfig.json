@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+      "declaration": false,
+      "emitDecoratorMetadata": true,
+      "experimentalDecorators": true,
+      "esModuleInterop": true,
+      "target": "es2018",
+      "module": "commonjs",
+      "moduleResolution": "node",
+      "resolveJsonModule": true,
+      "sourceMap": true,
+      "baseUrl": ".",
+      "skipLibCheck": true,
+      "allowJs": true,
+      "allowSyntheticDefaultImports": true,
+      "strict": true,
+      "forceConsistentCasingInFileNames": true,
+      "isolatedModules": true,
+      "noEmit": true,
+      "noFallthroughCasesInSwitch": true,
+      "noImplicitAny": false,
+      "types": ["node", "mocha", "chai"]
+    },
+    "include": ["./deploy", "./test", "helpers"],
+    "files": ["./hardhat.config.ts"]
+  }
