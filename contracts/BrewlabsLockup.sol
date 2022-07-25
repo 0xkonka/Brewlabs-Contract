@@ -31,6 +31,10 @@ interface IToken {
     function name() external view returns (string memory);
 }
 
+interface WhiteList {
+    function whitelisted(address _address) external view returns (bool);
+}
+
 contract BrewlabsLockup is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -42,7 +46,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
     bool public hasUserLimit;
     // The pool limit (0 if none)
     uint256 public poolLimitPerUser;
-
+    address public whiteList;
 
     // The block number when staking starts.
     uint256 public startBlock;
@@ -129,6 +133,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
 
     event ServiceInfoUpadted(address _addr, uint256 _fee);
     event DurationUpdated(uint256 _duration);
+    event SetWhiteList(address _whitelist);
 
     event SetSettings(
         uint256 _slippageFactor,
@@ -155,7 +160,8 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         address _dividendToken,
         address _uniRouter,
         address[] memory _earnedToStakedPath,
-        address[] memory _reflectionToStakedPath
+        address[] memory _reflectionToStakedPath,
+        address _whiteList
     ) external onlyOwner {
         require(!isInitialized, "Already initialized");
 
@@ -182,6 +188,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         uniRouterAddress = _uniRouter;
         earnedToStakedPath = _earnedToStakedPath;
         reflectionToStakedPath = _reflectionToStakedPath;
+        whiteList = _whiteList;
     }
 
     /*
@@ -192,7 +199,9 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
         require(_amount > 0, "Amount should be greator than 0");
         require(_stakeType < lockups.length, "Invalid stake type");
-
+        if(whiteList != address(0x0)) {
+            require(WhiteList(whiteList).whitelisted(msg.sender), "not whitelisted");
+        }
 
         _transferPerformanceFee();
         _updatePool(_stakeType);
@@ -954,6 +963,11 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         walletA = _feeAddr;
 
         emit SetSettings(_slippageFactor, _uniRouter, _earnedToStakedPath, _reflectionToStakedPath, _feeAddr);
+    }
+
+    function setWhitelist(address _whitelist) external onlyOwner {
+        whiteList = _whitelist;
+        emit SetWhiteList(_whitelist);
     }
 
 
