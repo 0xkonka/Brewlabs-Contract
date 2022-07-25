@@ -14,7 +14,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         Utils.infoMsg(" ------------------------------------------------------------------------------- ")
         Utils.infoMsg(" --------------------------- Deploying Brewlabs Contracts ------------------- ")
         Utils.infoMsg(" ------------------------------------------------------------------------------- ")
-        
+
         const config = {
             tokenFreezer: false,
             pairFreezer: false,
@@ -44,15 +44,10 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {
-            Utils.infoMsg("Deploying JigsawDistributor contract");
+            Utils.infoMsg("Deploying Whitelist contract");
 
-            let deployed = await deploy('JigsawDistributor', {
+            let deployed = await deploy('Whitelist', {
                 from: account,
-                args: [
-                    "0x271682DEB8C4E0901D1a1550aD2e64D568E69909",  // vrf coordinator
-                    "0x514910771af9ca656af840dff83e8264ecf986ca",   // link token
-                    "0x8af398995b04c28e9951adb9721ef74c74f93e6a478f39e7e0777be13527e7ef"
-                ],
                 log:  false
             });
     
@@ -60,15 +55,11 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
                
             // verify
-            await sleep(20);
+            await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/JigsawDistributor.sol:JigsawDistributor",
-                constructorArguments: [
-                    "0x271682DEB8C4E0901D1a1550aD2e64D568E69909",  // vrf coordinator
-                    "0x514910771af9ca656af840dff83e8264ecf986ca",   // link token
-                    "0x8af398995b04c28e9951adb9721ef74c74f93e6a478f39e7e0777be13527e7ef"
-                ],
+                contract: "contracts/others/Whitelist.sol:Whitelist",
+                constructorArguments: [],
             }) 
         }
 
@@ -374,23 +365,22 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockup", deployedAddress)
             const res = await contractInstance.initialize(
-                "0xe5977835A013e3A5a52f44f8422734bd2dc545F0", // _stakingToken 
-                "0xe5977835A013e3A5a52f44f8422734bd2dc545F0", // _earnedToken 
-                "0x0000000000000000000000000000000000000000", // _reflectionToken 
+                "0x83f8AaeAa9A959293241BA803248cD129C92c31C", // _stakingToken 
+                "0x83f8AaeAa9A959293241BA803248cD129C92c31C", // _earnedToken 
+                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", // _reflectionToken 
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
                 [
+                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
                     "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0xe5977835A013e3A5a52f44f8422734bd2dc545F0"
-                ],                                                   
+                    "0x83f8AaeAa9A959293241BA803248cD129C92c31C"
+                ],
+                "0x0000000000000000000000000000000000000000", // whitelist contract                                                 
             )
             console.log('initialize BrewlabsLockup', res)
             
-            let _rate = ethers.utils.parseUnits('0.951293759512937595', 18)
-            await contractInstance.addLockup(30, 0, 30, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
-            _rate = ethers.utils.parseUnits('1.426940639269406392', 18)
-            await contractInstance.addLockup(90, 0, 0, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
-
+            let _rate = ethers.utils.parseUnits('1664764.079147640791476407', 18)
+            await contractInstance.addLockup(30, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
             // verify
             // await sleep(60)
             await hre.run("verify:verify", {
