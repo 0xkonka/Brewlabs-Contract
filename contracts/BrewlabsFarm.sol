@@ -97,6 +97,9 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     uint256 private totalReflections;
     uint256 private reflectionDebt;
 
+    uint256 private paidRewards;
+    uint256 private shouldTotalPaid;
+
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
@@ -268,7 +271,8 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             return;
         }
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-        if(reflectionToken == address(pool.lpToken)) lpSupply = totalReflectionStaked;
+        if(address(pool.lpToken) == address(brews)) lpSupply = totalRewardStaked;
+        if(address(pool.lpToken) == reflectionToken) lpSupply = totalReflectionStaked;
         if (lpSupply == 0 || pool.allocPoint == 0) {
             pool.lastRewardBlock = block.number;
             return;
@@ -294,6 +298,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         }
 
         pool.lastRewardBlock = block.number;
+        shouldTotalPaid = shouldTotalPaid + brewsReward;
     }
 
     // Deposit LP tokens to BrewlabsFarm for brews allocation.
@@ -323,6 +328,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
                 } else {
                     totalEarned = 0;
                 }
+                paidRewards = paidRewards + pending;
             }
 
             uint256 pendingReflection = user.amount.mul(pool.accReflectionPerShare).div(1e12).sub(user.reflectionDebt);
@@ -387,6 +393,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             } else {
                 totalEarned = 0;
             }
+            paidRewards = paidRewards + pending;
         }
         
         uint256 pendingReflection = user.amount.mul(pool.accReflectionPerShare).div(1e12).sub(user.reflectionDebt);
@@ -436,6 +443,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             } else {
                 totalEarned = 0;
             }
+            paidRewards = paidRewards + pending;
         }
         user.rewardDebt = user.amount.mul(pool.accTokenPerShare).div(1e12);
     }
@@ -458,6 +466,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             } else {
                 totalEarned = 0;
             }
+            paidRewards = paidRewards + pending;
         }
 
         if(address(brews) != address(pool.lpToken)) {
@@ -471,7 +480,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             uint256 tokenAmt1 = tokenAmt;
             address token1 = address(brews);
             if(swapSetting.earnedToToken1.length > 0) {
-                token0 = swapSetting.earnedToToken1[swapSetting.earnedToToken1.length - 1];
+                token1 = swapSetting.earnedToToken1[swapSetting.earnedToToken1.length - 1];
                 tokenAmt1 = _safeSwap(swapSetting.swapRouter, tokenAmt, swapSetting.earnedToToken1, address(this));
             }
 
@@ -641,7 +650,28 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             _amount = _amount - totalEarned;
         }
         return _amount - totalReflectionStaked;
-    }    
+    }
+    
+    function insufficientRewards() external view returns (uint256) {
+        uint256 adjustedShouldTotalPaid = shouldTotalPaid;
+        uint256 remainRewards = availableRewardTokens() + paidRewards;
+
+        uint256 length = poolInfo.length;
+        for (uint256 pid = 0; pid < length; pid++) {
+            PoolInfo memory pool = poolInfo[pid];
+            if(startBlock == 0) {
+                adjustedShouldTotalPaid = adjustedShouldTotalPaid + rewardPerBlock * pool.allocPoint * pool.duration * 28800 / totalAllocPoint;
+            } else {
+                uint256 multiplier = getMultiplier(pool.lastRewardBlock, pool.bonusEndBlock, pool.bonusEndBlock);
+                adjustedShouldTotalPaid = adjustedShouldTotalPaid + multiplier * rewardPerBlock * pool.allocPoint / totalAllocPoint;
+            }
+        }
+
+        if(remainRewards >= adjustedShouldTotalPaid) return 0;
+
+        return adjustedShouldTotalPaid - remainRewards;
+    }
+
 
     // Safe brews transfer function, just in case if rounding error causes pool to not have enough brewss.
     function safeTokenTransfer(address _to, uint256 _amount) internal {
@@ -704,6 +734,36 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         uint256 afterAmt = brews.balanceOf(address(this));
 
         totalEarned = totalEarned.add(afterAmt).sub(beforeAmt);
+    }
+
+    function increaseEmissionRate(uint256 _amount) external onlyOwner {
+        require(startBlock > 0, "pool is not started");
+        require(_amount > 0, "invalid amount");
+
+        uint256 bonusEndBlock = 0;
+        for(uint i  = 0; i < poolInfo.length; i++) {
+            if(bonusEndBlock < poolInfo[i].bonusEndBlock) {
+                bonusEndBlock = poolInfo[i].bonusEndBlock;
+            }
+        }
+        require(bonusEndBlock > block.number, "pool was already finished");
+        
+        massUpdatePools();
+
+        uint256 beforeAmt = brews.balanceOf(address(this));
+        brews.safeTransferFrom(msg.sender, address(this), _amount);
+        uint256 afterAmt = brews.balanceOf(address(this));
+
+        totalEarned = totalEarned + afterAmt - beforeAmt;
+
+        uint256 remainRewards = availableRewardTokens() + paidRewards;
+        if(remainRewards > shouldTotalPaid) {
+            remainRewards = remainRewards - shouldTotalPaid;
+
+            uint256 remainBlocks = bonusEndBlock - block.number;
+            rewardPerBlock = remainRewards / remainBlocks;
+            emit UpdateEmissionRate(msg.sender, rewardPerBlock);
+        }
     }
 
     function emergencyWithdrawRewards(uint256 _amount) external onlyOwner {

@@ -262,12 +262,12 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         if(config.farm) {
             Utils.infoMsg("Deploying BrewlabsFarm contract");
             const _hasDividend = false;
-            const _rewardPerBlock = ethers.utils.parseUnits("0.0761035", 18)
+            const _rewardPerBlock = ethers.utils.parseUnits("0.951293759512937595", 18)
             let deployed = await deploy('BrewlabsFarm', 
                 {
                     from: account,
                     args: [
-                        "0x797Bb0BeeA437D2762A755ea911C0046C1284568",
+                        "0xe5977835A013e3A5a52f44f8422734bd2dc545F0",
                         "0x0000000000000000000000000000000000000000",
                         _rewardPerBlock,
                         _hasDividend,
@@ -284,7 +284,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let contractInstance = await ethers.getContractAt("BrewlabsFarm", deployedAddress)
             await contractInstance.add(
                 1000,                                                   // allocPoint
-                "0x8659ec4FC20d878399a4AE1F1B25d5d24F95B0e0",           // lp token address
+                "0x6b75970104032cE9720902Cea0A0E57Ce24a6077",           // lp token address
                 0,                                                      // deposit fee
                 0,                                                      // withdraw fee 
                 365,                                                    // duration
@@ -297,7 +297,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 address: deployedAddress,
                 contract: "contracts/BrewlabsFarm.sol:BrewlabsFarm",
                 constructorArguments: [
-                    "0x797Bb0BeeA437D2762A755ea911C0046C1284568",
+                    "0xe5977835A013e3A5a52f44f8422734bd2dc545F0",
                     "0x0000000000000000000000000000000000000000",
                     _rewardPerBlock, 
                     _hasDividend,
@@ -365,22 +365,22 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockup", deployedAddress)
             const res = await contractInstance.initialize(
-                "0x83f8AaeAa9A959293241BA803248cD129C92c31C", // _stakingToken 
-                "0x83f8AaeAa9A959293241BA803248cD129C92c31C", // _earnedToken 
-                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", // _reflectionToken 
+                "0x1be04C690fe0Fd83cc939Bc4860728b89ebceb78", // _stakingToken 
+                "0x1be04C690fe0Fd83cc939Bc4860728b89ebceb78", // _earnedToken 
+                "0x0000000000000000000000000000000000000000", // _reflectionToken 
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
                 [
-                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
                     "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x83f8AaeAa9A959293241BA803248cD129C92c31C"
+                    "0x1be04C690fe0Fd83cc939Bc4860728b89ebceb78"
                 ],
                 "0x0000000000000000000000000000000000000000", // whitelist contract                                                 
             )
             console.log('initialize BrewlabsLockup', res)
             
-            let _rate = ethers.utils.parseUnits('1664764.079147640791476407', 18)
-            await contractInstance.addLockup(30, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
+            await sleep(20)
+            let _rate = ethers.utils.parseUnits('0.190258751', 9)
+            await contractInstance.addLockup(30, 0, 30, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
             // verify
             // await sleep(60)
             await hre.run("verify:verify", {
