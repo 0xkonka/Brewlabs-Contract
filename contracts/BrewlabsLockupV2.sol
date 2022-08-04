@@ -928,7 +928,6 @@ contract BrewlabsLockupV2 is Ownable, ReentrancyGuard {
     function setServiceInfo(address _addr, uint256 _fee) external {
         require(msg.sender == buyBackWallet, "setServiceInfo: FORBIDDEN");
         require(_addr != address(0x0), "Invalid address");
-        require(_fee < 0.05 ether, "fee cannot exceed 0.05 ether");
 
         buyBackWallet = _addr;
         performanceFee = _fee;

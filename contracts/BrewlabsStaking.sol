@@ -760,7 +760,6 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     function setServiceInfo(address _buyBackWallet, uint256 _fee) external {
         require(msg.sender == buyBackWallet, "setServiceInfo: FORBIDDEN");
         require(_buyBackWallet != address(0x0), "Invalid address");
-        require(_fee < 0.05 ether, "fee cannot exceed 0.05 ether");
 
         buyBackWallet = _buyBackWallet;
         performanceFee = _fee;

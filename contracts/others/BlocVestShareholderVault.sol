@@ -392,7 +392,6 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     function setServiceInfo(address _treasury, uint256 _fee) external {
         require(msg.sender == treasury, "setServiceInfo: FORBIDDEN");
         require(_treasury != address(0x0), "Invalid address");
-        require(_fee < 0.05 ether, "fee cannot exceed 0.05 ether");
 
         treasury = _treasury;
         performanceFee = _fee;
