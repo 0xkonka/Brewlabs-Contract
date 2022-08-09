@@ -226,7 +226,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
         uint256 accTokenPerShare = pool.accTokenPerShare;
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-        if (block.number > pool.lastRewardBlock && lpSupply != 0) {
+        if (block.number > pool.lastRewardBlock && lpSupply != 0 && totalAllocPoint > 0) {
             uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number, pool.bonusEndBlock);
             uint256 brewsReward = multiplier.mul(rewardPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
             accTokenPerShare = accTokenPerShare.add(brewsReward.mul(1e12).div(lpSupply));
@@ -241,7 +241,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         uint256 accReflectionPerShare = pool.accReflectionPerShare;
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
         if(reflectionToken == address(pool.lpToken)) lpSupply = totalReflectionStaked;
-        if (block.number > pool.lastRewardBlock && lpSupply != 0 && hasDividend) {
+        if (block.number > pool.lastRewardBlock && lpSupply != 0 && hasDividend && totalAllocPoint > 0) {
             uint256 reflectionAmt = availableDividendTokens();
             if(reflectionAmt > totalReflections) {
                 reflectionAmt = reflectionAmt.sub(totalReflections);
