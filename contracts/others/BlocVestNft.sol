@@ -26,9 +26,6 @@ contract BlocVestNft is ERC721URIStorage, Ownable {
   address public payingToken = 0x2995bD504647b5EeE414A78be1d7b24f49f00FFE; // testnet
   uint256[4] public prices = [0.01 ether, 0.05 ether, 0.35 ether, 0.7 ether];
 
-  address public feeWallet;
-  uint256[4] public fees = [25, 50, 100, 150];
-
   address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
   uint256 performanceFee = 0.005 ether;
 
@@ -37,21 +34,20 @@ contract BlocVestNft is ERC721URIStorage, Ownable {
   mapping(uint256 => uint256) private rarities;
   mapping(address => uint256) public userRarities;
   mapping(address => bool) public whitelist;
+  mapping(address => bool) public feeExcluded;
 
   event BaseURIUpdated(string uri);
   event MintEnabled();
   event MintDisabled();
-  event PayingTokenUpdated(address token);
-  event PriceUpdated(uint256[4] prices);
-  event SetFeeWallet(address addr);
-  event FeeUpdated(uint256[4] fees);
+  event SetPayingToken(address token);
+  event SetSalePrices(uint256[4] prices);
   event SetOneTimeLimit(uint256 limit);
   event ServiceInfoUpadted(address treasury, uint256 fee);
   event WhiteListUpdated(address addr, bool enabled);
+  event FeeExcluded(address addr);
+  event FeeIncluded(address addr);
 
-  constructor() ERC721("BlocVest NFT Card", "Bvest") {
-    feeWallet = msg.sender;
-  }
+  constructor() ERC721("BlocVest NFT Card", "Bvest") {}
 
   function _transfer(
     address from,
@@ -77,31 +73,42 @@ contract BlocVestNft is ERC721URIStorage, Ownable {
       "can't mint other type of cards"
     );
 
-    _transferPerformanceFee();
+    if (!feeExcluded[msg.sender]) {
+      _transferPerformanceFee();
+    }
 
     uint256 amount = prices[_rarity] * _count;
     IERC20(payingToken).safeTransferFrom(msg.sender, address(this), amount);
-    IERC20(payingToken).safeTransfer(feeWallet, amount * fees[_rarity]);
 
     if (userRarities[msg.sender] == 0) {
       userRarities[msg.sender] = _rarity + 1;
     }
 
-    for (uint i = 0; i < _count; i++) {
-        uint256 tokenId = totalMinted + 1;
+    for (uint256 i = 0; i < _count; i++) {
+      uint256 tokenId = totalMinted + 1;
 
-        _safeMint(_toAddr, tokenId);
-        _setTokenURI(tokenId, tokenId.toString());
-        super._setTokenURI(tokenId, tokenId.toString());
+      _safeMint(_toAddr, tokenId);
+      _setTokenURI(tokenId, tokenId.toString());
+      super._setTokenURI(tokenId, tokenId.toString());
 
-        rarities[tokenId] = _rarity;
-        totalMinted = totalMinted + 1;
+      rarities[tokenId] = _rarity;
+      totalMinted = totalMinted + 1;
     }
   }
 
   function setWhitelist(address _addr, bool _enabled) external onlyOwner {
     whitelist[_addr] = _enabled;
     emit WhiteListUpdated(_addr, _enabled);
+  }
+
+  function excludeFromFee(address _addr) external onlyOwner {
+    feeExcluded[_addr] = true;
+    emit FeeExcluded(_addr);
+  }
+
+  function includeInFee(address _addr) external onlyOwner {
+    feeExcluded[_addr] = false;
+    emit FeeIncluded(_addr);
   }
 
   function enabledMint() external onlyOwner {
@@ -122,27 +129,13 @@ contract BlocVestNft is ERC721URIStorage, Ownable {
     require(_token != address(0x0), "invalid token");
 
     payingToken = _token;
-    emit PayingTokenUpdated(_token);
+    emit SetPayingToken(_token);
   }
 
-  function setPrices(uint256[4] memory _prices) external onlyOwner {
+  function setSalePrices(uint256[4] memory _prices) external onlyOwner {
     require(!mintAllowed, "mint was enabled");
     prices = _prices;
-    emit PriceUpdated(_prices);
-  }
-
-  function setFeeWallet(address _addr) external onlyOwner {
-    require(_addr != address(0x0), "invalid address");
-    feeWallet = _addr;
-    emit SetFeeWallet(_addr);
-  }
-
-  function setFees(uint256[4] memory _fees) external onlyOwner {
-    for (uint256 i = 0; i < 4; i++) {
-      require(_fees[i] < 10000, "invalid fee");
-    }
-    fees = _fees;
-    emit FeeUpdated(_fees);
+    emit SetSalePrices(_prices);
   }
 
   function setOneTimeMintingLimit(uint256 _limit) external onlyOwner {
