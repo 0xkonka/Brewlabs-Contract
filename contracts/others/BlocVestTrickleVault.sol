@@ -159,7 +159,13 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
         _tokenIds[i]
       );
 
-      user.tokenIds.push(_tokenIds[i]);
+      if (user.tokenIds.length > user.count) {
+        user.tokenIds[user.count] = _tokenIds[i];
+      } else {
+        user.tokenIds.push(_tokenIds[i]);
+      }
+
+      user.count = user.count + 1;
       emit NftStaked(msg.sender, bvstNft, _tokenIds[i]);
     }
 
@@ -226,6 +232,10 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
     uint256 multiplier = block.number - user.lastRewardBlock;
     return multiplier * (user.totalStaked) * (user.apr / 28800);
+  }
+
+  function stakedTokenIds(address _user) external view returns (uint256[] memory) {
+    return userInfo[_user].tokenIds;
   }
 
   function appliedTax(address _user) public view returns (HarvestFee memory) {
@@ -353,7 +363,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     emit SetBaseAprs(_aprs);
   }
 
-  function setAprMultiplier (uint256 _multiplier) external onlyOwner {
+  function setAprMultiplier(uint256 _multiplier) external onlyOwner {
     require(_multiplier > 1000, "multiplier should be higher than 1000");
     aprMultiplier = _multiplier;
     emit SetAprMultiplier(_multiplier);
