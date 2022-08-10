@@ -128,7 +128,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
     }
 
     function pendingRewards(address _user) external view returns (uint256) {
-        UserInfo storage user = userInfo[_user];
+        UserInfo memory user = userInfo[_user];
         
         uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS + TIME_UNITS;
         if(block.timestamp > expireTime) {
