@@ -186,7 +186,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
     for (uint256 i = 0; i < _count; i++) {
       uint256 _tokenId = user.tokenIds[user.count - 1];
-      delete user.tokenIds[user.count - 1];
+      user.tokenIds.pop();
       user.count = user.count - 1;
 
       IERC721(bvstNft).safeTransferFrom(address(this), msg.sender, _tokenId);
