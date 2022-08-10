@@ -31,7 +31,7 @@ contract BlocVestNft is ERC721URIStorage, Ownable {
 
   // Optional mapping for token URIs
   mapping(uint256 => string) private _tokenURIs;
-  mapping(uint256 => uint256) private rarities;
+  mapping(uint256 => uint256) public rarities;
   mapping(address => uint256) public userRarities;
   mapping(address => bool) public whitelist;
   mapping(address => bool) public feeExcluded;
