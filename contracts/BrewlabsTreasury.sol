@@ -1,4 +1,3 @@
- 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -12,7 +11,6 @@ import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 
 import "./libs/IUniFactory.sol";
 import "./libs/IUniRouter02.sol";
-import "./libs/IWETH.sol";
 
 interface IStaking {
     function performanceFee() external view returns(uint256);
@@ -27,7 +25,8 @@ contract BrewlabsTreasury is Ownable {
     using SafeERC20 for IERC20;
 
     bool private isInitialized;
-    uint256 private TIME_UNIT = 1 days;
+    uint256 private constant TIME_UNIT = 1 days;
+    uint256 private constant PERCENT_PRECISION = 10000;
 
     IERC20  public token;
     address public dividendToken;
@@ -50,6 +49,8 @@ contract BrewlabsTreasury is Ownable {
     uint256 public slippageFactor = 830;    // 17%
     uint256 public constant slippageFactorUL = 995;
 
+    event Initialized(address token, address dividendToken, address router, address[] bnbToTokenPath, address[] bnbToDividendPath, address[] dividendToTokenPath);
+
     event TokenBuyBack(uint256 amountETH, uint256 amountToken);
     event TokenBuyBackFromDividend(uint256 amount, uint256 amountToken);
     event LiquidityAdded(uint256 amountETH, uint256 amountToken, uint256 liquidity);
@@ -57,6 +58,10 @@ contract BrewlabsTreasury is Ownable {
     event Withdrawn(uint256 amount);
     event Harvested(address account, uint256 amount);
     event Swapped(address token, uint256 amountETH, uint256 amountToken);
+
+    event BnbHarvested(address to, uint256 amount);
+    event EmergencyWithdrawn();
+    event AdminTokenRecovered(address tokenRecovered, uint256 amount);
 
     event SetSwapConfig(address router, uint256 slipPage, address[] bnbToTokenPath, address[] bnbToDividendPath, address[] dividendToTokenPath);
     event TransferBuyBackWallet(address staking, address wallet);
@@ -86,6 +91,8 @@ contract BrewlabsTreasury is Ownable {
         address[] memory _dividendToTokenPath
     ) external onlyOwner {
         require(!isInitialized, "Already initialized");
+        require(_uniRouter != address(0x0), "invalid address");
+        require(address(_token) != address(0x0), "invalid token address");
 
         // Make this contract initialized
         isInitialized = true;
@@ -98,6 +105,8 @@ contract BrewlabsTreasury is Ownable {
         bnbToTokenPath = _bnbToTokenPath;
         bnbToDividendPath = _bnbToDividendPath;
         dividendToTokenPath = _dividendToTokenPath;
+
+        emit Initialized(address(_token), _dividendToken, _uniRouter, _bnbToTokenPath, _bnbToDividendPath, _dividendToTokenPath);
     }
 
     /**
@@ -105,7 +114,7 @@ contract BrewlabsTreasury is Ownable {
      */     
     function buyBack() external onlyOwner {
         uint256 ethAmt = address(this).balance;
-        ethAmt = ethAmt * buybackRate / 10000;
+        ethAmt = ethAmt * buybackRate / PERCENT_PRECISION;
 
         if(ethAmt > 0) {
             uint256 _tokenAmt = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
@@ -131,7 +140,7 @@ contract BrewlabsTreasury is Ownable {
      */
     function addLiquidity() external onlyOwner {
         uint256 ethAmt = address(this).balance;
-        ethAmt = ethAmt * addLiquidityRate / 10000 / 2;
+        ethAmt = ethAmt * addLiquidityRate / PERCENT_PRECISION / 2;
 
         if(ethAmt > 0) {
             uint256 _tokenAmt = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
@@ -148,7 +157,7 @@ contract BrewlabsTreasury is Ownable {
      */
     function harvest(address _to) external onlyOwner {
         uint256 ethAmt = address(this).balance;
-        ethAmt = ethAmt * buybackRate / 10000;
+        ethAmt = ethAmt * buybackRate / PERCENT_PRECISION;
 
         if(dividendToken == address(0x0)) {
             if(ethAmt > 0) {
@@ -172,6 +181,7 @@ contract BrewlabsTreasury is Ownable {
     function harvestBNB(address _to) external onlyOwner {
         uint256 ethAmt = address(this).balance;
         payable(_to).transfer(ethAmt);
+        emit BnbHarvested(_to, ethAmt);
     }
 
     /**
@@ -187,7 +197,7 @@ contract BrewlabsTreasury is Ownable {
             sumWithdrawals = 0;
         }
 
-        uint256 limit = withdrawalLimit * (token.totalSupply()) / 10000;
+        uint256 limit = withdrawalLimit * (token.totalSupply()) / PERCENT_PRECISION;
         require(sumWithdrawals + _amount <= limit, "exceed maximum withdrawal limit for 30 days");
 
         token.safeTransfer(msg.sender, _amount);
@@ -195,8 +205,8 @@ contract BrewlabsTreasury is Ownable {
     }
 
     /**
-     * @notice Withdraw token as much as maximum 20% of lp supply
-     * @param _amount: liquidity amount to withdraw
+     * @notice Withdraw liquidity 
+     * @param _amount: amount to withdraw
      */
     function withdrawLiquidity(uint256 _amount) external onlyOwner {
         uint256 tokenAmt = IERC20(pair).balanceOf(address(this));
@@ -207,7 +217,7 @@ contract BrewlabsTreasury is Ownable {
             sumLiquidityWithdrawals = 0;
         }
 
-        uint256 limit = liquidityWithdrawalLimit * (IERC20(pair).totalSupply()) / 10000;
+        uint256 limit = liquidityWithdrawalLimit * (IERC20(pair).totalSupply()) / PERCENT_PRECISION;
         require(sumLiquidityWithdrawals + _amount <= limit, "exceed maximum LP withdrawal limit for 30 days");
 
         IERC20(pair).safeTransfer(msg.sender, _amount);
@@ -233,6 +243,7 @@ contract BrewlabsTreasury is Ownable {
         if(ethAmt > 0) {
             payable(msg.sender).transfer(ethAmt);
         }
+        emit EmergencyWithdrawn();
     }
 
     /**
@@ -250,7 +261,7 @@ contract BrewlabsTreasury is Ownable {
      * @param _percent: percentage of LP supply in point
      */
     function setLiquidityWithdrawalLimit(uint256 _percent) external onlyOwner {
-        require(_percent < 10000, "Invalid percentage");
+        require(_percent < PERCENT_PRECISION, "Invalid percentage");
         
         liquidityWithdrawalLimit = _percent;
         emit LiquidityWithdrawLimitUpdated(_percent);
@@ -261,7 +272,7 @@ contract BrewlabsTreasury is Ownable {
      * @param _percent: percentage of total supply in point
      */
     function setWithdrawalLimit(uint256 _percent) external onlyOwner {
-        require(_percent < 10000, "Invalid percentage");
+        require(_percent < PERCENT_PRECISION, "Invalid percentage");
         
         withdrawalLimit = _percent;
         emit WithdrawLimitUpdated(_percent);
@@ -272,7 +283,7 @@ contract BrewlabsTreasury is Ownable {
      * @param _percent: percentage in point
      */
     function setBuybackRate(uint256 _percent) external onlyOwner {
-        require(_percent < 10000, "Invalid percentage");
+        require(_percent < PERCENT_PRECISION, "Invalid percentage");
 
         buybackRate = _percent;
         emit BuybackRateUpdated(_percent);
@@ -283,7 +294,7 @@ contract BrewlabsTreasury is Ownable {
      * @param _percent: percentage in point
      */
     function setAddLiquidityRate(uint256 _percent) external onlyOwner {
-        require(_percent < 10000, "Invalid percentage");
+        require(_percent < PERCENT_PRECISION, "Invalid percentage");
 
         addLiquidityRate = _percent;
         emit AddLiquidityRateUpdated(_percent);
@@ -304,7 +315,8 @@ contract BrewlabsTreasury is Ownable {
         address[] memory _bnbToDividendPath, 
         address[] memory _dividendToTokenPath
     ) external onlyOwner {
-        require(_slipPage < 1000, "Invalid percentage");
+        require(_uniRouter != address(0x0), "invalid address");
+        require(_slipPage < PERCENT_PRECISION, "Invalid percentage");
 
         uniRouterAddress = _uniRouter;
         slippageFactor = _slipPage;
@@ -348,13 +360,15 @@ contract BrewlabsTreasury is Ownable {
     function rescueTokens(address _token) external onlyOwner {
         require(_token != address(token) && _token != dividendToken && _token != pair, "Cannot be token & dividend token, pair");
 
+        uint256 _tokenAmount;
         if(_token == address(0x0)) {
-            uint256 _tokenAmount = address(this).balance;
+            _tokenAmount = address(this).balance;
             payable(msg.sender).transfer(_tokenAmount);
         } else {
-            uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
+            _tokenAmount = IERC20(_token).balanceOf(address(this));
             IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
         }
+        emit AdminTokenRecovered(_token, _tokenAmount);
     }
 
 
@@ -379,7 +393,7 @@ contract BrewlabsTreasury is Ownable {
         address _token = _path[_path.length - 1];
         uint256 beforeAmt = IERC20(_token).balanceOf(address(this));
         IUniRouter02(uniRouterAddress).swapExactETHForTokensSupportingFeeOnTransferTokens{value: _amountIn}(
-            amountOut * slippageFactor / 1000,
+            amountOut * slippageFactor / PERCENT_PRECISION,
             _path,
             _to,
             block.timestamp + 600
@@ -409,7 +423,7 @@ contract BrewlabsTreasury is Ownable {
         uint256 beforeAmt = IERC20(_token).balanceOf(address(this));
         IUniRouter02(uniRouterAddress).swapExactTokensForTokensSupportingFeeOnTransferTokens(
             _amountIn,
-            amountOut * slippageFactor / 1000,
+            amountOut * slippageFactor / PERCENT_PRECISION,
             _path,
             _to,
             block.timestamp + 600
