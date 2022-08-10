@@ -133,7 +133,6 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         require(numHolders > 3, "Not enough token holders");
 
         s_requestId = 0;
-
         resizeHolderArray();
         
         uint256[3] memory idx;
