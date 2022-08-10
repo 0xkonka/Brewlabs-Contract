@@ -55,6 +55,9 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     uint256 public theOfferingRate = 2500;
     uint256[3] public theOfferingHolderRates = [6000, 2500, 1000];
     mapping(uint256 => TheOfferingResult) public theOfferingResults;
+    
+    uint256[] private availableHolders;
+    uint256 private numUsedHolders;
 
     address[3] public wallets;
     uint256[3] public rates = [2500, 2000, 2500];
@@ -92,6 +95,9 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
 
         jigsawToken = IJigsawToken(_token);
         wallets = _wallets;
+
+        uint256 numHolders = jigsawToken.getNumberOfTokenHolders();
+        availableHolders = new uint256[](numHolders);
     }
 
     /**
@@ -127,26 +133,13 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         require(numHolders > 3, "Not enough token holders");
 
         s_requestId = 0;
+
+        resizeHolderArray();
         
         uint256[3] memory idx;
-        uint256[3] memory sortedIdx;
         for(uint i = 0; i < 3; i++) {
-            idx[i] = s_randomWords[i] % (numHolders - i);
-            for(uint j = 0; j < i; j++) {
-                if (idx[i] >= sortedIdx[j]) {
-                    idx[i] = idx[i] + 1;
-                } else {
-                    break;
-                }
-            }
-
-            idx[i] = idx[i] % numHolders;
-            sortedIdx[i] = idx[i];
-            if(i > 0 && sortedIdx[i] < sortedIdx[i - 1]) {
-                uint256 t = sortedIdx[i];
-                sortedIdx[i] = sortedIdx[i - 1];
-                sortedIdx[i - 1] = t;
-            }
+            idx[i] = _randomAvailableHolder(s_randomWords[i]);
+            numUsedHolders = numUsedHolders + 1;
         }
         address winnerA = jigsawToken.getTokenHolderAtIndex(idx[0]);
         address winnerB = jigsawToken.getTokenHolderAtIndex(idx[1]);
@@ -173,6 +166,55 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         triadResult.amountC = amountC;
 
         emit HolderDistributed(theOfferingID, winnerA, amountA, winnerB, amountB, winnerC, amountC);
+    }
+
+    function _randomAvailableHolder(uint256 randomNum) internal returns (uint256) {
+        uint256 numAvailableHolders = availableHolders.length - numUsedHolders;
+        uint256 randomIndex = randomNum % (numAvailableHolders);
+
+        uint256 valAtIndex = availableHolders[randomIndex];
+        uint256 result;
+        if (valAtIndex == 0) {
+            // This means the index itself is still an available token
+            result = randomIndex;
+        } else {
+            // This means the index itself is not an available token, but the val at that index is.
+            result = valAtIndex;
+        }
+
+        uint256 lastIndex = numAvailableHolders - 1;
+        if (randomIndex != lastIndex) {
+            // Replace the value at randomIndex, now that it's been used.
+            // Replace it with the data from the last index in the array, since we are going to decrease the array size afterwards.
+            uint256 lastValInArray = availableHolders[lastIndex];
+            if (lastValInArray == 0) {
+                // This means the index itself is still an available token
+                availableHolders[randomIndex] = lastIndex;
+            } else {
+                // This means the index itself is not an available token, but the val at that index is.
+                availableHolders[randomIndex] = lastValInArray;
+            }
+        }
+
+        return result;
+    }
+
+    function resizeHolderArray() internal {
+        uint256 numHolders = jigsawToken.getNumberOfTokenHolders();
+        if(numHolders < numUsedHolders + 3) {
+            availableHolders = new uint256[](numHolders);
+            numUsedHolders = 0;
+            return;
+        }
+
+        uint256 start = availableHolders.length;
+        if(numHolders <= start) return;
+
+        for(uint256 i = 0; i < numHolders - start; i++) {
+            if(i > 5000) return;
+
+            availableHolders.push();
+        }
     }
 
     /**
