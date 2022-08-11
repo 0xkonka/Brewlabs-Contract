@@ -31,6 +31,8 @@ contract BrewlabsTreasury is Ownable {
     IERC20  public token;
     address public dividendToken;
     address public pair;
+    address private constant USDC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
+    address private constant BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
 
     uint256 public period = 30;                         // 30 days
     uint256 public withdrawalLimit = 500;               // 5% of total supply
@@ -46,8 +48,8 @@ contract BrewlabsTreasury is Ownable {
     address[] public bnbToTokenPath;
     address[] public bnbToDividendPath;
     address[] public dividendToTokenPath;
-    uint256 public slippageFactor = 830;    // 17%
-    uint256 public constant slippageFactorUL = 995;
+    uint256 public slippageFactor = 8300;    // 17%
+    uint256 public constant slippageFactorUL = 9950;
 
     event Initialized(address token, address dividendToken, address router, address[] bnbToTokenPath, address[] bnbToDividendPath, address[] dividendToTokenPath);
 
@@ -62,6 +64,8 @@ contract BrewlabsTreasury is Ownable {
     event BnbHarvested(address to, uint256 amount);
     event EmergencyWithdrawn();
     event AdminTokenRecovered(address tokenRecovered, uint256 amount);
+    event BusdHarvested(address to, uint256[] amounts);
+    event UsdcHarvested(address to, uint256[] amounts);
 
     event SetSwapConfig(address router, uint256 slipPage, address[] bnbToTokenPath, address[] bnbToDividendPath, address[] dividendToTokenPath);
     event TransferBuyBackWallet(address staking, address wallet);
@@ -179,9 +183,41 @@ contract BrewlabsTreasury is Ownable {
     }
 
     function harvestBNB(address _to) external onlyOwner {
+        require(_to != address(0x0), "invalid address");
         uint256 ethAmt = address(this).balance;
         payable(_to).transfer(ethAmt);
         emit BnbHarvested(_to, ethAmt);
+    }
+
+    function harvestBUSD(address _to) external  onlyOwner {
+        require(_to != address(0x0), "invalid address");
+        uint256 ethAmt = address(this).balance;
+        ethAmt = ethAmt * buybackRate / PERCENT_PRECISION;
+
+        if(ethAmt == 0) return;
+
+        address[] memory path = new address[](2);
+        path[0] = IUniRouter02(uniRouterAddress).WETH();
+        path[1] = BUSD;
+
+        uint256[] memory amounts = IUniRouter02(uniRouterAddress).swapExactETHForTokens{value: ethAmt}(0, path, _to, block.timestamp + 600);
+
+        emit BusdHarvested(_to, amounts);
+    }
+
+    function harvestUSDC(address _to) external  onlyOwner {
+        require(_to != address(0x0), "invalid address");
+        uint256 ethAmt = address(this).balance;
+        ethAmt = ethAmt * buybackRate / PERCENT_PRECISION;
+
+        if(ethAmt == 0) return;
+
+        address[] memory path = new address[](2);
+        path[0] = IUniRouter02(uniRouterAddress).WETH();
+        path[1] = USDC;
+
+        uint256[] memory amounts = IUniRouter02(uniRouterAddress).swapExactETHForTokens{value: ethAmt}(0, path, _to, block.timestamp + 600);
+        emit UsdcHarvested(_to, amounts);
     }
 
     /**
@@ -316,7 +352,7 @@ contract BrewlabsTreasury is Ownable {
         address[] memory _dividendToTokenPath
     ) external onlyOwner {
         require(_uniRouter != address(0x0), "invalid address");
-        require(_slipPage < PERCENT_PRECISION, "Invalid percentage");
+        require(_slipPage <= slippageFactorUL, "_slippage too high");
 
         uniRouterAddress = _uniRouter;
         slippageFactor = _slipPage;
