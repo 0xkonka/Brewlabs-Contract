@@ -27,7 +27,7 @@ contract BlocVestNft is ERC721URIStorage, Ownable {
   uint256[4] public prices = [0.01 ether, 0.05 ether, 0.35 ether, 0.7 ether];
 
   address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
-  uint256 performanceFee = 0.005 ether;
+  uint256 performanceFee = 0.0015 ether;
 
   mapping(uint256 => string) private _tokenURIs;
   mapping(uint256 => uint256) public rarities;
@@ -57,9 +57,8 @@ contract BlocVestNft is ERC721URIStorage, Ownable {
     super._transfer(from, to, tokenId);
   }
 
-  function mint(address _toAddr, uint256 _rarity) external payable {
+  function mint(uint256 _rarity) external payable {
     require(mintAllowed, "mint was disabled");
-    require(_toAddr != address(0x0), "invalid address");
     require(_rarity < 4, "invalid rarity");
     require(sales[msg.sender][_rarity] == false, "already bought this card");
 
@@ -71,7 +70,7 @@ contract BlocVestNft is ERC721URIStorage, Ownable {
     }
 
     uint256 tokenId = totalMinted + 1;
-    _safeMint(_toAddr, tokenId);
+    _safeMint(msg.sender, tokenId);
     _setTokenURI(tokenId, tokenId.toString());
     super._setTokenURI(tokenId, tokenId.toString());
 
