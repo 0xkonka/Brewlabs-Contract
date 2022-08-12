@@ -17,6 +17,7 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 interface IJigsawToken {
     function getNumberOfTokenHolders() external view returns(uint256);
     function getTokenHolderAtIndex(uint256 accountIndex) external view returns(address);
+    function balanceOf(address account) external view returns (uint256);
 }
 interface IPegSwap{
     function swap(uint256 amount, address source, address target) external;
@@ -44,33 +45,35 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     uint256[] public s_randomWords;
 
     struct TheOfferingResult {
-        address winnerA;
-        uint256 amountA;
-        address winnerB;
-        uint256 amountB;
-        address winnerC;
-        uint256 amountC;
+        address[3] winner;
+        uint256[3] amount;
     }
     uint256 public theOfferingID;
     uint256 public theOfferingRate = 2500;
     uint256[3] public theOfferingHolderRates = [6000, 2500, 1000];
-    mapping(uint256 => TheOfferingResult) public theOfferingResults;
-    
-    uint256[] private availableHolders;
-    uint256 private numUsedHolders;
+    mapping(uint256 => TheOfferingResult) private theOfferingResults;
+    uint256 public winnerBalanceLimit = 20000 * 1 ether;
+
+    mapping(address => bool) private isWinner;
+    address[] private winnerList;
+    uint256 public oneTimeResetCount = 1000;
 
     address[3] public wallets;
     uint256[3] public rates = [2500, 2000, 2500];
-
-    address public constant ERC20_LINK_ADDRESS = 0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39; // BSC Mainnet ERC20_LINK_ADDRESS
+    
+    // BSC Mainnet ERC20_LINK_ADDRESS
+    address public constant ERC20_LINK_ADDRESS = 0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39;
     address public constant PEGSWAP_ADDRESS = 0xF8A0BF9cF54Bb92F17374d9e9A321E6a111a51bD;
 
     event SetDistributors(address walletA, address walletB, address walletC);
     event SetDistributorRates(uint256 rateA, uint256 rateB, uint256 rateC);
     event SetTheOfferingRate(uint256 rate);
     event SetTheOfferingHolderRates(uint256 rateA, uint256 rateB, uint256 rateC);
+    event SetWinnerBalanceLimit(uint256 amount);
     event Distributed(uint256 amountA, uint256 amountB, uint256 amountC);
-    event HolderDistributed(uint256 triadID, address winnerA, uint256 amountA, address winnerB, uint256 amountB, address winnerC, uint256 amountC);
+    event HolderDistributed(uint256 triadID, address[3] winners, uint256[3] amounts);
+    event SetOneTimeResetCount(uint256 num);
+    event ResetWinnerList();
 
     /**
      * @notice Constructor
@@ -95,9 +98,6 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
 
         jigsawToken = IJigsawToken(_token);
         wallets = _wallets;
-
-        uint256 numHolders = jigsawToken.getNumberOfTokenHolders();
-        availableHolders = new uint256[](numHolders);
     }
 
     /**
@@ -133,87 +133,76 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         require(numHolders > 3, "Not enough token holders");
 
         s_requestId = 0;
-        resizeHolderArray();
         
         uint256[3] memory idx;
+        uint256[3] memory sortedIdx;
         for(uint i = 0; i < 3; i++) {
-            idx[i] = _randomAvailableHolder(s_randomWords[i]);
-            numUsedHolders = numUsedHolders + 1;
-        }
-        address winnerA = jigsawToken.getTokenHolderAtIndex(idx[0]);
-        address winnerB = jigsawToken.getTokenHolderAtIndex(idx[1]);
-        address winnerC = jigsawToken.getTokenHolderAtIndex(idx[2]);        
+            idx[i] = s_randomWords[i] % (numHolders - i);
+            for(uint j = 0; j < i; j++) {
+                if (idx[i] >= sortedIdx[j]) {
+                    idx[i] = idx[i] + 1;
+                } else {
+                    break;
+                }
+            }
 
-        uint256 amount = address(this).balance;
-        amount = amount * theOfferingRate / 10000;
-        uint256 amountA = amount * theOfferingHolderRates[0] / 10000;
-        uint256 amountB = amount * theOfferingHolderRates[1] / 10000;
-        uint256 amountC = amount * theOfferingHolderRates[2] / 10000;
-
-        payable(winnerA).transfer(amountA);
-        payable(winnerB).transfer(amountB);
-        payable(winnerC).transfer(amountC);
-
-        theOfferingID = theOfferingID + 1;
-        
-        TheOfferingResult storage triadResult = theOfferingResults[theOfferingID];
-        triadResult.winnerA = winnerA;
-        triadResult.amountA = amountA;
-        triadResult.winnerB = winnerB;
-        triadResult.amountB = amountB;
-        triadResult.winnerC = winnerC;
-        triadResult.amountC = amountC;
-
-        emit HolderDistributed(theOfferingID, winnerA, amountA, winnerB, amountB, winnerC, amountC);
-    }
-
-    function _randomAvailableHolder(uint256 randomNum) internal returns (uint256) {
-        uint256 numAvailableHolders = availableHolders.length - numUsedHolders;
-        uint256 randomIndex = randomNum % (numAvailableHolders);
-
-        uint256 valAtIndex = availableHolders[randomIndex];
-        uint256 result;
-        if (valAtIndex == 0) {
-            // This means the index itself is still an available token
-            result = randomIndex;
-        } else {
-            // This means the index itself is not an available token, but the val at that index is.
-            result = valAtIndex;
-        }
-
-        uint256 lastIndex = numAvailableHolders - 1;
-        if (randomIndex != lastIndex) {
-            // Replace the value at randomIndex, now that it's been used.
-            // Replace it with the data from the last index in the array, since we are going to decrease the array size afterwards.
-            uint256 lastValInArray = availableHolders[lastIndex];
-            if (lastValInArray == 0) {
-                // This means the index itself is still an available token
-                availableHolders[randomIndex] = lastIndex;
-            } else {
-                // This means the index itself is not an available token, but the val at that index is.
-                availableHolders[randomIndex] = lastValInArray;
+            idx[i] = idx[i] % numHolders;
+            sortedIdx[i] = idx[i];
+            if(i > 0 && sortedIdx[i] < sortedIdx[i - 1]) {
+                uint256 t = sortedIdx[i];
+                sortedIdx[i] = sortedIdx[i - 1];
+                sortedIdx[i - 1] = t;
             }
         }
 
-        return result;
+        theOfferingID = theOfferingID + 1;        
+        TheOfferingResult storage triadResult = theOfferingResults[theOfferingID];
+
+        uint256 amount = address(this).balance;
+        amount = amount * theOfferingRate / 10000;
+        for(uint i = 0; i < 3; i++) {
+            address winnerA = jigsawToken.getTokenHolderAtIndex(idx[i]);
+            triadResult.winner[i] = winnerA;
+
+            if(isWinner[winnerA]) continue;
+            isWinner[winnerA] = true;
+            winnerList.push(winnerA);
+
+            if(isContract(winnerA)) continue;
+            if(jigsawToken.balanceOf(winnerA) < winnerBalanceLimit) continue;
+
+            uint256 amountA = amount * theOfferingHolderRates[i] / 10000;
+            triadResult.amount[i] = amountA;
+            payable(winnerA).transfer(amountA);
+        }
+
+        emit HolderDistributed(theOfferingID, triadResult.winner, triadResult.amount);
     }
 
-    function resizeHolderArray() internal {
-        uint256 numHolders = jigsawToken.getNumberOfTokenHolders();
-        if(numHolders < numUsedHolders + 3) {
-            availableHolders = new uint256[](numHolders);
-            numUsedHolders = 0;
-            return;
+    function offeringResult(uint256 _id) external view returns(address[3] memory, uint256[3] memory) {
+        return (theOfferingResults[_id].winner, theOfferingResults[_id].amount);
+    }
+
+    function totalWinners() external view returns(uint256) {
+        return winnerList.length;
+    }
+
+    function resetWinnerList() external onlyOwner {
+        uint count = winnerList.length;
+        for(uint i = 0; i < count; i++) {
+            if(i >= oneTimeResetCount) break;
+            
+            address winner = winnerList[winnerList.length - 1];
+            isWinner[winner] = false;
+            winnerList.pop();
         }
 
-        uint256 start = availableHolders.length;
-        if(numHolders <= start) return;
+        emit ResetWinnerList();
+    }
 
-        for(uint256 i = 0; i < numHolders - start; i++) {
-            if(i > 5000) return;
-
-            availableHolders.push();
-        }
+    function setOneTimeResetCount(uint256 num) external onlyOwner {
+        oneTimeResetCount = num;
+        emit SetOneTimeResetCount(num);
     }
 
     /**
@@ -256,6 +245,15 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         require(_rate > 0, "Rate must be greater than 0");
         theOfferingRate = _rate;
         emit SetTheOfferingRate(_rate);
+    }
+    
+    /**
+     * @notice Set the minimum balance to receive ETH from call offering
+     * @dev This function must be called by the owner of the contract.
+     */
+    function setWinnerBalanceLimit(uint256 _min) external onlyOwner {
+        winnerBalanceLimit = _min * 1 ether;
+        emit SetWinnerBalanceLimit(winnerBalanceLimit);
     }
 
     /**
@@ -372,6 +370,12 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
         IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
     }
-    
+
+    function isContract(address _addr) internal view returns (bool) {
+        uint256 size;
+        assembly { size := extcodesize(_addr) }
+        return size > 0;
+    }
+
     receive() external payable {}
 }
