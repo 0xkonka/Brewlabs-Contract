@@ -16,6 +16,7 @@ import "../libs/IUniRouter02.sol";
 
 interface IERC20X is IERC20 {
   function mint(address account, uint256 amount) external;
+
   function burn(uint256 amount) external;
 }
 
@@ -49,7 +50,6 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
   struct UserInfo {
     uint256 apr;
-    uint256 nftType;
     uint256 count;
     uint256[] tokenIds;
     uint256 totalStaked;
@@ -142,15 +142,12 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       bvst.safeTransfer(msg.sender, _pending);
     }
 
-    UserInfo storage user = userInfo[msg.sender];
-    if (user.count == 0) {
-      user.nftType = IBlocVestNft(bvstNft).rarities(_tokenId);
-    }
-
     IERC721(bvstNft).safeTransferFrom(msg.sender, address(this), _tokenId);
 
-    if (user.apr < cardAprs[user.nftType]) {
-      user.apr = cardAprs[user.nftType];
+    UserInfo storage user = userInfo[msg.sender];
+    uint256 rarity = IBlocVestNft(bvstNft).rarities(_tokenId);
+    if (user.apr < cardAprs[rarity]) {
+      user.apr = cardAprs[rarity];
     }
     user.tokenIds.push(_tokenId);
     user.count = user.count + 1;
