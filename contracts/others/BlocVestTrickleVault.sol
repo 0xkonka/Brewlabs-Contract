@@ -28,8 +28,10 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   using SafeERC20 for IERC20;
   bytes4 private constant _ERC721_RECEIVED = 0x150b7a02;
 
-  IERC20 public bvst = IERC20(0xC7b29e78BcE023757928eD3839Ff92F94391842E);
-  IERC20 public bvstLP = IERC20(0xaA187EDdD4b37B8864bd5015acF07d65B79E9101);
+  // IERC20 public bvst = IERC20(0xC7b29e78BcE023757928eD3839Ff92F94391842E);
+  // IERC20 public bvstLP = IERC20(0xaA187EDdD4b37B8864bd5015acF07d65B79E9101);
+  IERC20 public bvst = IERC20(0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175);
+  IERC20 public bvstLP = IERC20(0xB37d9c39d6A3873Dca3CBfA01D795a03f41b7298);
 
   IERC20 public bvstX;
   uint256 public xRate = 10;
@@ -92,10 +94,12 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   constructor(
     IERC20 _tokenX,
     address _nft,
+    address _uniRouter,
     address[] memory _path
   ) {
     bvstX = _tokenX;
     bvstNft = _nft;
+    uniRouterAddress = _uniRouter;
     tokenToBNBPath = _path;
 
     harvestFees[0] = HarvestFee(0, 0, 1000);
