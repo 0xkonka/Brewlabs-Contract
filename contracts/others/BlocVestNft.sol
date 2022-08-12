@@ -17,7 +17,7 @@ contract BlocVestNft is ERC721URIStorage, Ownable {
 
   uint256 private totalMinted;
   string private _tokenBaseURI = "";
-  string[4] private rarityNames = ["Bronze", "Silver", "Gold", "Platnium"];
+  string[4] private rarityNames = ["Bronze", "Silver", "Gold", "Platinum"];
 
   bool public mintAllowed = false;
   uint256 public onetimeMintingLimit = 40;
