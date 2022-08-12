@@ -62,7 +62,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   address public uniRouterAddress;
   address[] public tokenToBNBPath;
 
-  address public treasury = 0x885A73F551FcC946C688eEFbC10023f4B7Cc48f3;
+  address public treasury = 0x6219B6b621E6E66a6c5a86136145E6E5bc6e4672;
   // address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
   uint256 public performanceFee = 0.0015 ether;
 
