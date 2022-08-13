@@ -8,10 +8,10 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract BlocVestNft is ERC721URIStorage, Ownable {
+contract BlocVestNft is ERC721Enumerable, Ownable {
   using SafeERC20 for IERC20;
   using Strings for uint256;
 
@@ -72,7 +72,6 @@ contract BlocVestNft is ERC721URIStorage, Ownable {
     uint256 tokenId = totalMinted + 1;
     _safeMint(msg.sender, tokenId);
     _setTokenURI(tokenId, tokenId.toString());
-    super._setTokenURI(tokenId, tokenId.toString());
 
     rarities[tokenId] = _rarity;
     sales[msg.sender][_rarity] = true;
@@ -193,10 +192,7 @@ contract BlocVestNft is ERC721URIStorage, Ownable {
     return _tokenBaseURI;
   }
 
-  function _setTokenURI(uint256 tokenId, string memory _tokenURI)
-    internal
-    override
-  {
+  function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal {
     require(_exists(tokenId), "BlocVest: URI set of nonexistent token");
     _tokenURIs[tokenId] = _tokenURI;
   }
