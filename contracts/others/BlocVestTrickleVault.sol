@@ -244,7 +244,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     ) return 0;
 
     uint256 multiplier = block.number - user.lastRewardBlock;
-    return multiplier * (user.totalStaked) * (user.apr / 28800);
+    return multiplier * (user.totalStaked) * user.apr / 28800;
   }
 
   function stakedTokenIds(address _user)
