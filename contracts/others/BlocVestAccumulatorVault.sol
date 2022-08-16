@@ -26,6 +26,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         uint256 initialAmount;
         uint256 nominatedCycle;
         uint256 lastDepositTime;
+        uint256 lastClaimTime;
         uint256 reward;
         uint256 totalStaked;
         uint256 totalReward;
@@ -71,7 +72,8 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         uint256 realAmount = afterAmount - beforeAmount;
 
         if(user.amount > 0) {
-            uint256 claimable = user.amount;
+            uint256 claimable = 0;
+            if(user.lastClaimTime == user.lastDepositTime) claimable = user.amount; 
             uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS + TIME_UNITS;
             if(block.timestamp < expireTime && realAmount >= user.initialAmount) {
                 claimable = claimable + user.amount * bonusRate / 10000;
@@ -90,6 +92,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         user.amount = realAmount;
         user.totalStaked = user.totalStaked + realAmount;
         user.lastDepositTime = block.timestamp;
+        user.lastClaimTime = block.timestamp;
         totalStaked = totalStaked + realAmount;
 
         emit Deposit(msg.sender, realAmount);
@@ -110,11 +113,10 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
 
         _transferPerformanceFee();
 
-        uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS + TIME_UNITS;
-        if(block.timestamp > expireTime) {
+        uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS;
+        if(block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
             user.reward = user.reward + user.amount;
             user.totalReward = user.totalReward + user.amount;
-            user.amount = 0;
         }
 
         uint256 claimable = user.reward;
@@ -124,14 +126,15 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         stakingToken.safeTransfer(msg.sender, claimable);
 
         user.reward = user.reward - claimable;
+        user.lastClaimTime = block.timestamp;
         emit Claim(msg.sender, claimable);
     }
 
     function pendingRewards(address _user) external view returns (uint256) {
         UserInfo memory user = userInfo[_user];
         
-        uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS + TIME_UNITS;
-        if(block.timestamp > expireTime) {
+        uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS;
+        if(block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
             return user.reward + user.amount;
         }
         return user.reward;
