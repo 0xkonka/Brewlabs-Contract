@@ -382,21 +382,21 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockup", deployedAddress)
             const res = await contractInstance.initialize(
-                "0x1be04C690fe0Fd83cc939Bc4860728b89ebceb78", // _stakingToken 
-                "0x1be04C690fe0Fd83cc939Bc4860728b89ebceb78", // _earnedToken 
+                "0x188173379AC8963048Afe01C5d3D5998FEe67254", // _stakingToken 
+                "0x188173379AC8963048Afe01C5d3D5998FEe67254", // _earnedToken 
                 "0x0000000000000000000000000000000000000000", // _reflectionToken 
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
                 [
                     "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x1be04C690fe0Fd83cc939Bc4860728b89ebceb78"
+                    "0x188173379AC8963048Afe01C5d3D5998FEe67254"
                 ],
                 "0x0000000000000000000000000000000000000000", // whitelist contract                                                 
             )
             console.log('initialize BrewlabsLockup', res)
             
             await sleep(20)
-            let _rate = ethers.utils.parseUnits('0.190258751', 9)
+            let _rate = ethers.utils.parseUnits('0.000951293759512937', 18)
             await contractInstance.addLockup(30, 0, 30, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
             // verify
             // await sleep(60)
