@@ -46,6 +46,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     IPriceOracle private oracle;
 
     uint256 public lockDuration = 3 * 30; // 3 months
+    uint256 public harvestCycle = 30; // 30 days
 
     // swap router and path, slipPage
     address public uniRouterAddress;
@@ -206,12 +207,14 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
 
         uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
         pending = estimateRewardAmount(pending);
-        if (pending > 0) {
+        if (pending > 0 && user.lastClaimTime + (harvestCycle * 1 days) >= block.timestamp) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             earnedToken.safeTransfer(address(msg.sender), pending);
             
             totalPaid = totalPaid + pending;
             totalEarned = totalEarned - pending;
+        } else {
+            pending = 0;
         }
         
         uint256 realAmount = _amount;
@@ -243,7 +246,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         _updatePool();
 
         if (user.amount == 0) return;
-        require(user.lastClaimBlock + (lockDuration * 28800) >= block.number, "cannot harvest");
+        require(user.lastClaimTime + (harvestCycle * 1 days) >= block.timestamp, "cannot harvest");
 
         uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
         pending = estimateRewardAmount(pending);
@@ -257,7 +260,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         
         user.totalEarned = user.totalEarned + pending;
         user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
-        user.lastClaimBlock = block.number;
+        user.lastClaimTime = block.timestamp;
     }
 
     function _transferPerformanceFee() internal {
