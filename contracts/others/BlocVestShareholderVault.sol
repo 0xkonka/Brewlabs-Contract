@@ -11,7 +11,6 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "../libs/BokkyPooBahsDateTimeLibrary.sol";
 import "../libs/IPriceOracle.sol";
 import "../libs/IUniRouter02.sol";
 import "../libs/IWETH.sol";
@@ -46,7 +45,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     bool public isActive = false;
     IPriceOracle private oracle;
 
-    uint256 public lockDuration = 6 * 30;
+    uint256 public lockDuration = 3 * 30; // 3 months
 
     // swap router and path, slipPage
     address public uniRouterAddress;
@@ -55,7 +54,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     uint256 public constant slippageFactorUL = 995;
 
     address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
-    uint256 public performanceFee = 0.0015 ether;
+    uint256 public performanceFee = 0.0035 ether;
 
     // The staked token
     IERC20 public stakingToken;
@@ -76,7 +75,8 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     struct UserInfo {
         uint256 amount; // How many staked tokens the user has provided
         uint256 usdAmount;
-        uint256 lastDepositTime;
+        uint256 lastDepositBlock;
+        uint256 lastClaimTime;
         uint256 totalEarned;
         uint256 rewardDebt; // Reward debt
     }
@@ -181,7 +181,8 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         user.amount = user.amount + realAmount;
         user.usdAmount = user.usdAmount + realAmount * tokenPrice / 1e18;
         user.totalEarned = user.totalEarned + pending;
-        user.lastDepositTime = block.timestamp;
+        user.lastDepositBlock = block.number;
+        user.lastClaimTime = block.timestamp;
         user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
 
         totalStaked = totalStaked + realAmount;
@@ -198,7 +199,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
 
         UserInfo storage user = userInfo[msg.sender];
         require(user.amount >= _amount, "Amount to withdraw too high");
-        require(user.lastDepositTime + (lockDuration * 1 days) > block.timestamp, "cannot withdraw");
+        require(user.lastDepositBlock + (lockDuration * 28800) >= block.number, "cannot withdraw");
 
         _transferPerformanceFee();
         _updatePool();
@@ -242,11 +243,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         _updatePool();
 
         if (user.amount == 0) return;
-
-        // time requirements
-        uint daysInMonth = BokkyPooBahsDateTimeLibrary.getDaysInMonth(block.timestamp);
-        uint day = BokkyPooBahsDateTimeLibrary.getDay(block.timestamp);
-        require(day == daysInMonth, "Harvest only on the last day of each month");
+        require(user.lastClaimBlock + (lockDuration * 28800) >= block.number, "cannot harvest");
 
         uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
         pending = estimateRewardAmount(pending);
@@ -260,6 +257,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         
         user.totalEarned = user.totalEarned + pending;
         user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
+        user.lastClaimBlock = block.number;
     }
 
     function _transferPerformanceFee() internal {
