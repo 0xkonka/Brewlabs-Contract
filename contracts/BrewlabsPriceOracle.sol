@@ -47,6 +47,10 @@ interface IERC20Extended is IERC20 {
     function name() external view returns (string memory);
 }
 
+interface ITwapOracle {
+    function twap(address _token, uint256 _amountIn) external view returns (uint144 _amountOut);
+}
+
 contract BrewlabsPriceOracle is PriceOracle {
     using SafeMath for uint256;
     using SafeERC20 for IERC20Extended;
@@ -64,11 +68,20 @@ contract BrewlabsPriceOracle is PriceOracle {
         bool active;                // Active status of price record 0 
     }
 
+    struct TwapPriceInfo {
+        address token;              // Address of token contract, TOKEN
+        address baseToken;          // Address of base token contract, BASETOKEN
+        address twapOracle;         // Address of twap oracle contract
+        bool active;                // Active status of price record 0 
+    }
+
     mapping(address => PriceInfo) public priceRecords;
+    mapping(address => TwapPriceInfo) public priceTwapRecords;
     mapping(address => uint256) public assetPrices;
     
     event NewAdmin(address oldAdmin, address newAdmin);
     event PriceRecordUpdated(address token, address baseToken, address lpToken, bool _active);
+    event TwapPriceRecordUpdated(address token, address baseToken, address twapOracle, bool _active);
     event DirectPriceUpdated(address token, uint256 oldPrice, uint256 newPrice);
     event AggregatorUpdated(address tokenAddress, address source);
 
@@ -85,6 +98,9 @@ contract BrewlabsPriceOracle is PriceOracle {
         uint256 tokenPrice = assetPrices[tokenAddress];
         if (tokenPrice == 0) {
             tokenPrice = getPriceFromOracle(tokenAddress);
+        }
+        if (tokenPrice == 0) {
+            tokenPrice = getPriceFromTwap(tokenAddress);
         }
         if (tokenPrice == 0) {
             tokenPrice = getPriceFromDex(tokenAddress);
@@ -104,6 +120,18 @@ contract BrewlabsPriceOracle is PriceOracle {
             uint256 baseTokenPrice = getPriceFromOracle(priceInfo.baseToken);
             uint256 tokenPrice = baseTokenPrice.mul(baseTokenAmount).div(tokenAmount);
 
+            return tokenPrice;
+        } else {
+            return 0;
+        }
+    }
+
+    function getPriceFromTwap(address _tokenAddress) public view returns (uint256) {
+        TwapPriceInfo storage priceInfo = priceTwapRecords[_tokenAddress];
+        if (priceInfo.active) {
+            uint144 twapPrice = ITwapOracle(priceInfo.twapOracle).twap(priceInfo.token, 10**(uint256(IERC20Extended(priceInfo.token).decimals())));
+            uint256 baseTokenPrice = getPriceFromOracle(priceInfo.baseToken);
+            uint256 tokenPrice = baseTokenPrice.mul(twapPrice).div(10**(uint256(IERC20Extended(priceInfo.token).decimals())));
             return tokenPrice;
         } else {
             return 0;
@@ -144,6 +172,18 @@ contract BrewlabsPriceOracle is PriceOracle {
         priceInfo.lpToken = _lpToken;
         priceInfo.active = _active;
         emit PriceRecordUpdated(_token, _baseToken, _lpToken, _active);
+    }
+
+    function setTwapPriceInfo(address _token, address _baseToken, address _twapOracle, bool _active) external {
+        require(msg.sender == admin, "only admin can set DEX price");
+        TwapPriceInfo storage priceInfo = priceTwapRecords[_token];
+        uint256 baseTokenPrice = getPriceFromOracle(_baseToken);
+        require(baseTokenPrice > 0, "invalid base token");
+        priceInfo.token = _token;
+        priceInfo.baseToken = _baseToken;
+        priceInfo.twapOracle = _twapOracle;
+        priceInfo.active = _active;
+        emit TwapPriceRecordUpdated(_token, _baseToken, _twapOracle, _active);
     }
 
     function setDirectPrice(address _token, uint256 _price) external {

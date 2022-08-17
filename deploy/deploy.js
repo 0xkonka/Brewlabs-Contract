@@ -82,7 +82,6 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
 
         if(config.oracle) {
             Utils.infoMsg("Deploying BrewlabsPriceOracle contract");
-
             let wbnb;
             switch(network.config.chainId) {
                 case 97: 
@@ -106,17 +105,49 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
     
             // initialize
+            let contractInstance = await ethers.getContractAt("BrewlabsPriceOracle", deployedAddress)
             if(network.config.chainId === 56) {
-                await sleep(60)
-                let contractInstance = await ethers.getContractAt("BrewlabsPriceOracle", deployedAddress)
                 // set busd price
+                await sleep(30)
                 await contractInstance.setDirectPrice("0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", ethers.utils.parseUnits("1", 18));
                 // set bnb chainlink feed (bnb-usd)
+                await sleep(30)
                 await contractInstance.setAggregators([wbnb], ["0x0567f2323251f0aab15c8dfb1967e4e8a7d42aee"]) 
-                console.log('initialized BrewlabsPriceOracle')
+            } else if(network.config.chainId === 97) {
+                // set busd price
+                await sleep(30)
+                await contractInstance.setDirectPrice("0x2995bD504647b5EeE414A78be1d7b24f49f00FFE", ethers.utils.parseUnits("1", 18));
+                // set bnb chainlink feed (bnb-usd)
+                await sleep(30)
+                await contractInstance.setAggregators([wbnb], ["0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526"]) 
+
+                // Utils.infoMsg("Deploying BrewlabsTwapOracle contract");
+                // let twapDeployed = await deploy('BrewlabsTwapOracle', {
+                //     from: account,
+                //     args: [
+                //         "0xB37d9c39d6A3873Dca3CBfA01D795a03f41b7298", // pair
+                //         14400, // period
+                //         1660708623, // startTime
+                //     ],
+                //     log:  false
+                // });
+
+                // // verify
+                // await sleep(30)
+                // await hre.run("verify:verify", {
+                //     address: twapDeployed.address,
+                //     contract: "contracts/BrewlabsTwapOracle.sol:BrewlabsTwapOracle",
+                //     constructorArguments: [
+                //         "0xB37d9c39d6A3873Dca3CBfA01D795a03f41b7298", // pair
+                //         14400, // period
+                //         1660708623, // startTime
+                //     ],
+                // }) 
             }
+            console.log('initialized BrewlabsPriceOracle')
            
             // verify
+            await sleep(30)
             await hre.run("verify:verify", {
                 address: deployedAddress,
                 contract: "contracts/BrewlabsPriceOracle.sol:BrewlabsPriceOracle",
