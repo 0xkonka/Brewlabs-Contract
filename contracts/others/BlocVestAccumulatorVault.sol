@@ -48,7 +48,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
 
     event Deposit(address indexed user, uint256 amount);
     event Claim(address indexed user, uint256 amount);
-    event CycleNominated(uint256 cycle);
+    event CycleNominated(address indexed user, uint256 cycle);
     event AdminTokenRecovered(address tokenRecovered, uint256 amount);
     event ServiceInfoUpadted(address addr, uint256 fee);
     event SetBonusRate(uint256 rate);
@@ -120,7 +120,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         UserInfo storage user = userInfo[msg.sender];
         user.nominatedCycle = nominated[_type];
 
-        emit CycleNominated(nominated[_type]);
+        emit CycleNominated(msg.sender, nominated[_type]);
     }
 
     function claim() external payable nonReentrant {
