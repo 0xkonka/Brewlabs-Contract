@@ -43,7 +43,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
     address public treasury = 0x6219B6b621E6E66a6c5a86136145E6E5bc6e4672;
     // address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
     uint256 public performanceFee = 0.0035 ether;
-    // uint256 TIME_UNITS = 1 days;
+    // uint256 constant TIME_UNITS = 1 days;
     uint256 constant TIME_UNITS = 15 minutes;
 
     event Deposit(address indexed user, uint256 amount);

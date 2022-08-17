@@ -83,6 +83,9 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     // Info of each user that stakes tokens (stakingToken)
     mapping(address => UserInfo) public userInfo;
 
+    // uint256 constant TIME_UNITS = 1 days;
+    uint256 constant TIME_UNITS = 2 minutes;
+
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 amount);
@@ -200,14 +203,14 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
 
         UserInfo storage user = userInfo[msg.sender];
         require(user.amount >= _amount, "Amount to withdraw too high");
-        require(user.lastDepositTime + (lockDuration * 1 days) >= block.timestamp, "cannot withdraw");
+        require(user.lastDepositTime + (lockDuration * TIME_UNITS) >= block.timestamp, "cannot withdraw");
 
         _transferPerformanceFee();
         _updatePool();
 
         uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
         pending = estimateRewardAmount(pending);
-        if (pending > 0 && user.lastClaimTime + (harvestCycle * 1 days) >= block.timestamp) {
+        if (pending > 0 && user.lastClaimTime + (harvestCycle * TIME_UNITS) >= block.timestamp) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             earnedToken.safeTransfer(address(msg.sender), pending);
             
@@ -246,7 +249,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         _updatePool();
 
         if (user.amount == 0) return;
-        require(user.lastClaimTime + (harvestCycle * 1 days) >= block.timestamp, "cannot harvest");
+        require(user.lastClaimTime + (harvestCycle * TIME_UNITS) >= block.timestamp, "cannot harvest");
 
         uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
         pending = estimateRewardAmount(pending);
