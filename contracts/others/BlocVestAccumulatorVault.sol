@@ -10,23 +10,27 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "../libs/IPriceOracle.sol";
 
 contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // The staked token
     IERC20 public stakingToken;
+    IPriceOracle private oracle;
 
-    // uint256[] public nominated = [7, 14, 30];
-    uint256[] public nominated = [1, 2, 3];
+    uint256[] public nominated = [7, 14, 30];
     uint256 public bonusRate = 2000;
 
     struct UserInfo {
         uint256 amount;
+        uint256 usdAmount;
         uint256 initialAmount;
         uint256 nominatedCycle;
         uint256 lastDepositTime;
         uint256 lastClaimTime;
+        uint256 deposited;
+        uint256 depositedUsd;
         uint256 reward;
         uint256 totalStaked;
         uint256 totalReward;
@@ -36,11 +40,11 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
     uint256 public userCount;
     uint256 public totalStaked;
 
-    address public treasury = 0x885A73F551FcC946C688eEFbC10023f4B7Cc48f3;
+    address public treasury = 0x6219B6b621E6E66a6c5a86136145E6E5bc6e4672;
     // address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
-    uint256 public performanceFee = 0.0015 ether;
+    uint256 public performanceFee = 0.0035 ether;
     // uint256 TIME_UNITS = 1 days;
-    uint256 TIME_UNITS = 30 minutes;
+    uint256 TIME_UNITS = 15 minutes;
 
     event Deposit(address indexed user, uint256 amount);
     event Claim(address indexed user, uint256 amount);
@@ -49,8 +53,9 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
     event ServiceInfoUpadted(address addr, uint256 fee);
     event SetBonusRate(uint256 rate);
 
-    constructor(IERC20 _token) {
+    constructor(IERC20 _token, address _oracle) {
         stakingToken = _token;
+        oracle = IPriceOracle(_oracle);
     }
 
     function deposit(uint256 _amount) external payable nonReentrant {
@@ -71,29 +76,39 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         uint256 afterAmount = stakingToken.balanceOf(address(this));        
         uint256 realAmount = afterAmount - beforeAmount;
 
+        uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
+        uint256 usdAmount = realAmount * tokenPrice / 1 ether;
+
         if(user.amount > 0) {
             uint256 claimable = 0;
-            if(user.lastClaimTime == user.lastDepositTime) claimable = user.amount; 
-            uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS + TIME_UNITS;
-            if(block.timestamp < expireTime && realAmount >= user.initialAmount) {
-                claimable = claimable + user.amount * bonusRate / 10000;
+            if(user.lastClaimTime == user.lastDepositTime) {
+                claimable = user.usdAmount;
+                user.deposited += user.amount;
+                user.depositedUsd += user.usdAmount;
             }
 
-            user.reward = user.reward + claimable;
-            user.totalReward = user.totalReward + claimable;
+            uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS + TIME_UNITS;
+            if(block.timestamp > expireTime && usdAmount >= user.initialAmount) {
+                claimable += user.usdAmount * bonusRate / 10000;
+            }
+
+            user.reward += claimable;
+            user.totalReward += claimable;
         }
 
         if(user.initialAmount == 0) {
-            user.initialAmount = realAmount;
+            user.initialAmount = usdAmount;
             user.isNominated = true;
             userCount = userCount + 1;
         }
 
         user.amount = realAmount;
-        user.totalStaked = user.totalStaked + realAmount;
+        user.usdAmount = usdAmount;
+        user.totalStaked += realAmount;
         user.lastDepositTime = block.timestamp;
         user.lastClaimTime = block.timestamp;
-        totalStaked = totalStaked + realAmount;
+        
+        totalStaked += realAmount;
 
         emit Deposit(msg.sender, realAmount);
     }
@@ -115,17 +130,26 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
 
         uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS;
         if(block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
-            user.reward = user.reward + user.amount;
-            user.totalReward = user.totalReward + user.amount;
+            user.deposited += user.amount;
+            user.depositedUsd += user.usdAmount;
+            user.totalReward += user.usdAmount;
         }
 
-        uint256 claimable = user.reward;
-        uint256 available = stakingToken.balanceOf(address(this));
-        if(claimable > available) claimable = available;
+        uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));        
+        uint256 claimable = user.reward * 1e18 / tokenPrice;
+        user.totalReward += claimable;
+
+        uint256 depositedTokens = user.depositedUsd * 1e18 / tokenPrice;
+        if(depositedTokens > user.deposited) {
+            depositedTokens = user.deposited;
+        }
+        claimable += depositedTokens;
 
         stakingToken.safeTransfer(msg.sender, claimable);
 
-        user.reward = user.reward - claimable;
+        user.deposited = 0;
+        user.depositedUsd = 0;
+        user.reward = 0;
         user.lastClaimTime = block.timestamp;
         emit Claim(msg.sender, claimable);
     }
@@ -133,11 +157,22 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
     function pendingRewards(address _user) external view returns (uint256) {
         UserInfo memory user = userInfo[_user];
         
+        uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
+        uint256 claimable = user.reward * 1e18 / tokenPrice;
+        
         uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS;
         if(block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
-            return user.reward + user.amount;
+            user.deposited += user.amount;
+            user.depositedUsd += user.usdAmount;
         }
-        return user.reward;
+
+        uint256 depositedTokens = user.depositedUsd * 1e18 / tokenPrice;
+        if(depositedTokens > user.deposited) {
+            depositedTokens = user.deposited;
+        }
+        claimable += depositedTokens;
+
+        return claimable;
     }
 
 
