@@ -21,6 +21,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
 
     uint256[] public nominated = [7, 14, 30];
     uint256 public bonusRate = 2000;
+    uint256 public depositLimit = 500 ether;
 
     struct UserInfo {
         uint256 amount;
@@ -52,6 +53,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
     event AdminTokenRecovered(address tokenRecovered, uint256 amount);
     event ServiceInfoUpadted(address addr, uint256 fee);
     event SetBonusRate(uint256 rate);
+    event SetDepositLimit(uint256 limit);
 
     constructor(IERC20 _token, address _oracle) {
         stakingToken = _token;
@@ -78,6 +80,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
 
         uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
         uint256 usdAmount = realAmount * tokenPrice / 1 ether;
+        require(usdAmount <= depositLimit, "cannot exceed max deposit limit");
 
         if(user.amount > 0) {
             uint256 claimable = 0;
@@ -209,6 +212,11 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         performanceFee = _fee;
 
         emit ServiceInfoUpadted(_treasury, _fee);
+    }
+
+    function setDepositLimit(uint256 _limit) external onlyOwner {
+        depositLimit = _limit;
+        emit SetDepositLimit(_limit);
     }
 
     function updateBonusRate(uint256 _rate) external onlyOwner {
