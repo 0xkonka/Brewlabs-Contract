@@ -90,6 +90,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
 
     event ActiveUpdated(bool isActive);
     event LockDurationUpdated(uint256 _duration);
+    event HarvestCycleUpdated(uint256 _duration);
     event ServiceInfoUpadted(address addr, uint256 fee);
 
     event SetSettings(
@@ -405,10 +406,17 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     }
 
     function setLockDuration(uint256 _duration) external onlyOwner {
-        require(_duration >= 0, "invalide duration");
+        require(_duration >= 0, "invalid duration");
 
         lockDuration = _duration;
         emit LockDurationUpdated(_duration);
+    }
+
+    function setHarvestCycle(uint256 _days) external onlyOwner {
+        require(_days >= 0, "invalid duration");
+
+        harvestCycle = _days;
+        emit HarvestCycleUpdated(_days);
     }
 
     function setSettings(
