@@ -44,39 +44,38 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {
-            Utils.infoMsg("Deploying BlocVestTrickleVault contract");
+            Utils.infoMsg("Deploying BlocVestShareholderVault contract");
 
-            let deployed = await deploy('BlocVestTrickleVault', {
+            let deployed = await deploy('BlocVestShareholderVault', {
                 from: account,
-                args: [
-                    "0x8057dfc6e2Da586C56211249E96B01a1E705eF00", // blocVestX token
-                    "0xD9D75E17db31FB27ee3ee1ff1F8d76256D5f2876", // nft
-                    "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // router
-                    [  // bvst-bnb path
-                        "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175",
-                        "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
-                    ]
-                ],
+                args: [],
                 log:  false
             });
     
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
-               
+            
+            await sleep(30)
+            let contractInstance = await ethers.getContractAt("BlocVestShareholderVault", deployedAddress)
+            const res = await contractInstance.initialize(
+                "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175",
+                "0x2995bD504647b5EeE414A78be1d7b24f49f00FFE",
+                "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
+                [
+                    "0x2995bD504647b5EeE414A78be1d7b24f49f00FFE",
+                    "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+                    "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175"
+                ],
+                "0x3fDea0A6F7FBb631E04FFBff7935B2452357fc5B"
+            )
+            console.log('initialize BlocVestShareholderVault', res)
+
             // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/BlocVestTrickleVault.sol:BlocVestTrickleVault",
-                constructorArguments: [
-                    "0x8057dfc6e2Da586C56211249E96B01a1E705eF00", // blocVestX token
-                    "0xD9D75E17db31FB27ee3ee1ff1F8d76256D5f2876", // nft
-                    "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // router
-                    [  // bvst-bnb path
-                        "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175",
-                        "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
-                    ]
-                ],
+                contract: "contracts/others/BlocVestShareholderVault.sol:BlocVestShareholderVault",
+                constructorArguments: [],
             }) 
         }
 
@@ -121,28 +120,28 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 await sleep(30)
                 await contractInstance.setAggregators([wbnb], ["0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526"]) 
 
-                // Utils.infoMsg("Deploying BrewlabsTwapOracle contract");
-                // let twapDeployed = await deploy('BrewlabsTwapOracle', {
-                //     from: account,
-                //     args: [
-                //         "0xB37d9c39d6A3873Dca3CBfA01D795a03f41b7298", // pair
-                //         14400, // period
-                //         1660708623, // startTime
-                //     ],
-                //     log:  false
-                // });
+                Utils.infoMsg("Deploying BrewlabsTwapOracle contract");
+                let twapDeployed = await deploy('BrewlabsTwapOracle', {
+                    from: account,
+                    args: [
+                        "0xB37d9c39d6A3873Dca3CBfA01D795a03f41b7298", // pair
+                        14400, // period
+                        1660708623, // startTime
+                    ],
+                    log:  false
+                });
 
-                // // verify
-                // await sleep(30)
-                // await hre.run("verify:verify", {
-                //     address: twapDeployed.address,
-                //     contract: "contracts/BrewlabsTwapOracle.sol:BrewlabsTwapOracle",
-                //     constructorArguments: [
-                //         "0xB37d9c39d6A3873Dca3CBfA01D795a03f41b7298", // pair
-                //         14400, // period
-                //         1660708623, // startTime
-                //     ],
-                // }) 
+                // verify
+                await sleep(30)
+                await hre.run("verify:verify", {
+                    address: twapDeployed.address,
+                    contract: "contracts/BrewlabsTwapOracle.sol:BrewlabsTwapOracle",
+                    constructorArguments: [
+                        "0xB37d9c39d6A3873Dca3CBfA01D795a03f41b7298", // pair
+                        14400, // period
+                        1660708623, // startTime
+                    ],
+                }) 
             }
             console.log('initialized BrewlabsPriceOracle')
            

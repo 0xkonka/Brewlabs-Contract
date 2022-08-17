@@ -75,7 +75,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     struct UserInfo {
         uint256 amount; // How many staked tokens the user has provided
         uint256 usdAmount;
-        uint256 lastDepositBlock;
+        uint256 lastDepositTime;
         uint256 lastClaimTime;
         uint256 totalEarned;
         uint256 rewardDebt; // Reward debt
@@ -181,7 +181,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         user.amount = user.amount + realAmount;
         user.usdAmount = user.usdAmount + realAmount * tokenPrice / 1e18;
         user.totalEarned = user.totalEarned + pending;
-        user.lastDepositBlock = block.number;
+        user.lastDepositTime = block.timestamp;
         user.lastClaimTime = block.timestamp;
         user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
 
@@ -199,7 +199,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
 
         UserInfo storage user = userInfo[msg.sender];
         require(user.amount >= _amount, "Amount to withdraw too high");
-        require(user.lastDepositBlock + (lockDuration * 28800) >= block.number, "cannot withdraw");
+        require(user.lastDepositTime + (lockDuration * 1 days) >= block.timestamp, "cannot withdraw");
 
         _transferPerformanceFee();
         _updatePool();
