@@ -16,7 +16,6 @@ import "../libs/IUniRouter02.sol";
 
 interface IERC20X is IERC20 {
   function mint(address account, uint256 amount) external;
-
   function burn(uint256 amount) external;
 }
 
@@ -35,6 +34,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
   IERC20 public bvstX;
   uint256 public xRate = 10;
+  uint256 public claimLimit = 365;
   uint256 public userLimit = 25000 ether;
 
   address public bvstNft;
@@ -52,11 +52,11 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
   struct UserInfo {
     uint256 apr;
-    uint256 count;
-    uint256[] tokenIds;
+    uint256 cardType;
     uint256 totalStaked;
     uint256 totalRewards;
     uint256 lastRewardBlock;
+    uint256 totalClaims;
   }
   mapping(address => UserInfo) public userInfo;
   uint256 public totalStaked;
@@ -76,6 +76,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
   event SetDepositFee(uint256 fee);
   event SetUserDepositLimit(uint256 limit);
+  event SetClaimLimit(uint256 count);
   event SetDefaultApr(uint256 apr);
   event SetCardAprs(uint256[4] aprs);
   event SetHarvestFees(
@@ -129,7 +130,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       bvst.safeTransfer(msg.sender, _pending);
     }
 
-    if (user.count == 0) user.apr = defaultApr;
+    if (user.apr == 0) user.apr = defaultApr;
     user.totalStaked = user.totalStaked + realAmount;
     user.lastRewardBlock = block.number;
     totalStaked = totalStaked + realAmount;
@@ -150,67 +151,12 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
     UserInfo storage user = userInfo[msg.sender];
     uint256 rarity = IBlocVestNft(bvstNft).rarities(_tokenId);
-    if (user.apr < cardAprs[rarity]) {
-      user.apr = cardAprs[rarity];
-    }
-    user.tokenIds.push(_tokenId);
-    user.count = user.count + 1;
+    require(user.cardType < rarity + 1, "cannot stake low level category");
+
+    user.cardType = rarity + 1;
+    user.apr = cardAprs[rarity];
 
     emit NftStaked(msg.sender, bvstNft, _tokenId);
-  }
-
-  function unStakeNft(uint256 _count) external payable nonReentrant {
-    UserInfo storage user = userInfo[msg.sender];
-    require(_count > 0, "invalid count");
-    require(_count <= user.count, "exceed the number of staked nfts");
-
-    _transferPerformanceFee();
-
-    uint256 _pending = _claim(msg.sender);
-    if (_pending == 0) {
-      bvst.safeTransfer(msg.sender, _pending);
-    }
-
-    for (uint256 i = 0; i < _count; i++) {
-      uint256 _tokenId = user.tokenIds[user.count - 1];
-      IERC721(bvstNft).safeTransferFrom(address(this), msg.sender, _tokenId);
-
-      user.tokenIds.pop();
-      user.count = user.count - 1;
-      emit NftUnstaked(msg.sender, bvstNft, _tokenId);
-    }
-
-    user.apr = defaultApr;
-    for (uint256 i = 0; i < user.tokenIds.length; i++) {
-      uint256 rarity = IBlocVestNft(bvstNft).rarities(user.tokenIds[i]);
-      if (user.apr < cardAprs[rarity]) {
-        user.apr = cardAprs[rarity];
-      }
-    }
-  }
-
-  function unStakeAllNft() external payable nonReentrant {
-    _transferPerformanceFee();
-
-    UserInfo storage user = userInfo[msg.sender];
-    if (user.count == 0) return;
-
-    uint256 _pending = _claim(msg.sender);
-    if (_pending == 0) {
-      bvst.safeTransfer(msg.sender, _pending);
-    }
-
-    uint256 _count = user.tokenIds.length;
-    for (uint256 i = 0; i < _count; i++) {
-      uint256 _tokenId = user.tokenIds[user.count - 1];
-      IERC721(bvstNft).safeTransferFrom(address(this), msg.sender, _tokenId);
-
-      user.tokenIds.pop();
-      user.count = user.count - 1;
-      emit NftUnstaked(msg.sender, bvstNft, _tokenId);
-    }
-
-    user.apr = defaultApr;
   }
 
   function harvest() external payable nonReentrant {
@@ -244,15 +190,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     ) return 0;
 
     uint256 multiplier = block.number - user.lastRewardBlock;
-    return multiplier * (user.totalStaked) * user.apr / 28800;
-  }
-
-  function stakedTokenIds(address _user)
-    external
-    view
-    returns (uint256[] memory)
-  {
-    return userInfo[_user].tokenIds;
+    return (multiplier * (user.totalStaked) * user.apr) / 28800;
   }
 
   function appliedTax(address _user) public view returns (HarvestFee memory) {
@@ -277,8 +215,11 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     if (_pending == 0) return 0;
 
     UserInfo storage user = userInfo[_user];
+    require(user.totalClaims <= claimLimit, "exceed claim limit");
+
     user.totalRewards = user.totalRewards + _pending;
     user.lastRewardBlock = block.number;
+    user.totalClaims = user.totalClaims + 1;
 
     HarvestFee memory tax = appliedTax(_user);
     uint256 feeInBNB = (_pending * tax.feeInBNB) / 10000;
@@ -348,6 +289,11 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   function setDepositUserLimit(uint256 _limit) external onlyOwner {
     userLimit = _limit;
     emit SetUserDepositLimit(_limit);
+  }
+
+  function setClaimLimit(uint256 _count) external onlyOwner {
+    claimLimit = _count;
+    emit SetClaimLimit(_count);
   }
 
   function setDefaultApr(uint256 _apr) external onlyOwner {

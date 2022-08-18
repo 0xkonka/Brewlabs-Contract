@@ -44,24 +44,39 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {
-            Utils.infoMsg("Deploying BlocVestNft contract");
+            Utils.infoMsg("Deploying BlocVestTrickleVault contract");
 
-            let deployed = await deploy('BlocVestNft', {
+            let deployed = await deploy('BlocVestTrickleVault', {
                 from: account,
-                args: [],
+                args: [
+                    "0x8057dfc6e2Da586C56211249E96B01a1E705eF00", // blocVestX token
+                    "0xBd6B80CC1ed8dd3DBB714b2c8AD8b100A7712DA7", // nft
+                    "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // router
+                    [  // bvst-bnb path
+                        "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175",
+                        "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+                    ]
+                ],
                 log:  false
             });
     
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
            
-
             // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/BlocVestNft.sol:BlocVestNft",
-                constructorArguments: [],
+                contract: "contracts/others/BlocVestTrickleVault.sol:BlocVestTrickleVault",
+                constructorArguments: [
+                    "0x8057dfc6e2Da586C56211249E96B01a1E705eF00", // blocVestX token
+                    "0xBd6B80CC1ed8dd3DBB714b2c8AD8b100A7712DA7", // nft
+                    "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // router
+                    [  // bvst-bnb path
+                        "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175",
+                        "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+                    ]
+                ],
             }) 
         }
 
