@@ -44,9 +44,9 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {
-            Utils.infoMsg("Deploying BlocVestShareholderVault contract");
+            Utils.infoMsg("Deploying BlocVestNft contract");
 
-            let deployed = await deploy('BlocVestShareholderVault', {
+            let deployed = await deploy('BlocVestNft', {
                 from: account,
                 args: [],
                 log:  false
@@ -54,27 +54,13 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
     
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
-            
-            await sleep(30)
-            let contractInstance = await ethers.getContractAt("BlocVestShareholderVault", deployedAddress)
-            const res = await contractInstance.initialize(
-                "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175",
-                "0x2995bD504647b5EeE414A78be1d7b24f49f00FFE",
-                "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
-                [
-                    "0x2995bD504647b5EeE414A78be1d7b24f49f00FFE",
-                    "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
-                    "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175"
-                ],
-                "0x3fDea0A6F7FBb631E04FFBff7935B2452357fc5B"
-            )
-            console.log('initialize BlocVestShareholderVault', res)
+           
 
             // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/BlocVestShareholderVault.sol:BlocVestShareholderVault",
+                contract: "contracts/others/BlocVestNft.sol:BlocVestNft",
                 constructorArguments: [],
             }) 
         }

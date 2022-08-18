@@ -17,23 +17,23 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
 
   uint256 private totalMinted;
   string private _tokenBaseURI = "";
-  string[4] private rarityNames = ["Bronze", "Silver", "Gold", "Platinum"];
+  string[4] public categoryNames = ["Bronze", "Silver", "Gold", "Platinum"];
 
   bool public mintAllowed = false;
   uint256 public onetimeMintingLimit = 40;
   // address public payingToken = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
-  // uint256[4] public prices = [1000 ether, 5000 ether, 35000 ether, 70000 ether];
+  // uint256[4] public prices = [500 ether, 1000 ether, 2500 ether, 5000 ether];
   address public payingToken = 0x2995bD504647b5EeE414A78be1d7b24f49f00FFE; // testnet
-  uint256[4] public prices = [0.01 ether, 0.05 ether, 0.35 ether, 0.7 ether];
+  uint256[4] public prices = [0.05 ether, 0.1 ether, 0.25 ether, 0.5 ether];
 
-  address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
-  uint256 performanceFee = 0.0015 ether;
+  address public treasury = 0x6219B6b621E6E66a6c5a86136145E6E5bc6e4672;
+  // address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
+  uint256 public performanceFee = 0.0015 ether;
 
   mapping(uint256 => string) private _tokenURIs;
   mapping(uint256 => uint256) public rarities;
-  mapping(address => bool) public whitelist;
-  mapping(address => bool) public feeExcluded;
-  mapping(address => bool[4]) private sales;
+  mapping(address => bool) private whitelist;
+  mapping(address => mapping(uint256 => bool)) private feeExcluded;
 
   event BaseURIUpdated(string uri);
   event MintEnabled();
@@ -43,8 +43,8 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
   event SetOneTimeLimit(uint256 limit);
   event ServiceInfoUpadted(address treasury, uint256 fee);
   event WhiteListUpdated(address addr, bool enabled);
-  event FeeExcluded(address addr);
-  event FeeIncluded(address addr);
+  event FeeExcluded(address addr, uint256 category);
+  event FeeIncluded(address addr, uint256 category);
 
   constructor() ERC721("BlocVest NFT Card", "Bvest") {}
 
@@ -53,19 +53,22 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
     address to,
     uint256 tokenId
   ) internal override {
-    require(whitelist[from] || whitelist[to], "not whitelisted");
+    require(
+      !checkHoldCategory(to, rarities[tokenId]) || whitelist[to],
+      "Non-tranferable more to non whitelisted address"
+    );
     super._transfer(from, to, tokenId);
   }
 
-  function mint(uint256 _rarity) external payable {
+  function mint(uint256 _category) external payable {
     require(mintAllowed, "mint was disabled");
-    require(_rarity < 4, "invalid rarity");
-    require(sales[msg.sender][_rarity] == false, "already bought this card");
+    require(_category < 4, "invalid category");
+    require(!checkHoldCategory(msg.sender, _category), "already hold this card");
 
     _transferPerformanceFee();
 
-    if (!feeExcluded[msg.sender]) {
-      uint256 amount = prices[_rarity];
+    if (!feeExcluded[msg.sender][_category]) {
+      uint256 amount = prices[_category];
       IERC20(payingToken).safeTransferFrom(msg.sender, address(this), amount);
     }
 
@@ -73,8 +76,7 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
     _safeMint(msg.sender, tokenId);
     _setTokenURI(tokenId, tokenId.toString());
 
-    rarities[tokenId] = _rarity;
-    sales[msg.sender][_rarity] = true;
+    rarities[tokenId] = _category;
     totalMinted = totalMinted + 1;
   }
 
@@ -83,14 +85,14 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
     emit WhiteListUpdated(_addr, _enabled);
   }
 
-  function excludeFromFee(address _addr) external onlyOwner {
-    feeExcluded[_addr] = true;
-    emit FeeExcluded(_addr);
+  function excludeFromFee(address _addr, uint256 _category) external onlyOwner {
+    feeExcluded[_addr][_category] = true;
+    emit FeeExcluded(_addr, _category);
   }
 
-  function includeInFee(address _addr) external onlyOwner {
-    feeExcluded[_addr] = false;
-    emit FeeIncluded(_addr);
+  function includeInFee(address _addr, uint256 _category) external onlyOwner {
+    feeExcluded[_addr][_category] = false;
+    emit FeeIncluded(_addr, _category);
   }
 
   function enabledMint() external onlyOwner {
@@ -157,9 +159,11 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
         '{"name": "BlocVest NFT Card", "description": "BlocVest NFT Card #',
         tokenId.toString(),
         ': BlocVest NFT Cards are generated as a result of each individual.", "image": "',
-        string(abi.encodePacked(base, rarityNames[rarities[tokenId]], ".mp4")),
-        '", "attributes":[{"trait_type":"rarity", "value":"',
-        rarityNames[rarities[tokenId]],
+        string(
+          abi.encodePacked(base, categoryNames[rarities[tokenId]], ".mp4")
+        ),
+        '", "attributes":[{"trait_type":"category", "value":"',
+        categoryNames[rarities[tokenId]],
         '"}, {"trait_type":"number", "value":"',
         tokenId.toString(),
         '"}]}'
@@ -175,8 +179,23 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
       );
   }
 
-  function rarityOf(uint256 tokenId) external view returns (string memory) {
-    return rarityNames[rarities[tokenId]];
+  function categoryOf(uint256 tokenId) external view returns (string memory) {
+    return categoryNames[rarities[tokenId]];
+  }
+
+  function checkHoldCategory(address _user, uint256 _category)
+    internal
+    view
+    returns (bool)
+  {
+    uint256 balance = balanceOf(_user);
+    if (balance == 0) return false;
+
+    for (uint256 i = 0; i < balance; i++) {
+      uint256 tokenId = tokenOfOwnerByIndex(_user, i);
+      if (rarities[tokenId] == _category) return true;
+    }
+    return false;
   }
 
   function _transferPerformanceFee() internal {
