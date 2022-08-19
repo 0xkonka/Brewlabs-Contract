@@ -53,6 +53,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
     // The block number when staking ends.
     uint256 public bonusEndBlock;
 
+    bool public activeEmergencyWithdraw = false;
 
     // swap router and path, slipPage
     uint256 public slippageFactor = 800; // 20% default slippage tolerance
@@ -124,6 +125,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
     event Withdraw(address indexed user, uint256 stakeType, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 amount);
     event AdminTokenRecovered(address tokenRecovered, uint256 amount);
+    event SetEmergencyWithdrawStatus(bool status);
 
     event NewStartAndEndBlocks(uint256 startBlock, uint256 endBlock);
     event LockupUpdated(uint8 _type, uint256 _duration, uint256 _fee0, uint256 _fee1, uint256 _rate);
@@ -549,6 +551,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
      * @dev Needs to be for emergency.
      */
     function emergencyWithdraw(uint8 _stakeType) external nonReentrant {
+        require(activeEmergencyWithdraw, "not enabled");
         if(_stakeType >= lockups.length) return;
 
         UserInfo storage user = userStaked[msg.sender];
@@ -935,6 +938,13 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         performanceFee = _fee;
 
         emit ServiceInfoUpadted(_addr, _fee);
+    }
+
+    function setEmergencyWithdraw(bool _status) external {
+        require(msg.sender == buyBackWallet || msg.sender == owner(), "setEmergencyWithdraw: FORBIDDEN");
+
+        activeEmergencyWithdraw = _status;
+        emit SetEmergencyWithdrawStatus(_status);
     }
     
     function setDuration(uint256 _duration) external onlyOwner {
