@@ -246,7 +246,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     return (multiplier * stakedAmount * user.apr) / 10000 / 28800;
   }
 
-  function appliedTax(address _user) public view returns (HarvestFee memory) {
+  function appliedTax(address _user) internal view returns (HarvestFee memory) {
     UserInfo memory user = userInfo[_user];
     if (user.lastRewardBlock == 0) {
       return harvestFees[0];
