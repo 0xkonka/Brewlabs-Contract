@@ -49,7 +49,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployed = await deploy('BlocVestTrickleVault', {
                 from: account,
                 args: [
-                    "0x8057dfc6e2Da586C56211249E96B01a1E705eF00", // blocVestX token
+                    "0xfD34Fc452172df61DE6B626Abb0c03A2b9955860", // blocVestX token
                     "0xBd6B80CC1ed8dd3DBB714b2c8AD8b100A7712DA7", // nft
                     "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // router
                     [  // bvst-bnb path
@@ -69,7 +69,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 address: deployedAddress,
                 contract: "contracts/others/BlocVestTrickleVault.sol:BlocVestTrickleVault",
                 constructorArguments: [
-                    "0x8057dfc6e2Da586C56211249E96B01a1E705eF00", // blocVestX token
+                    "0xfD34Fc452172df61DE6B626Abb0c03A2b9955860", // blocVestX token
                     "0xBd6B80CC1ed8dd3DBB714b2c8AD8b100A7712DA7", // nft
                     "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // router
                     [  // bvst-bnb path

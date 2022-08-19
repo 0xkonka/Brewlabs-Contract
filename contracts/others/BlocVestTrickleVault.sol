@@ -199,6 +199,8 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     autoCompounds[msg.sender] = autoCompounds[msg.sender] + _times;
     autoCompounders.push(msg.sender);
 
+    payable(treasury).transfer(msg.value);
+
     emit RequestAutoCompound(msg.sender, _times);
   }
 
