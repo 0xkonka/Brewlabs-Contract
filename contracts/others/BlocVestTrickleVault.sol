@@ -16,6 +16,7 @@ import "../libs/IUniRouter02.sol";
 
 interface IERC20X is IERC20 {
   function mint(address account, uint256 amount) external;
+
   function burn(uint256 amount) external;
 }
 
@@ -137,9 +138,9 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       bvst.safeTransfer(msg.sender, _pending);
     }
 
-    user.totalStaked = user.totalStaked + realAmount;
     user.lastRewardBlock = block.number;
     user.lastDepositBlock = block.number;
+    user.totalStaked = user.totalStaked + realAmount;
     totalStaked = totalStaked + realAmount;
 
     IERC20X(address(bvstX)).mint(msg.sender, realAmount * xRate);
@@ -185,8 +186,8 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       uint256 tSupply = (bvst.totalSupply() * compoundLimit) / 10000;
       if (_pending > tSupply) _pending = tSupply;
 
-      user.totalStaked = user.totalStaked + _pending;
       user.lastDepositBlock = block.number;
+      user.totalStaked = user.totalStaked + _pending;
       totalStaked = totalStaked + _pending;
 
       IERC20X(address(bvstX)).mint(msg.sender, _pending * xRate);
@@ -195,7 +196,10 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   }
 
   function requestAutoCompound(uint256 _times) external payable nonReentrant {
-    require(msg.value >= _times * autoCompoundFeeInDay, "insufficient compound fee");
+    require(
+      msg.value >= _times * autoCompoundFeeInDay,
+      "insufficient compound fee"
+    );
     autoCompounds[msg.sender] = autoCompounds[msg.sender] + _times;
     autoCompounders.push(msg.sender);
 
@@ -214,7 +218,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
     if (_pending > 0) {
       autoCompounds[_user] = autoCompounds[_user] - 1;
-      if(autoCompounds[_user] == 0) {
+      if (autoCompounds[_user] == 0) {
         autoCompounders[_index] = autoCompounders[autoCompounders.length - 1];
         autoCompounders.pop();
       }
@@ -222,8 +226,8 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       uint256 tSupply = (bvst.totalSupply() * compoundLimit) / 10000;
       if (_pending > tSupply) _pending = tSupply;
 
-      user.totalStaked = user.totalStaked + _pending;
       user.lastDepositBlock = block.number;
+      user.totalStaked = user.totalStaked + _pending;
       totalStaked = totalStaked + _pending;
 
       IERC20X(address(bvstX)).mint(_user, _pending * xRate);
@@ -240,23 +244,19 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       return 0;
     }
 
-    uint256 stakedAmount = user.totalStaked;
     uint256 multiplier = (
       expiryBlock > block.number ? block.number : expiryBlock
     ) - user.lastRewardBlock;
 
-    return (multiplier * stakedAmount * user.apr) / 10000 / 28800;
+    return (multiplier * user.totalStaked * user.apr) / 10000 / 28800;
   }
 
   function appliedTax(address _user) internal view returns (HarvestFee memory) {
     UserInfo memory user = userInfo[_user];
-    if (user.lastRewardBlock == 0) {
-      return harvestFees[0];
-    }
+    if (user.lastRewardBlock == 0) return harvestFees[0];
 
-    uint256 stakedAmount = bvstX.balanceOf(_user) / 10;
     uint256 tokenInLp = bvst.balanceOf(address(bvstLP));
-    if (stakedAmount >= (tokenInLp * whaleLimit) / 10000) {
+    if (user.totalStaked >= (tokenInLp * whaleLimit) / 10000) {
       return harvestFees[2];
     }
 
@@ -271,13 +271,10 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
     user.apr = user.cardType == 0 ? defaultApr : cardAprs[user.cardType];
     uint256 _pending = pendingRewards(_user);
-
-    uint256 xTokenBalance = bvstX.balanceOf(_user);
-    user.totalStaked = xTokenBalance / xRate;
-    user.totalRewards = user.totalRewards + _pending;
-    user.lastRewardBlock = block.number;
     if (_pending == 0) return 0;
 
+    user.totalRewards = user.totalRewards + _pending;
+    user.lastRewardBlock = block.number;
     user.totalClaims = user.totalClaims + 1;
 
     HarvestFee memory tax = appliedTax(_user);
@@ -289,7 +286,6 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     uint256 fee = (_pending * tax.fee) / 10000;
 
     bvst.safeTransfer(treasury, feeInToken);
-
     emit Claim(_user, _pending);
 
     return _pending - feeInBNB - feeInToken - fee;
