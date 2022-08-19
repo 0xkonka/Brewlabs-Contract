@@ -36,6 +36,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   uint256 public xRate = 10;
   uint256 public claimLimit = 365;
   uint256 public userLimit = 25000 ether;
+  uint256 public compoundLimit = 1000;
 
   address public bvstNft;
   uint256 public defaultApr = 20;
@@ -46,7 +47,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     uint256 feeInToken;
     uint256 fee;
   }
-  HarvestFee[4] public harvestFees; // 0 - default, 1 - daily tax, 2 - weekly tax, 3 - whale tax
+  HarvestFee[3] public harvestFees; // 0 - default, 1 - weekly tax, 2 - whale tax
   uint256 public depositFee = 1000;
   uint256 public whaleLimit = 85;
 
@@ -56,6 +57,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     uint256 totalStaked;
     uint256 totalRewards;
     uint256 lastRewardBlock;
+    uint256 lastDepositBlock;
     uint256 totalClaims;
   }
   mapping(address => UserInfo) public userInfo;
@@ -64,17 +66,23 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   address public uniRouterAddress;
   address[] public tokenToBNBPath;
 
+  uint256 public autoCompoundFeeInDay = 0.007 ether;
+  mapping(address => uint256) public autoCompounds;
+  address[] public autoCompounders;
+
   address public treasury = 0x6219B6b621E6E66a6c5a86136145E6E5bc6e4672;
   // address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
   uint256 public performanceFee = 0.0015 ether;
 
   event Deposit(address indexed user, uint256 amount);
   event Claim(address indexed user, uint256 amount);
+  event AutoCompound(address user, uint256 amount);
+  event RequestAutoCompound(address user, uint256 times);
 
   event NftStaked(address indexed user, address nft, uint256 tokenId);
-  event NftUnstaked(address indexed user, address nft, uint256 tokenId);
 
-  event SetDepositFee(uint256 fee);
+  event SetDepositFee(uint256 percent);
+  event SetAutoCompoundFee(uint256 fee);
   event SetUserDepositLimit(uint256 limit);
   event SetClaimLimit(uint256 count);
   event SetDefaultApr(uint256 apr);
@@ -85,7 +93,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     uint256 inTokenToTreasury,
     uint256 toContract
   );
-  event SetWhaleLimit(uint256 limit);
+  event SetWhaleLimit(uint256 percent);
   event SetXRate(uint256 rate);
 
   event AdminTokenRecovered(address tokenRecovered, uint256 amount);
@@ -104,9 +112,8 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     tokenToBNBPath = _path;
 
     harvestFees[0] = HarvestFee(0, 0, 1000);
-    harvestFees[1] = HarvestFee(0, 0, 1000);
-    harvestFees[2] = HarvestFee(0, 0, 5000);
-    harvestFees[3] = HarvestFee(1500, 1500, 2000);
+    harvestFees[1] = HarvestFee(0, 0, 5000);
+    harvestFees[2] = HarvestFee(1500, 1500, 2000);
   }
 
   function deposit(uint256 _amount) external payable nonReentrant {
@@ -130,9 +137,9 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       bvst.safeTransfer(msg.sender, _pending);
     }
 
-    if (user.apr == 0) user.apr = defaultApr;
     user.totalStaked = user.totalStaked + realAmount;
     user.lastRewardBlock = block.number;
+    user.lastDepositBlock = block.number;
     totalStaked = totalStaked + realAmount;
 
     IERC20X(address(bvstX)).mint(msg.sender, realAmount * xRate);
@@ -151,7 +158,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
     UserInfo storage user = userInfo[msg.sender];
     uint256 rarity = IBlocVestNft(bvstNft).rarities(_tokenId);
-    require(user.cardType < rarity + 1, "cannot stake low level category");
+    require(user.cardType < rarity + 1, "cannot stake lower level card");
 
     user.cardType = rarity + 1;
     user.apr = cardAprs[rarity];
@@ -175,50 +182,100 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     UserInfo storage user = userInfo[msg.sender];
 
     if (_pending > 0) {
+      uint256 tSupply = (bvst.totalSupply() * compoundLimit) / 10000;
+      if (_pending > tSupply) _pending = tSupply;
+
       user.totalStaked = user.totalStaked + _pending;
+      user.lastDepositBlock = block.number;
+      totalStaked = totalStaked + _pending;
+
       IERC20X(address(bvstX)).mint(msg.sender, _pending * xRate);
       emit Deposit(msg.sender, _pending);
     }
   }
 
+  function requestAutoCompound(uint256 _times) external payable nonReentrant {
+    require(msg.value >= _times * autoCompoundFeeInDay, "insufficient compound fee");
+    autoCompounds[msg.sender] = autoCompounds[msg.sender] + _times;
+    autoCompounders.push(msg.sender);
+
+    emit RequestAutoCompound(msg.sender, _times);
+  }
+
+  function autoCompound(uint256 _index) external nonReentrant {
+    require(_index < autoCompounders.length, "not found");
+    address _user = autoCompounders[_index];
+    require(autoCompounds[_user] > 0, "cannot auto compound");
+
+    uint256 _pending = _claim(_user);
+    UserInfo storage user = userInfo[_user];
+
+    if (_pending > 0) {
+      autoCompounds[_user] = autoCompounds[_user] - 1;
+      if(autoCompounds[_user] == 0) {
+        autoCompounders[_index] = autoCompounders[autoCompounders.length - 1];
+        autoCompounders.pop();
+      }
+
+      uint256 tSupply = (bvst.totalSupply() * compoundLimit) / 10000;
+      if (_pending > tSupply) _pending = tSupply;
+
+      user.totalStaked = user.totalStaked + _pending;
+      user.lastDepositBlock = block.number;
+      totalStaked = totalStaked + _pending;
+
+      IERC20X(address(bvstX)).mint(_user, _pending * xRate);
+      emit Deposit(_user, _pending);
+      emit AutoCompound(_user, _pending);
+    }
+  }
+
   function pendingRewards(address _user) public view returns (uint256) {
     UserInfo memory user = userInfo[_user];
-    if (
-      user.totalStaked == 0 ||
-      user.lastRewardBlock == 0 ||
-      user.lastRewardBlock > block.number
-    ) return 0;
 
-    uint256 multiplier = block.number - user.lastRewardBlock;
-    return (multiplier * (user.totalStaked) * user.apr) / 28800;
+    uint256 expiryBlock = user.lastDepositBlock + 28800;
+    if (user.lastDepositBlock == 0 || expiryBlock < user.lastRewardBlock) {
+      return 0;
+    }
+
+    uint256 stakedAmount = user.totalStaked;
+    uint256 multiplier = (
+      expiryBlock > block.number ? block.number : expiryBlock
+    ) - user.lastRewardBlock;
+
+    return (multiplier * stakedAmount * user.apr) / 10000 / 28800;
   }
 
   function appliedTax(address _user) public view returns (HarvestFee memory) {
     UserInfo memory user = userInfo[_user];
-    if (block.number < user.lastRewardBlock || user.lastRewardBlock == 0) {
+    if (user.lastRewardBlock == 0) {
       return harvestFees[0];
     }
 
+    uint256 stakedAmount = bvstX.balanceOf(_user) / 10;
     uint256 tokenInLp = bvst.balanceOf(address(bvstLP));
-    if (user.totalStaked >= (tokenInLp * whaleLimit) / 10000) {
-      return harvestFees[3];
+    if (stakedAmount >= (tokenInLp * whaleLimit) / 10000) {
+      return harvestFees[2];
     }
 
     uint256 passedBlocks = block.number - user.lastRewardBlock;
-    if (passedBlocks <= 28800) return harvestFees[1];
-    if (passedBlocks <= 7 * 28800) return harvestFees[2];
+    if (passedBlocks <= 7 * 28800) return harvestFees[1];
     return harvestFees[0];
   }
 
   function _claim(address _user) internal returns (uint256) {
-    uint256 _pending = pendingRewards(_user);
-    if (_pending == 0) return 0;
-
     UserInfo storage user = userInfo[_user];
     require(user.totalClaims <= claimLimit, "exceed claim limit");
 
+    user.apr = user.cardType == 0 ? defaultApr : cardAprs[user.cardType];
+    uint256 _pending = pendingRewards(_user);
+
+    uint256 xTokenBalance = bvstX.balanceOf(_user);
+    user.totalStaked = xTokenBalance / xRate;
     user.totalRewards = user.totalRewards + _pending;
     user.lastRewardBlock = block.number;
+    if (_pending == 0) return 0;
+
     user.totalClaims = user.totalClaims + 1;
 
     HarvestFee memory tax = appliedTax(_user);
@@ -248,42 +305,15 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     }
   }
 
-  function _safeSwap(
-    uint256 _amountIn,
-    address[] memory _path,
-    address _to
-  ) internal {
-    bvst.safeApprove(uniRouterAddress, _amountIn);
-    IUniRouter02(uniRouterAddress)
-      .swapExactTokensForETHSupportingFeeOnTransferTokens(
-        _amountIn,
-        0,
-        _path,
-        _to,
-        block.timestamp + 600
-      );
+  function setDepositFee(uint256 _percent) external onlyOwner {
+    require(_percent < 10000, "invalid limit");
+    depositFee = _percent;
+    emit SetDepositFee(_percent);
   }
 
-  /**
-   * @notice It allows the admin to recover wrong tokens sent to the contract
-   * @param _token: the address of the token to withdraw
-   * @param _amount: the number of tokens to withdraw
-   * @dev This function is only callable by admin.
-   */
-  function rescueTokens(address _token, uint256 _amount) external onlyOwner {
-    if (_token == address(0x0)) {
-      payable(msg.sender).transfer(_amount);
-    } else {
-      IERC20(_token).safeTransfer(address(msg.sender), _amount);
-    }
-
-    emit AdminTokenRecovered(_token, _amount);
-  }
-
-  function setDepositFee(uint256 _fee) external onlyOwner {
-    require(_fee < 10000, "invalid limit");
-    depositFee = _fee;
-    emit SetDepositFee(_fee);
+  function setAutoCompoundFee(uint256 _fee) external onlyOwner {
+    autoCompoundFeeInDay = _fee;
+    emit SetAutoCompoundFee(_fee);
   }
 
   function setDepositUserLimit(uint256 _limit) external onlyOwner {
@@ -340,15 +370,14 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   }
 
   function setXRate(uint256 _rate) external onlyOwner {
-    require(_rate < 10000, "invalid rate");
     xRate = _rate;
     emit SetXRate(_rate);
   }
 
-  function setWhaleLimit(uint256 _limit) external onlyOwner {
-    require(_limit < 10000, "invalid limit");
-    whaleLimit = _limit;
-    emit SetWhaleLimit(_limit);
+  function setWhaleLimit(uint256 _percent) external onlyOwner {
+    require(_percent < 10000, "invalid limit");
+    whaleLimit = _percent;
+    emit SetWhaleLimit(_percent);
   }
 
   function setServiceInfo(address _treasury, uint256 _fee) external {
@@ -370,6 +399,38 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     emit SetSettings(_uniRouter, _tokenToBNBPath);
   }
 
+  function _safeSwap(
+    uint256 _amountIn,
+    address[] memory _path,
+    address _to
+  ) internal {
+    bvst.safeApprove(uniRouterAddress, _amountIn);
+    IUniRouter02(uniRouterAddress)
+      .swapExactTokensForETHSupportingFeeOnTransferTokens(
+        _amountIn,
+        0,
+        _path,
+        _to,
+        block.timestamp + 600
+      );
+  }
+
+  /**
+   * @notice It allows the admin to recover wrong tokens sent to the contract
+   * @param _token: the address of the token to withdraw
+   * @param _amount: the number of tokens to withdraw
+   * @dev This function is only callable by admin.
+   */
+  function rescueTokens(address _token, uint256 _amount) external onlyOwner {
+    if (_token == address(0x0)) {
+      payable(msg.sender).transfer(_amount);
+    } else {
+      IERC20(_token).safeTransfer(address(msg.sender), _amount);
+    }
+
+    emit AdminTokenRecovered(_token, _amount);
+  }
+
   /**
    * onERC721Received(address operator, address from, uint256 tokenId, bytes data) → bytes4
    * It must return its Solidity selector to confirm the token transfer.
@@ -381,7 +442,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     uint256,
     bytes calldata
   ) external view override returns (bytes4) {
-    require(bvstNft != msg.sender, "not enabled NFT");
+    require(msg.sender == bvstNft, "not enabled NFT");
     return _ERC721_RECEIVED;
   }
 

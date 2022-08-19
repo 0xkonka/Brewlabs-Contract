@@ -368,11 +368,11 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             // initialize
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsStaking", deployedAddress)
-            const _hasDividend = true;
-            const _rewardPerBlock = ethers.utils.parseUnits('0.095129375951293759', 18) 
+            const _hasDividend = false;
+            const _rewardPerBlock = ethers.utils.parseUnits('0.713470319634703196', 18) 
             const res = await contractInstance.initialize(
-                "0x17534dA60Daff58ee1d77EF4aEc6556E03Ff39B9", // _stakingToken (BTIv2)
-                "0x17534dA60Daff58ee1d77EF4aEc6556E03Ff39B9", // _earnedToken (BTIv2)
+                "0x6266a18F1605DA94e8317232ffa634C74646ac40", // _stakingToken (BTIv2)
+                "0x6266a18F1605DA94e8317232ffa634C74646ac40", // _earnedToken (BTIv2)
                 "0x0000000000000000000000000000000000000000", // _reflectionToken (BTCB)
                 _rewardPerBlock,                              // _rewardPerBlock
                 200,                                          // _depositFee (2%)
@@ -381,7 +381,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 [],
                 [
                     "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x17534dA60Daff58ee1d77EF4aEc6556E03Ff39B9",
+                    "0x6266a18F1605DA94e8317232ffa634C74646ac40",
                 ], 
                 _hasDividend,
                 )
@@ -413,21 +413,21 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockup", deployedAddress)
             const res = await contractInstance.initialize(
-                "0x188173379AC8963048Afe01C5d3D5998FEe67254", // _stakingToken 
-                "0x188173379AC8963048Afe01C5d3D5998FEe67254", // _earnedToken 
+                "0x6266a18F1605DA94e8317232ffa634C74646ac40", // _stakingToken 
+                "0x6266a18F1605DA94e8317232ffa634C74646ac40", // _earnedToken 
                 "0x0000000000000000000000000000000000000000", // _reflectionToken 
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
                 [
                     "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x188173379AC8963048Afe01C5d3D5998FEe67254"
+                    "0x6266a18F1605DA94e8317232ffa634C74646ac40"
                 ],
                 "0x0000000000000000000000000000000000000000", // whitelist contract                                                 
             )
             console.log('initialize BrewlabsLockup', res)
             
             await sleep(20)
-            let _rate = ethers.utils.parseUnits('0.000951293759512937', 18)
+            let _rate = ethers.utils.parseUnits('0.951293759512937595', 18)
             await contractInstance.addLockup(30, 0, 30, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
             // verify
             // await sleep(60)
