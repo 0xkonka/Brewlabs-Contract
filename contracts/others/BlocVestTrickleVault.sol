@@ -14,12 +14,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "../libs/IUniRouter02.sol";
 
-interface IERC20X is IERC20 {
-  function mint(address account, uint256 amount) external;
-
-  function burn(uint256 amount) external;
-}
-
 interface IBlocVestNft is IERC721 {
   function rarities(uint256 tokenId) external view returns (uint256);
 }
@@ -33,8 +27,6 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   IERC20 public bvst = IERC20(0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175);
   IERC20 public bvstLP = IERC20(0xB37d9c39d6A3873Dca3CBfA01D795a03f41b7298);
 
-  IERC20 public bvstX;
-  uint256 public xRate = 10;
   uint256 public claimLimit = 365;
   uint256 public userLimit = 25000 ether;
   uint256 public compoundLimit = 1000;
@@ -95,19 +87,16 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     uint256 toContract
   );
   event SetWhaleLimit(uint256 percent);
-  event SetXRate(uint256 rate);
 
   event AdminTokenRecovered(address tokenRecovered, uint256 amount);
   event ServiceInfoUpadted(address addr, uint256 fee);
   event SetSettings(address uniRouter, address[] tokenToBNBPath);
 
   constructor(
-    IERC20 _tokenX,
     address _nft,
     address _uniRouter,
     address[] memory _path
   ) {
-    bvstX = _tokenX;
     bvstNft = _nft;
     uniRouterAddress = _uniRouter;
     tokenToBNBPath = _path;
@@ -143,7 +132,6 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     user.totalStaked = user.totalStaked + realAmount;
     totalStaked = totalStaked + realAmount;
 
-    IERC20X(address(bvstX)).mint(msg.sender, realAmount * xRate);
     emit Deposit(msg.sender, realAmount);
   }
 
@@ -190,7 +178,6 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       user.totalStaked = user.totalStaked + _pending;
       totalStaked = totalStaked + _pending;
 
-      IERC20X(address(bvstX)).mint(msg.sender, _pending * xRate);
       emit Deposit(msg.sender, _pending);
     }
   }
@@ -230,7 +217,6 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       user.totalStaked = user.totalStaked + _pending;
       totalStaked = totalStaked + _pending;
 
-      IERC20X(address(bvstX)).mint(_user, _pending * xRate);
       emit Deposit(_user, _pending);
       emit AutoCompound(_user, _pending);
     }
@@ -365,11 +351,6 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       _inTokenToTreasury,
       _toContract
     );
-  }
-
-  function setXRate(uint256 _rate) external onlyOwner {
-    xRate = _rate;
-    emit SetXRate(_rate);
   }
 
   function setWhaleLimit(uint256 _percent) external onlyOwner {
