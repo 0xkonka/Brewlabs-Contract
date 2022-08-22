@@ -254,9 +254,9 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     UserInfo storage user = userInfo[_user];
     require(user.totalClaims <= claimLimit, "exceed claim limit");
 
+    uint256 _pending = pendingRewards(_user);
     user.apr = user.cardType == 0 ? defaultApr : cardAprs[user.cardType - 1];
     user.totalClaims = user.totalClaims + 1;
-    uint256 _pending = pendingRewards(_user);
     if (_pending == 0) return 0;
 
     user.rewards = 0;
