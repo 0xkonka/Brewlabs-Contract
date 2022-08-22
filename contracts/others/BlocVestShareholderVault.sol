@@ -55,6 +55,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
 
     address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
     uint256 public performanceFee = 0.0035 ether;
+    bool public activeEmergencyWithdraw = false;
 
     // The staked token
     IERC20 public stakingToken;
@@ -90,6 +91,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     event Withdraw(address indexed user, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 amount);
     event AdminTokenRecovered(address tokenRecovered, uint256 amount);
+    event SetEmergencyWithdrawStatus(bool status);
 
     event ActiveUpdated(bool isActive);
     event LockDurationUpdated(uint256 _duration);
@@ -280,6 +282,8 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
      * @dev Needs to be for emergency.
      */
     function emergencyWithdraw() external nonReentrant {
+        require(activeEmergencyWithdraw, "Emergnecy withdraw not enabled");
+
         UserInfo storage user = userInfo[msg.sender];
         uint256 amountToTransfer = user.amount;
         if(amountToTransfer < 0) return;
@@ -420,6 +424,11 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
 
         harvestCycle = _days;
         emit HarvestCycleUpdated(_days);
+    }
+
+    function setEmergencyWithdraw(bool _status) external onlyOwner {
+        activeEmergencyWithdraw = _status;
+        emit SetEmergencyWithdrawStatus(_status);
     }
 
     function setSettings(

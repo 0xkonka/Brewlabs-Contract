@@ -551,7 +551,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
      * @dev Needs to be for emergency.
      */
     function emergencyWithdraw(uint8 _stakeType) external nonReentrant {
-        require(activeEmergencyWithdraw, "not enabled");
+        require(activeEmergencyWithdraw, "Emergnecy withdraw not enabled");
         if(_stakeType >= lockups.length) return;
 
         UserInfo storage user = userStaked[msg.sender];
