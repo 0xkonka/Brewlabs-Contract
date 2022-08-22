@@ -83,20 +83,18 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         require(usdAmount <= depositLimit, "cannot exceed max deposit limit");
 
         if(user.amount > 0) {
-            uint256 claimable = 0;
             if(user.lastClaimTime == user.lastDepositTime) {
-                claimable = user.usdAmount;
                 user.deposited += user.amount;
                 user.depositedUsd += user.usdAmount;
             }
 
+            uint256 claimable = 0;
             uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS + TIME_UNITS;
-            if(block.timestamp > expireTime && usdAmount >= user.initialAmount) {
-                claimable += user.usdAmount * bonusRate / 10000;
+            if(block.timestamp < expireTime && user.usdAmount >= user.initialAmount && usdAmount >= user.initialAmount) {
+                claimable = user.usdAmount * bonusRate / 10000;
             }
 
             user.reward += claimable;
-            user.totalReward += claimable;
         }
 
         if(user.initialAmount == 0) {
@@ -135,12 +133,11 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         if(block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
             user.deposited += user.amount;
             user.depositedUsd += user.usdAmount;
-            user.totalReward += user.usdAmount;
         }
 
         uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));        
         uint256 claimable = user.reward * 1e18 / tokenPrice;
-        user.totalReward += claimable;
+        user.totalReward += claimable + user.depositedUsd;
 
         uint256 depositedTokens = user.depositedUsd * 1e18 / tokenPrice;
         if(depositedTokens > user.deposited) {
