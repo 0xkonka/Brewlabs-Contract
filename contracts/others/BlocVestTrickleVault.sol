@@ -109,10 +109,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   function deposit(uint256 _amount) external payable nonReentrant {
     UserInfo storage user = userInfo[msg.sender];
     require(_amount > 0, "invalid amount");
-    require(
-      _amount + user.totalStaked <= userLimit,
-      "cannot exceed maximum limit"
-    );
+    require(_amount + user.totalStaked <= userLimit, "cannot exceed maximum limit");
 
     _transferPerformanceFee();
 
@@ -179,22 +176,26 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   }
 
   function requestAutoCompound(uint256 _times) external payable nonReentrant {
-    require(
-      msg.value >= _times * autoCompoundFeeInDay,
-      "insufficient compound fee"
-    );
-    autoCompounds[msg.sender] = autoCompounds[msg.sender] + _times;
-    autoCompounders.push(msg.sender);
+    require(msg.value >= _times * autoCompoundFeeInDay, "insufficient compound fee");
 
+    if (autoCompounds[msg.sender] == 0) {
+      autoCompounders.push(msg.sender);
+    }
+    autoCompounds[msg.sender] = autoCompounds[msg.sender] + _times;
     payable(treasury).transfer(msg.value);
 
     emit RequestAutoCompound(msg.sender, _times);
   }
 
   function autoCompound(uint256 _index) external nonReentrant {
-    require(_index < autoCompounders.length, "not found");
+    if (_index >= autoCompounders.length) return;
+
     address _user = autoCompounders[_index];
-    require(autoCompounds[_user] > 0, "cannot auto compound");
+    if (autoCompounds[_user] == 0) {
+      autoCompounders[_index] = autoCompounders[autoCompounders.length - 1];
+      autoCompounders.pop();
+      return;
+    }
 
     uint256 _pending = _claim(_user);
     UserInfo storage user = userInfo[_user];
@@ -221,6 +222,13 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     return autoCompounders.length;
   }
 
+  function autoCompounderInfo(uint256 _index) external view returns (UserInfo memory) {
+    if (_index >= autoCompounders.length) return userInfo[address(0x0)];
+
+    address _user = autoCompounders[_index];
+    return userInfo[_user];
+  }
+
   function pendingRewards(address _user) public view returns (uint256) {
     UserInfo memory user = userInfo[_user];
 
@@ -229,9 +237,8 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       return 0;
     }
 
-    uint256 multiplier = (
-      expiryBlock > block.number ? block.number : expiryBlock
-    ) - user.lastRewardBlock;
+    uint256 multiplier = (expiryBlock > block.number ? block.number : expiryBlock) -
+      user.lastRewardBlock;
 
     return user.rewards + (multiplier * user.totalStaked * user.apr) / 10000 / 28800;
   }
@@ -278,10 +285,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   }
 
   function _transferPerformanceFee() internal {
-    require(
-      msg.value >= performanceFee,
-      "should pay small gas to compound or harvest"
-    );
+    require(msg.value >= performanceFee, "should pay small gas to compound or harvest");
 
     payable(treasury).transfer(performanceFee);
     if (msg.value > performanceFee) {
@@ -335,22 +339,14 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     uint256 _toContract
   ) external onlyOwner {
     require(_feeType <= 3, "invalid type");
-    require(
-      _inBNBToTreasury + _inTokenToTreasury + _toContract < 10000,
-      "invalid base apr"
-    );
+    require(_inBNBToTreasury + _inTokenToTreasury + _toContract < 10000, "invalid base apr");
 
     HarvestFee storage _fee = harvestFees[_feeType];
     _fee.feeInBNB = _inBNBToTreasury;
     _fee.feeInToken = _inTokenToTreasury;
     _fee.fee = _toContract;
 
-    emit SetHarvestFees(
-      _feeType,
-      _inBNBToTreasury,
-      _inTokenToTreasury,
-      _toContract
-    );
+    emit SetHarvestFees(_feeType, _inBNBToTreasury, _inTokenToTreasury, _toContract);
   }
 
   function setWhaleLimit(uint256 _percent) external onlyOwner {
@@ -369,10 +365,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     emit ServiceInfoUpadted(_treasury, _fee);
   }
 
-  function setSettings(address _uniRouter, address[] memory _tokenToBnbPath)
-    external
-    onlyOwner
-  {
+  function setSettings(address _uniRouter, address[] memory _tokenToBnbPath) external onlyOwner {
     uniRouterAddress = _uniRouter;
     tokenToBnbPath = _tokenToBnbPath;
     emit SetSettings(_uniRouter, _tokenToBnbPath);
@@ -384,14 +377,13 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     address _to
   ) internal {
     bvst.safeApprove(uniRouterAddress, _amountIn);
-    IUniRouter02(uniRouterAddress)
-      .swapExactTokensForETHSupportingFeeOnTransferTokens(
-        _amountIn,
-        0,
-        _path,
-        _to,
-        block.timestamp + 600
-      );
+    IUniRouter02(uniRouterAddress).swapExactTokensForETHSupportingFeeOnTransferTokens(
+      _amountIn,
+      0,
+      _path,
+      _to,
+      block.timestamp + 600
+    );
   }
 
   /**
