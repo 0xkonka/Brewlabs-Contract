@@ -411,22 +411,27 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockup", deployedAddress)
             const res = await contractInstance.initialize(
-                "0x6266a18F1605DA94e8317232ffa634C74646ac40", // _stakingToken 
-                "0x6266a18F1605DA94e8317232ffa634C74646ac40", // _earnedToken 
-                "0x0000000000000000000000000000000000000000", // _reflectionToken 
+                "0x5A5844CAb96A7b8B257Fc606Aa6119c5cBc6D4c4", // _stakingToken 
+                "0x5A5844CAb96A7b8B257Fc606Aa6119c5cBc6D4c4", // _earnedToken 
+                "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c", // _reflectionToken 
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
                 [
+                    "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
                     "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x6266a18F1605DA94e8317232ffa634C74646ac40"
+                    "0x5A5844CAb96A7b8B257Fc606Aa6119c5cBc6D4c4"
                 ],
                 "0x0000000000000000000000000000000000000000", // whitelist contract                                                 
             )
             console.log('initialize BrewlabsLockup', res)
             
             await sleep(20)
-            let _rate = ethers.utils.parseUnits('0.951293759512937595', 18)
-            await contractInstance.addLockup(30, 0, 30, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
+            let _rate = ethers.utils.parseUnits('0.009511167', 9)
+            await contractInstance.addLockup(90, 0, 50, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
+            await sleep(20)
+            _rate = ethers.utils.parseUnits('0.028533501', 9)
+            await contractInstance.addLockup(180, 0, 50, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
+
             // verify
             // await sleep(60)
             await hre.run("verify:verify", {
