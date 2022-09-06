@@ -53,6 +53,7 @@
   },
   "dependencies": {
     "erc721a": "^4.2.2",
-    "erc721a-upgradeable": "^4.2.2"
+    "erc721a-upgradeable": "^4.2.2",
+    "merkletreejs": "^0.2.32"
   }
 }

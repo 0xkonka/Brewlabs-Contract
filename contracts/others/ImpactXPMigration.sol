@@ -8,6 +8,7 @@ pragma solidity ^0.8.4;
 import '@openzeppelin/contracts/access/Ownable.sol';
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract ImpactXPMigration is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -20,6 +21,7 @@ contract ImpactXPMigration is Ownable, ReentrancyGuard {
     uint256 public migrationRate;
     uint256 public taxOfOldToken = 1100;
     uint256 public bonusRate = 1000;
+    bytes32 private merkleRoot;
     
     bool public claimable = false;
 
@@ -37,6 +39,7 @@ contract ImpactXPMigration is Ownable, ReentrancyGuard {
     event HarvestOldToken(uint256 amount);
     event SetMigrationToken(address token);
     event SetBonusRate(uint256 rate);
+    event SetSnapShot(bytes32 merkleRoot);
 
     modifier canClaim {
         require(claimable, "cannot claim");
@@ -55,7 +58,17 @@ contract ImpactXPMigration is Ownable, ReentrancyGuard {
         migrationRate = oldToken.totalSupply() * MIGRATION_PRECISION / newToken.totalSupply();
     }
 
-    function deposit(uint256 _amount) external nonReentrant {
+    function deposit(uint256 _amount, uint256 _max, bytes32[] memory _merkleProof) external nonReentrant {
+        require(merkleRoot != "", "Migration not enabled");
+        
+        // check if total deposits exceed snapshot
+        uint256 prevAmt = userInfo[msg.sender].amount * PERCENT_PRECISION / (PERCENT_PRECISION - taxOfOldToken);
+        require(_amount + prevAmt <= _max, "migration amount cannot exceed max");
+        
+        // Verify the merkle proof.
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender, _max));
+        require(MerkleProof.verify(_merkleProof, merkleRoot, leaf), "Invalid merkle proof.");
+
         uint256 beforeAmt = oldToken.balanceOf(address(this));
         oldToken.safeTransferFrom(msg.sender, address(this), _amount);
         uint256 afterAmt = oldToken.balanceOf(address(this));
@@ -105,6 +118,11 @@ contract ImpactXPMigration is Ownable, ReentrancyGuard {
         require(_bonus < PERCENT_PRECISION, "invalid percent");
         bonusRate = _bonus;
         emit SetBonusRate(_bonus);
+    }
+
+    function setSnapShotMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+        merkleRoot = _merkleRoot;
+        emit SetSnapShot(_merkleRoot);
     }
 
     function enableClaim() external onlyOwner {
