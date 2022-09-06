@@ -150,12 +150,17 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   }
 
   function harvest() external payable nonReentrant {
+    require(userInfo[msg.sender].totalClaims <= claimLimit, "exceed claim limit");
+
     _transferPerformanceFee();
 
     uint256 _pending = _claim(msg.sender);
     if (_pending > 0) {
       bvst.safeTransfer(msg.sender, _pending);
     }
+
+    UserInfo storage user = userInfo[msg.sender];
+    user.totalClaims = user.totalClaims + 1;
   }
 
   function compound() external payable nonReentrant {
@@ -259,12 +264,10 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
   function _claim(address _user) internal returns (uint256) {
     UserInfo storage user = userInfo[_user];
-    require(user.totalClaims <= claimLimit, "exceed claim limit");
 
     uint256 _pending = pendingRewards(_user);
     user.apr = user.cardType == 0 ? 0 : cardAprs[user.cardType - 1];
     user.apr += defaultApr;
-    user.totalClaims = user.totalClaims + 1;
     if (_pending == 0) return 0;
 
     user.rewards = 0;
