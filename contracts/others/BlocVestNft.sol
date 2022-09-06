@@ -21,13 +21,10 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
 
   bool public mintAllowed = false;
   uint256 public onetimeMintingLimit = 40;
-  // address public payingToken = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
-  // uint256[4] public prices = [500 ether, 1000 ether, 2500 ether, 5000 ether];
-  address public payingToken = 0x2995bD504647b5EeE414A78be1d7b24f49f00FFE; // testnet
-  uint256[4] public prices = [0.05 ether, 0.1 ether, 0.25 ether, 0.5 ether];
+  address public payingToken = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+  uint256[4] public prices = [500 ether, 1000 ether, 2500 ether, 5000 ether];
 
-  address public treasury = 0x6219B6b621E6E66a6c5a86136145E6E5bc6e4672;
-  // address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
+  address public treasury;
   uint256 public performanceFee = 0.0015 ether;
 
   mapping(uint256 => string) private _tokenURIs;
@@ -46,7 +43,9 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
   event FeeExcluded(address addr, uint256 category);
   event FeeIncluded(address addr, uint256 category);
 
-  constructor() ERC721("BlocVest NFT Card", "Bvest") {}
+  constructor() ERC721("BlocVest NFT Card", "Bvest") {
+    treasury = msg.sender;
+  }
 
   function _transfer(
     address from,
