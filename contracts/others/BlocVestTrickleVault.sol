@@ -32,7 +32,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   uint256 public compoundLimit = 1000;
 
   address public bvstNft;
-  uint256 public defaultApr = 20;
+  uint256 public defaultApr = 50;
   uint256[4] public cardAprs = [25, 50, 100, 150];
 
   struct HarvestFee {
@@ -144,7 +144,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     require(user.cardType < rarity + 1, "cannot stake lower level card");
 
     user.cardType = rarity + 1;
-    user.apr = cardAprs[rarity];
+    user.apr = cardAprs[rarity] + defaultApr;
 
     emit NftStaked(msg.sender, bvstNft, _tokenId);
   }
@@ -262,7 +262,8 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     require(user.totalClaims <= claimLimit, "exceed claim limit");
 
     uint256 _pending = pendingRewards(_user);
-    user.apr = user.cardType == 0 ? defaultApr : cardAprs[user.cardType - 1];
+    user.apr = user.cardType == 0 ? 0 : cardAprs[user.cardType - 1];
+    user.apr += defaultApr;
     user.totalClaims = user.totalClaims + 1;
     if (_pending == 0) return 0;
 
