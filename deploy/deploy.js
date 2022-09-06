@@ -44,17 +44,13 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {
-            Utils.infoMsg("Deploying BlocVestTrickleVault contract");
+            Utils.infoMsg("Deploying ImpactXPMigration contract");
 
-            let deployed = await deploy('BlocVestTrickleVault', {
+            let deployed = await deploy('ImpactXPMigration', {
                 from: account,
                 args: [
-                    "0xBd6B80CC1ed8dd3DBB714b2c8AD8b100A7712DA7", // nft
-                    "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // router
-                    [  // bvst-bnb path
-                        "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175",
-                        "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
-                    ]
+                    "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175", // old
+                    "0x2995bD504647b5EeE414A78be1d7b24f49f00FFE", // new
                 ],
                 log:  false
             });
@@ -62,18 +58,14 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
            
-            // verify
+            // // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/BlocVestTrickleVault.sol:BlocVestTrickleVault",
+                contract: "contracts/others/ImpactXPMigration.sol:ImpactXPMigration",
                 constructorArguments: [
-                    "0xBd6B80CC1ed8dd3DBB714b2c8AD8b100A7712DA7", // nft
-                    "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // router
-                    [  // bvst-bnb path
-                        "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175",
-                        "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
-                    ]
+                    "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175", // old
+                    "0x2995bD504647b5EeE414A78be1d7b24f49f00FFE", // new
                 ],
             }) 
         }

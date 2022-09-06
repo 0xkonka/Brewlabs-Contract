@@ -55,7 +55,7 @@ contract ImpactXPMigration is Ownable, ReentrancyGuard {
         oldToken = IERC20(_oldToken);
         newToken = IERC20(_newToken);
 
-        migrationRate = oldToken.totalSupply() * MIGRATION_PRECISION / newToken.totalSupply();
+        migrationRate = newToken.totalSupply() * MIGRATION_PRECISION / oldToken.totalSupply();
     }
 
     function deposit(uint256 _amount, uint256 _max, bytes32[] memory _merkleProof) external nonReentrant {
@@ -109,7 +109,7 @@ contract ImpactXPMigration is Ownable, ReentrancyGuard {
         require(_newToken != address(oldToken), "cannot set old token address");
 
         newToken = IERC20(_newToken);
-        migrationRate = oldToken.totalSupply() * MIGRATION_PRECISION / newToken.totalSupply();
+        migrationRate = newToken.totalSupply() * MIGRATION_PRECISION / oldToken.totalSupply();
         emit SetMigrationToken(_newToken);
     }
 
