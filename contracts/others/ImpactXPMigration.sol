@@ -98,7 +98,7 @@ contract ImpactXPMigration is Ownable, ReentrancyGuard {
     function pendingClaim(address _user) public view returns (uint256) {
         UserInfo memory user = userInfo[_user];
         uint256 amount = user.amount - user.claimed;
-        uint256 expectedAmt = amount * (10000 + bonusRate) / (10000 - taxOfOldToken) / PERCENT_PRECISION;
+        uint256 expectedAmt = amount * (10000 + bonusRate) / (10000 - taxOfOldToken);
 
         return expectedAmt * migrationRate / MIGRATION_PRECISION;
     }
