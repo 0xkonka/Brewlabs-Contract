@@ -111,3 +111,4 @@ cache/hardhat-network-fork/recommendations-already-shown.json
 cache/validations.json
 .openzeppelin/unknown-31337.json
 package-lock.json
+scripts/*.csv

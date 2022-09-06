@@ -1,15 +1,16 @@
+const { ethers } = require("ethers");
+const csvToJson = require("convert-csv-to-json");
 const { keccak256, solidityKeccak256 } = require("ethers/lib/utils");
 const { MerkleTree } = require("merkletreejs");
 
-const whitelist = [
-  { address: "address1", amount: 1 },
-  { address: "address2", amount: 21 },
-  { address: "address3", amount: 41 },
-];
+const snapshot = csvToJson.fieldDelimiter(",").getJsonFromCsv("scripts/snapshot.csv");
 
 const generateMerkleTree = () => {
-  const leaves = whitelist.map((user) =>
-    solidityKeccak256(["address", "uint256"], [user.address, user.amount])
+  const leaves = snapshot.map((user) =>
+    solidityKeccak256(
+      ["address", "uint256"],
+      [user.address, ethers.utils.parseUnits(user.amount, 9)._hex]
+    )
   );
   const tree = new MerkleTree(leaves, keccak256, { sort: true });
 
@@ -19,14 +20,18 @@ const generateMerkleTree = () => {
 };
 
 const generateProof = (address, amount) => {
-  const leaves = whitelist.map((user) =>
+  const leaves = snapshot.map((user) =>
     solidityKeccak256(["address", "uint256"], [user.address, user.amount])
   );
   const tree = new MerkleTree(leaves, keccak256, { sort: true });
 
-  const hexProof = tree.getHexProof(solidityKeccak256(["address", "uint256"], [address, amount]));
+  const hexProof = tree.getHexProof(
+    solidityKeccak256(["address", "uint256"], [address, ethers.utils.parseUnits(amount, 9)._hex])
+  );
   console.log(`Merkle Proof: - ${address}, ${amount}`, hexProof);
 };
 
 // generateMerkleTree()
 // generateProof("address1")
+
+console.log(snapshot);
