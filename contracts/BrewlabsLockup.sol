@@ -1,4 +1,3 @@
- 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -38,6 +37,8 @@ interface WhiteList {
 contract BrewlabsLockup is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    uint256 private constant PERCENT_PRECISION = 10000;
+
     // Whether it is initialized
     bool public isInitialized;
     uint256 public duration = 365; // 365 days
@@ -56,8 +57,8 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
     bool public activeEmergencyWithdraw = false;
 
     // swap router and path, slipPage
-    uint256 public slippageFactor = 800; // 20% default slippage tolerance
-    uint256 public constant slippageFactorUL = 995;
+    uint256 public slippageFactor = 8000; // 20% default slippage tolerance
+    uint256 public constant slippageFactorUL = 9950;
 
     address public uniRouterAddress;
     address[] public reflectionToStakedPath;
@@ -263,7 +264,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
             );
         }
         if (lockup.depositFee > 0) {
-            uint256 fee = realAmount * lockup.depositFee / 10000;
+            uint256 fee = realAmount * lockup.depositFee / PERCENT_PRECISION;
             if (fee > 0) {
                 stakingToken.safeTransfer(walletA, fee);
                 realAmount = realAmount - fee;
@@ -371,7 +372,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
 
         if(realAmount > 0) {
             if (lockup.withdrawFee > 0) {
-                uint256 fee = realAmount * lockup.withdrawFee / 10000;
+                uint256 fee = realAmount * lockup.withdrawFee / PERCENT_PRECISION;
                 stakingToken.safeTransfer(walletA, fee);
                 realAmount = realAmount - fee;
             }
@@ -1080,7 +1081,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         IERC20(_path[0]).safeApprove(uniRouterAddress, _amountIn);
         IUniRouter02(uniRouterAddress).swapExactTokensForTokensSupportingFeeOnTransferTokens(
             _amountIn,
-            amountOut * slippageFactor / 1000,
+            amountOut * slippageFactor / PERCENT_PRECISION,
             _path,
             _to,
             block.timestamp + 600
