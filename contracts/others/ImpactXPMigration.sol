@@ -114,8 +114,12 @@ contract ImpactXPMigration is Ownable, ReentrancyGuard {
   }
 
   function insufficientClaims() external view returns (uint256) {
+    uint256 tokenBal = newToken.balanceOf(address(this));
     uint256 expectedAmt = (totalStaked * (10000 + bonusRate)) / (10000 - taxOfOldToken);
-    return (expectedAmt * migrationRate) / MIGRATION_PRECISION - totalClaimed;
+    expectedAmt = (expectedAmt * migrationRate) / MIGRATION_PRECISION - totalClaimed;
+
+    if (tokenBal > expectedAmt) return 0;
+    return expectedAmt - tokenBal;
   }
 
   function setMigrationToken(address _newToken) external onlyOwner {
