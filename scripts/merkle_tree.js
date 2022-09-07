@@ -40,6 +40,4 @@ const storeJSON = async () => {
 };
 
 generateMerkleTree()
-// generateProof("address1")
-
 storeJSON();
