@@ -159,15 +159,24 @@ contract ImpactXPMigration is Ownable, ReentrancyGuard {
   /**
    * @notice It allows the admin to recover wrong tokens sent to the contract
    * @param _token: the address of the token to withdraw
+   * @param _amount: the amount to withdraw, if amount is zero, all tokens will be withdrawn
    * @dev This function is only callable by admin.
    */
-  function rescueTokens(address _token) external onlyOwner {
+  function rescueTokens(address _token, uint256 _amount) external onlyOwner {
     if (_token == address(0x0)) {
-      uint256 _tokenAmount = address(this).balance;
-      payable(msg.sender).transfer(_tokenAmount);
+      if (_amount > 0) {
+        payable(msg.sender).transfer(_amount);
+      } else {
+        uint256 _tokenAmount = address(this).balance;
+        payable(msg.sender).transfer(_tokenAmount);
+      }
     } else {
-      uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
-      IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
+      if (_amount > 0) {
+        IERC20(_token).safeTransfer(msg.sender, _amount);
+      } else {
+        uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
+        IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
+      }
     }
   }
 
