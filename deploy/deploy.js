@@ -49,8 +49,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployed = await deploy('ImpactXPMigration', {
                 from: account,
                 args: [
-                    "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175", // old
-                    "0x2995bD504647b5EeE414A78be1d7b24f49f00FFE", // new
+                    "0xb12494C8824fc069757F47d177E666c571Cd49aE", // old
+                    "0x54Cb643ab007f47882E8120A8c57B639005c2688", // new
                 ],
                 log:  false
             });
@@ -64,8 +64,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 address: deployedAddress,
                 contract: "contracts/others/ImpactXPMigration.sol:ImpactXPMigration",
                 constructorArguments: [
-                    "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175", // old
-                    "0x2995bD504647b5EeE414A78be1d7b24f49f00FFE", // new
+                    "0xb12494C8824fc069757F47d177E666c571Cd49aE", // old
+                    "0x54Cb643ab007f47882E8120A8c57B639005c2688", // new
                 ],
             }) 
         }
