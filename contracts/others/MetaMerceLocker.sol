@@ -17,7 +17,7 @@ contract MetaMerceLocker is Ownable {
     bool private initialized = false;
 
     IERC20 public token;
-    address public  reflectionToken;
+    address public reflectionToken;
     uint256 public lockDuration = 90;
 
     uint256 private accReflectionPerShare;
@@ -123,7 +123,6 @@ contract MetaMerceLocker is Ownable {
 
         emit WithdrawDistribution(_distribution.distributor, _distribution.alloc, pending);
     }
-
 
     function pendingReflection(address _user) external view returns (uint256) {
         if(isDistributor[_user] == false) return 0;

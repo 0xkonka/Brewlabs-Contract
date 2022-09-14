@@ -10,13 +10,13 @@ const generateMerkleTree = () => {
   const leaves = snapshot.map((user) =>
     solidityKeccak256(
       ["address", "uint256"],
-      [user.address, ethers.utils.parseUnits(user.amount, 18)._hex]
+      [user.address, ethers.utils.parseUnits((+user.amount).toFixed(9), 9)._hex]
     )
   );
   const tree = new MerkleTree(leaves, keccak256, { sort: true });
 
   const merkleRoot = tree.getHexRoot();
-  console.log(`Merkle Tree:\n`, tree.toString());
+  // console.log(`Merkle Tree:\n`, tree.toString());
   console.log(`Merkle Root: ${merkleRoot}`);
 };
 
@@ -24,7 +24,7 @@ const generateProof = (address, amount) => {
   const leaves = snapshot.map((user) =>
     solidityKeccak256(
       ["address", "uint256"],
-      [user.address, ethers.utils.parseUnits(user.amount, 9)._hex]
+      [user.address, ethers.utils.parseUnits((+user.amount).toFixed(9), 9)._hex]
     )
   );
   const tree = new MerkleTree(leaves, keccak256, { sort: true });

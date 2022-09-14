@@ -112,3 +112,4 @@ cache/validations.json
 .openzeppelin/unknown-31337.json
 package-lock.json
 scripts/*.csv
+scripts/*.json
