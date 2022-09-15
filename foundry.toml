@@ -1,0 +1,19 @@
+[profile.default]
+src = 'src'
+out = 'artifacts_forge'
+libs = [
+    'lib',
+    'node_modules',
+]
+remappings = [
+    '@chainlink/=node_modules/@chainlink/',
+    '@ensdomains/=node_modules/@ensdomains/',
+    '@openzeppelin/=node_modules/@openzeppelin/',
+    'erc721a-upgradeable/=node_modules/erc721a-upgradeable/',
+    'erc721a/=node_modules/erc721a/',
+    'eth-gas-reporter/=node_modules/eth-gas-reporter/',
+    'hardhat-deploy/=node_modules/hardhat-deploy/',
+    'hardhat/=node_modules/hardhat/',
+]
+solc_version = '0.8.4'
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config

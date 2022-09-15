@@ -106,6 +106,7 @@ dist
 .tern-port
 .secrets.js
 artifacts/
+artifacts_forge/
 artifacts/contracts/Config.sol/Config.json
 cache/hardhat-network-fork/recommendations-already-shown.json
 cache/validations.json
