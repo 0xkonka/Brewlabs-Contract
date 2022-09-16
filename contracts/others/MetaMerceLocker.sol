@@ -23,6 +23,7 @@ contract MetaMerceLocker is Ownable {
     uint256 private accReflectionPerShare;
     uint256 private allocatedReflections;
     uint256 private totalAllocated;
+    uint256 public totalDistributed;
 
     uint256 private constant PRECISION_FACTOR = 1 ether;
 
@@ -37,10 +38,10 @@ contract MetaMerceLocker is Ownable {
     mapping(address => bool) isDistributor;
     address[] public distributors;
 
-    event AddDistribution(address distributor, uint256 allocation, uint256 duration, uint256 unlockBlock);
-    event UpdateDistribution(address distributor, uint256 allocation, uint256 duration, uint256 unlockBlock);
-    event WithdrawDistribution(address distributor, uint256 amount, uint256 reflection);
-    event RemoveDistribution(address distributor);
+    event AddDistribution(address indexed distributor, uint256 allocation, uint256 duration, uint256 unlockBlock);
+    event UpdateDistribution(address indexed distributor, uint256 allocation, uint256 duration, uint256 unlockBlock);
+    event WithdrawDistribution(address indexed distributor, uint256 amount, uint256 reflection);
+    event RemoveDistribution(address indexed distributor);
     event UpdateLockDuration(uint256 Days);
 
     constructor () {}
@@ -52,7 +53,6 @@ contract MetaMerceLocker is Ownable {
         token = _token;
         reflectionToken = _reflectionToken;
     }
-
 
     function addDistribution(address distributor, uint256 allocation) external onlyOwner {
         require(!isDistributor[distributor], "already set");
@@ -67,6 +67,8 @@ contract MetaMerceLocker is Ownable {
         _distribution.alloc = allocationAmt;
         _distribution.unlockBlock = block.number.add(lockDuration.mul(28800));
 
+        totalDistributed += allocationAmt;
+
         emit AddDistribution(distributor, allocationAmt, lockDuration, _distribution.unlockBlock);
     }
 
@@ -75,7 +77,8 @@ contract MetaMerceLocker is Ownable {
         require(!distributions[distributor].claimed, "Already claimed");
 
         isDistributor[distributor] = false;
-        
+        totalDistributed -= distributions[distributor].alloc;
+
         Distribution storage _distribution = distributions[distributor];
         _distribution.distributor = address(0x0);
         _distribution.alloc = 0;
@@ -92,6 +95,7 @@ contract MetaMerceLocker is Ownable {
         require(_distribution.unlockBlock > block.number, "cannot update");
         
         uint256 allocationAmt = allocation.mul(10**IERC20Metadata(address(token)).decimals());
+        totalDistributed += allocationAmt - _distribution.alloc;
 
         _distribution.distributor = distributor;
         _distribution.alloc = allocationAmt;
@@ -112,6 +116,7 @@ contract MetaMerceLocker is Ownable {
             allocatedReflections = allocatedReflections.sub(pending);
         }
 
+        totalDistributed -= _distribution.alloc;
         _distribution.claimed = true;
         if(totalAllocated > _distribution.alloc) {
             totalAllocated = totalAllocated - _distribution.alloc;
@@ -202,7 +207,7 @@ contract MetaMerceLocker is Ownable {
      * @param _token: the address of the token to withdraw
      * @dev This function is only callable by admin.
      */
-    function recoverWrongTokens(address _token) external onlyOwner {
+    function rescueTokens(address _token) external onlyOwner {
         require(_token != address(token) && _token != address(reflectionToken), "Cannot be token & dividend token");
 
         if(_token == address(0x0)) {
