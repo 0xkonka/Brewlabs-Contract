@@ -3,6 +3,7 @@ const csvToJson = require("convert-csv-to-json");
 const { keccak256, solidityKeccak256 } = require("ethers/lib/utils");
 const { MerkleTree } = require("merkletreejs");
 const fs = require("fs");
+const BigNumber = require('bignumber.js')
 
 const snapshot = csvToJson.fieldDelimiter(",").getJsonFromCsv("scripts/snapshot.csv");
 
@@ -14,6 +15,15 @@ const generateMerkleTree = () => {
     )
   );
   const tree = new MerkleTree(leaves, keccak256, { sort: true });
+
+  let sum = new BigNumber("0")
+  snapshot.forEach(user => {
+    if(user.address !== "0x000000000000000000000000000000000000dead") {
+      sum = sum.plus(user.amount)
+    }
+  });
+  console.log(`total: ${sum.toString()}`)
+  console.log(`expected: `, sum.multipliedBy(1.1).div(1e9).toString())
 
   const merkleRoot = tree.getHexRoot();
   // console.log(`Merkle Tree:\n`, tree.toString());
