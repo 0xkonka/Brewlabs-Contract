@@ -5,7 +5,7 @@ import { network, ethers, upgrades, artifacts } from "hardhat";
 import { abi as UniRouterAbi } from "../artifacts/contracts/libs/IUniRouter02.sol/IUniRouter02.json"
 import { abi as Erc20Abi }  from "../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json"
 
-import MockBEP20 from "../artifacts/contracts/mocks/MockToken.sol/MockBEP20.json"
+import MockErc20 from "../artifacts/contracts/mocks/MockErc20.sol/MockErc20.json"
 
 const router_addr = "0x10ed43c718714eb63d5aa57b78b54704e256024e";
 const reward_token_addr = "0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7";
