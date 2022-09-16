@@ -160,7 +160,7 @@ contract MetaMerceLockerTest is Test {
     uint256[5] memory allocations;
     uint256 pending;
     for(uint i = 0; i < 5; i++) {
-      vm.assume(allocs[i] < 10**6);
+      vm.assume(allocs[i] < 10**6 && allocs[i] > 0);
       allocations[i] = allocs[i] * 10**decimals;
 
       locker.addDistribution(users[i], allocs[i]);
@@ -177,7 +177,7 @@ contract MetaMerceLockerTest is Test {
 
     uint256 _accReflectionPerShare = 0;
     for(uint i = 0; i < 1; i++) {
-      vm.assume(amounts[i] < 10**22);
+      vm.assume(amounts[i] < 10**22 && amounts[i] > 0);
 
       token.mintTo(address(locker), amounts[i]);
 
@@ -198,5 +198,94 @@ contract MetaMerceLockerTest is Test {
     assertEq(pending, _accReflectionPerShare * allocations[2] / (1 ether));
   }
 
+  function testClaimable() public {
+    address payable user = utils.getNextUserAddress();
+
+    bool status = locker.claimable(user);
+    assertTrue(!status);
+
+    locker.addDistribution(user, 1);
+
+    status = locker.claimable(user);
+    assertTrue(!status);
+
+    token.mintTo(address(this), 1 ether);
+    token.approve(address(locker), 1 ether);
+    locker.depositToken(1 ether);
+
+    vm.roll(block.number + locker.lockDuration() * 28800 + 1);
+
+    status = locker.claimable(user);
+    assertTrue(status);
+
+    locker.withdrawDistribution(user);
+    status = locker.claimable(user);
+    assertTrue(!status);
+  }
   
+  function testAvailableAllocatedTokens(uint256[7] memory amounts) public {
+    uint256 amount = locker.availableAllocatedTokens();
+    assertEq(amount, 0);
+
+    token.mintTo(address(locker), 1 ether);
+    amount = locker.availableAllocatedTokens();
+    assertEq(amount, 0);
+
+    uint256 total = 0;
+    for(uint i = 0; i < 7; i++) {
+      vm.assume(amounts[i] < 10**22 && amounts[i] > 0);
+      token.mintTo(address(this), amounts[i]);
+      token.approve(address(locker), amounts[i]);
+      locker.depositToken(amounts[i]);
+
+      total += amounts[i];
+
+      amount = locker.availableAllocatedTokens();
+      assertEq(amount, total);
+    }
+  }
+
+  function testAvailableDividendTokens(uint256[7] memory amounts) public {
+    uint256 amount = locker.availableDividendTokens();
+    assertEq(amount, 0);
+
+    token.mintTo(address(this), 1 ether);
+    token.approve(address(locker), 1 ether);
+    locker.depositToken(1 ether);
+
+    amount = locker.availableDividendTokens();
+    assertEq(amount, 0);
+
+    uint256 total = 0;
+    for(uint i = 0; i < 7; i++) {
+      vm.assume(amounts[i] < 10**22 && amounts[i] > 0);
+      token.mintTo(address(locker), amounts[i]);
+
+      total += amounts[i];
+      amount = locker.availableDividendTokens();
+      assertEq(amount, total);
+    }
+  }
+
+  function testSetLockDuration() public {
+    vm.expectRevert(abi.encodePacked("Invalid duration"));
+    locker.setLockDuration(0);
+
+    vm.expectEmit(false, false, false, true);
+    emit UpdateLockDuration(20);
+    locker.setLockDuration(20);
+  }
+
+  function testDepositToken(uint256 amount) public {
+    vm.expectRevert(abi.encodePacked("invalid amount"));
+    locker.depositToken(0);
+
+    vm.assume(amount < 10**22 && amount > 0);
+
+    token.mintTo(address(this), amount);
+    token.approve(address(locker), amount);
+    locker.depositToken(amount);
+
+    assertEq(locker.availableAllocatedTokens(), amount);
+  }
 }
