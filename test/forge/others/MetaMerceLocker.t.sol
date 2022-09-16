@@ -95,4 +95,61 @@ contract MetaMerceLockerTest is Test {
     vm.expectRevert(abi.encodePacked("Already claimed"));
     locker.removeDistribution(distributor);
   }
+
+  function testUpdateDistribution(address distributor, uint256 allocation) public {
+    vm.assume(distributor != address(0x0) && allocation != 0);
+    vm.assume(allocation < 10**6);
+
+    vm.expectRevert(abi.encodePacked("Not found"));
+    locker.updateDistribution(distributor, allocation);
+
+    locker.addDistribution(distributor, allocation);
+    locker.updateDistribution(distributor, allocation + 1);
+    
+    uint256 allocAmt = (allocation + 1) * 10**token.decimals();
+    (, uint256 amount,,) = locker.distributions(distributor);
+    assertEq(amount, allocAmt);
+
+    vm.roll(block.number + locker.lockDuration() * 28800 + 1);
+    vm.expectRevert(abi.encodePacked("cannot update"));
+    locker.updateDistribution(distributor, allocation);
+
+    token.mintTo(address(this), allocAmt);
+    token.approve(address(locker), allocAmt);
+    locker.depositToken(allocAmt);
+    locker.withdrawDistribution(distributor);
+
+    vm.expectRevert(abi.encodePacked("already withdrawn"));
+    locker.updateDistribution(distributor, allocation);
+  }
+
+  function testWithdrawDistribution(address distributor, uint256 allocation) public {
+    vm.assume(distributor != address(0x0) && allocation != 0);
+    vm.assume(allocation < 10**6);
+
+    vm.expectRevert(abi.encodePacked("not claimable"));
+    locker.withdrawDistribution(distributor);
+
+    locker.addDistribution(distributor, allocation);
+
+    vm.expectRevert(abi.encodePacked("not claimable"));
+    locker.withdrawDistribution(distributor);
+    
+
+    vm.roll(block.number + locker.lockDuration() * 28800 + 1);
+    (, uint256 amount,,) = locker.distributions(distributor);
+
+    token.mintTo(address(this), amount);
+    token.approve(address(locker), amount);
+    locker.depositToken(amount);
+    vm.expectEmit(true, false, false, true);
+    emit WithdrawDistribution(distributor, amount, 0);
+    locker.withdrawDistribution(distributor);
+
+    vm.expectRevert(abi.encodePacked("not claimable"));
+    locker.withdrawDistribution(distributor);
+  }
+
+
+  
 }
