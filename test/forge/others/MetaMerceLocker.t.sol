@@ -13,6 +13,10 @@ contract MetaMerceLockerTest is Test {
   MockErc20 public token;
 
   event AddDistribution(address indexed distributor, uint256 allocation, uint256 duration, uint256 unlockBlock);
+  event UpdateDistribution(address indexed distributor, uint256 allocation, uint256 duration, uint256 unlockBlock);
+  event WithdrawDistribution(address indexed distributor, uint256 amount, uint256 reflection);
+  event RemoveDistribution(address indexed distributor);
+  event UpdateLockDuration(uint256 Days);
 
   function setUp() public {
     locker = new MetaMerceLocker();
@@ -22,6 +26,7 @@ contract MetaMerceLockerTest is Test {
   }
 
   function testAddDistribution(address distributor, uint256 allocation) public {
+    vm.assume(distributor != address(0x0) && allocation != 0);
     vm.assume(allocation < 10**6);
 
     uint256 allocAmt = allocation * 10**token.decimals();
@@ -44,5 +49,50 @@ contract MetaMerceLockerTest is Test {
     vm.prank(address(0x1));
     vm.expectRevert(abi.encodePacked("Ownable: caller is not the owner"));
     locker.addDistribution(distributor, allocation);
+  }
+
+  function testRemoveDistribution(address distributor, uint256 allocation) public {
+    vm.assume(distributor != address(0x0) && allocation != 0);
+    vm.assume(allocation < 10**6);
+
+    vm.expectRevert(abi.encodePacked("Not found"));
+    locker.removeDistribution(distributor);
+
+    locker.addDistribution(distributor, allocation);
+
+    vm.expectEmit(true, false, false, false);
+    emit RemoveDistribution(distributor);
+    locker.removeDistribution(distributor);
+    (address user, uint256 amount, uint256 unlockBlock, ) = locker.distributions(distributor);
+    assertEq(user, address(0x0));
+    assertEq(amount, 0);
+    assertEq(unlockBlock, 0);
+
+    vm.expectRevert(abi.encodePacked("Not found"));
+    locker.removeDistribution(distributor);
+
+    vm.prank(address(0x1));
+    vm.expectRevert(abi.encodePacked("Ownable: caller is not the owner"));
+    locker.removeDistribution(distributor);
+  }
+
+  function testRemoveDistributionFailWithClaimed(address distributor, uint256 allocation) public {
+    vm.assume(distributor != address(0x0) && allocation != 0);
+    vm.assume(allocation < 10**6);
+
+    locker.addDistribution(distributor, allocation);
+    vm.roll(block.number + locker.lockDuration() * 28800 + 1);
+
+    vm.expectRevert(abi.encodePacked("ERC20: transfer amount exceeds balance"));
+    locker.withdrawDistribution(distributor);
+
+    uint256 allocAmt = allocation * 10**token.decimals();
+    token.mintTo(address(this), allocAmt);
+    token.approve(address(locker), allocAmt);
+    locker.depositToken(allocAmt);
+    locker.withdrawDistribution(distributor);
+
+    vm.expectRevert(abi.encodePacked("Already claimed"));
+    locker.removeDistribution(distributor);
   }
 }
