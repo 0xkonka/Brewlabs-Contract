@@ -11,6 +11,7 @@ import { Utils } from "../utils/Utils.sol";
 contract MetaMerceLockerTest is Test {
   MetaMerceLocker public locker;
   MockErc20 public token;
+  Utils internal utils;
 
   event AddDistribution(address indexed distributor, uint256 allocation, uint256 duration, uint256 unlockBlock);
   event UpdateDistribution(address indexed distributor, uint256 allocation, uint256 duration, uint256 unlockBlock);
@@ -21,6 +22,7 @@ contract MetaMerceLockerTest is Test {
   function setUp() public {
     locker = new MetaMerceLocker();
     token = new MockErc20();
+    utils = new Utils();
 
     locker.initialize(token, address(token));
   }
@@ -150,6 +152,51 @@ contract MetaMerceLockerTest is Test {
     locker.withdrawDistribution(distributor);
   }
 
+  function testPendingRelections(uint256[5] memory allocs, uint256[] memory amounts) public {
+    vm.assume(amounts.length < 10 && amounts.length > 0);
+    uint256 decimals = token.decimals();
+
+    address payable[] memory users = utils.createUsers(6);
+    uint256[5] memory allocations;
+    uint256 pending;
+    for(uint i = 0; i < 5; i++) {
+      vm.assume(allocs[i] < 10**6);
+      allocations[i] = allocs[i] * 10**decimals;
+
+      locker.addDistribution(users[i], allocs[i]);
+      pending = locker.pendingReflection(users[i]);
+      assertEq(pending, 0);
+    }
+
+    pending = locker.pendingReflection(users[5]);
+    assertEq(pending, 0);
+
+    token.mintTo(address(this), locker.totalDistributed());
+    token.approve(address(locker), locker.totalDistributed());
+    locker.depositToken(locker.totalDistributed());
+
+    uint256 _accReflectionPerShare = 0;
+    for(uint i = 0; i < 1; i++) {
+      vm.assume(amounts[i] < 10**22);
+
+      token.mintTo(address(locker), amounts[i]);
+
+      _accReflectionPerShare += amounts[i] * (1 ether) / locker.totalDistributed();
+      pending = locker.pendingReflection(users[1]);
+      assertEq(pending, allocations[1] * _accReflectionPerShare / (1 ether));
+    }
+    
+    vm.roll(block.number + locker.lockDuration() * 28800 + 1);
+    locker.withdrawDistribution(users[1]);
+    
+    pending = locker.pendingReflection(users[1]);
+    assertEq(pending, 0);
+
+    _accReflectionPerShare += amounts[0] * (1 ether) / locker.totalDistributed();
+    token.mintTo(address(locker), amounts[0]);
+    pending = locker.pendingReflection(users[2]);
+    assertEq(pending, _accReflectionPerShare * allocations[2] / (1 ether));
+  }
 
   
 }

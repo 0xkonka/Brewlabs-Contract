@@ -131,15 +131,13 @@ contract MetaMerceLocker is Ownable {
 
     function pendingReflection(address _user) external view returns (uint256) {
         if(isDistributor[_user] == false) return 0;
-
-        uint256 tokenAmt = availableAllocatedTokens();
-        if(tokenAmt == 0) return 0;
+        if(totalDistributed == 0) return 0;
 
         uint256 reflectionAmt = availableDividendTokens();
         if(reflectionAmt < allocatedReflections) return 0;
 
         reflectionAmt = reflectionAmt.sub(allocatedReflections);
-        uint256 _accReflectionPerShare = accReflectionPerShare.add(reflectionAmt.mul(PRECISION_FACTOR).div(tokenAmt));
+        uint256 _accReflectionPerShare = accReflectionPerShare.add(reflectionAmt.mul(PRECISION_FACTOR).div(totalDistributed));
         
         Distribution storage _distribution = distributions[_user];
         if(_distribution.claimed) return 0;
@@ -219,15 +217,14 @@ contract MetaMerceLocker is Ownable {
         }
     }
 
-    function _updatePool() internal {        
-        uint256 tokenAmt = availableAllocatedTokens();
-        if(tokenAmt == 0) return;
+    function _updatePool() internal {
+        if(totalDistributed == 0) return;
 
         uint256 reflectionAmt = availableDividendTokens();
         if(reflectionAmt < allocatedReflections) return;
         reflectionAmt = reflectionAmt - allocatedReflections;
 
-        accReflectionPerShare = accReflectionPerShare.add(reflectionAmt.mul(PRECISION_FACTOR).div(tokenAmt));
+        accReflectionPerShare = accReflectionPerShare.add(reflectionAmt.mul(PRECISION_FACTOR).div(totalDistributed));
         allocatedReflections = allocatedReflections.add(reflectionAmt);
     }
     
