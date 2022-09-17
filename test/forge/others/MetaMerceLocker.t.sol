@@ -23,11 +23,22 @@ contract MetaMerceLockerTest is Test {
     locker = new MetaMerceLocker();
     token = new MockErc20();
     utils = new Utils();
+  }
 
+  function itInitialize() public {
+    locker.initialize(token, address(token));
+
+    vm.expectRevert(abi.encodePacked("already initialized"));
     locker.initialize(token, address(token));
   }
 
+  function itDistributors(uint index, address user) public {
+    assertEq(locker.distributors(index), user);
+  }
+
   function testAddDistribution(address distributor, uint256 allocation) public {
+    itInitialize();
+
     vm.assume(distributor != address(0x0) && allocation != 0);
     vm.assume(allocation < 10**6);
 
@@ -38,6 +49,7 @@ contract MetaMerceLockerTest is Test {
 
     locker.addDistribution(distributor, allocation);
     assertEq(locker.totalDistributed(), allocAmt);
+    itDistributors(0, distributor);
 
     (address user, uint256 amount, uint256 unlockBlock, bool claimed) = locker.distributions(distributor);
     assertEq(user, distributor);
@@ -54,6 +66,8 @@ contract MetaMerceLockerTest is Test {
   }
 
   function testRemoveDistribution(address distributor, uint256 allocation) public {
+    itInitialize();
+    
     vm.assume(distributor != address(0x0) && allocation != 0);
     vm.assume(allocation < 10**6);
 
@@ -79,6 +93,8 @@ contract MetaMerceLockerTest is Test {
   }
 
   function testRemoveDistributionFailWithClaimed(address distributor, uint256 allocation) public {
+    itInitialize();
+    
     vm.assume(distributor != address(0x0) && allocation != 0);
     vm.assume(allocation < 10**6);
 
@@ -99,6 +115,8 @@ contract MetaMerceLockerTest is Test {
   }
 
   function testUpdateDistribution(address distributor, uint256 allocation) public {
+    itInitialize();
+    
     vm.assume(distributor != address(0x0) && allocation != 0);
     vm.assume(allocation < 10**6);
 
@@ -106,9 +124,13 @@ contract MetaMerceLockerTest is Test {
     locker.updateDistribution(distributor, allocation);
 
     locker.addDistribution(distributor, allocation);
-    locker.updateDistribution(distributor, allocation + 1);
     
     uint256 allocAmt = (allocation + 1) * 10**token.decimals();
+
+    vm.expectEmit(true, false, false, true);
+    emit UpdateDistribution(distributor, allocAmt, locker.lockDuration(), block.number + locker.lockDuration() * 28800);
+    locker.updateDistribution(distributor, allocation + 1);
+    
     (, uint256 amount,,) = locker.distributions(distributor);
     assertEq(amount, allocAmt);
 
@@ -126,6 +148,8 @@ contract MetaMerceLockerTest is Test {
   }
 
   function testWithdrawDistribution(address distributor, uint256 allocation) public {
+    itInitialize();
+    
     vm.assume(distributor != address(0x0) && allocation != 0);
     vm.assume(allocation < 10**6);
 
@@ -153,6 +177,8 @@ contract MetaMerceLockerTest is Test {
   }
 
   function testPendingRelections(uint256[5] memory allocs, uint256[] memory amounts) public {
+    itInitialize();
+    
     vm.assume(amounts.length < 10 && amounts.length > 0);
     uint256 decimals = token.decimals();
 
@@ -199,6 +225,8 @@ contract MetaMerceLockerTest is Test {
   }
 
   function testClaimable() public {
+    itInitialize();
+    
     address payable user = utils.getNextUserAddress();
 
     bool status = locker.claimable(user);
@@ -224,6 +252,8 @@ contract MetaMerceLockerTest is Test {
   }
   
   function testAvailableAllocatedTokens(uint256[7] memory amounts) public {
+    itInitialize();
+    
     uint256 amount = locker.availableAllocatedTokens();
     assertEq(amount, 0);
 
@@ -246,6 +276,8 @@ contract MetaMerceLockerTest is Test {
   }
 
   function testAvailableDividendTokens(uint256[7] memory amounts) public {
+    itInitialize();
+    
     uint256 amount = locker.availableDividendTokens();
     assertEq(amount, 0);
 
@@ -268,6 +300,8 @@ contract MetaMerceLockerTest is Test {
   }
 
   function testSetLockDuration() public {
+    itInitialize();
+    
     vm.expectRevert(abi.encodePacked("Invalid duration"));
     locker.setLockDuration(0);
 
@@ -277,6 +311,8 @@ contract MetaMerceLockerTest is Test {
   }
 
   function testDepositToken(uint256 amount) public {
+    itInitialize();
+    
     vm.expectRevert(abi.encodePacked("invalid amount"));
     locker.depositToken(0);
 
