@@ -18,11 +18,9 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
 
   IERC20 public oldToken;
   IERC20 public newToken;
-  uint256 public migrationRate;
-  uint256 public taxOfOldToken = 1100;
-  uint256 public bonusRate = 1000;
 
   bytes32 private merkleRoot;
+  bytes32 private claimMerkleRoot;
   uint256 private totalStaked;
   uint256 private totalClaimed;
 
@@ -30,7 +28,6 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
 
   struct UserInfo {
     uint256 amount;
-    uint256 claimed;
     uint256 paidAmount;
   }
   mapping(address => UserInfo) public userInfo;
@@ -57,24 +54,13 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
   constructor(address _oldToken, address _newToken) {
     oldToken = IERC20(_oldToken);
     newToken = IERC20(_newToken);
-
-    migrationRate = (newToken.totalSupply() * MIGRATION_PRECISION) / oldToken.totalSupply();
   }
 
-  function deposit(
-    uint256 _amount,
-    uint256 _max,
-    bytes32[] memory _merkleProof
-  ) external nonReentrant {
+  function deposit(uint256 _amount, bytes32[] memory _merkleProof) external nonReentrant {
     require(merkleRoot != "", "Migration not enabled");
 
-    // check if total deposits exceed snapshot
-    uint256 prevAmt = (userInfo[msg.sender].amount * PERCENT_PRECISION) /
-      (PERCENT_PRECISION - taxOfOldToken);
-    require(_amount + prevAmt <= _max, "migration amount cannot exceed max");
-
     // Verify the merkle proof.
-    bytes32 leaf = keccak256(abi.encodePacked(msg.sender, _max));
+    bytes32 leaf = keccak256(abi.encodePacked(msg.sender, _amount));
     require(MerkleProof.verify(_merkleProof, merkleRoot, leaf), "Invalid merkle proof.");
 
     uint256 beforeAmt = oldToken.balanceOf(address(this));
@@ -83,43 +69,25 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
     uint256 realAmt = afterAmt - beforeAmt;
 
     UserInfo storage user = userInfo[msg.sender];
-    user.amount += realAmt;
-    totalStaked += realAmt;
+    user.amount = realAmt;
+    totalStaked = realAmt;
 
     emit Deposit(msg.sender, realAmt);
   }
 
-  function claim() external nonReentrant {
+  function claim(uint256 _amount, bytes32[] memory _merkleProof) external nonReentrant {
     UserInfo storage user = userInfo[msg.sender];
     require(claimable, "claim not enabled");
-    require(user.amount - user.claimed > 0, "not available to claim");
+    require(user.amount > 0, "did not migrate");
+    require(user.paidAmount == 0, "already claimed");
 
-    uint256 pending = pendingClaim(msg.sender);
-    if (pending > 0) {
-      newToken.safeTransfer(msg.sender, pending);
-    }
+    // Verify the merkle proof.
+    bytes32 leaf = keccak256(abi.encodePacked(msg.sender, _amount));
+    require(MerkleProof.verify(_merkleProof, claimMerkleRoot, leaf), "Invalid merkle proof.");
 
-    user.claimed = user.amount;
-    user.paidAmount += pending;
-    totalClaimed += pending;
-    emit Claim(msg.sender, pending);
-  }
-
-  function pendingClaim(address _user) public view returns (uint256) {
-    UserInfo memory user = userInfo[_user];
-    uint256 amount = user.amount - user.claimed;
-    uint256 expectedAmt = (amount * (10000 + bonusRate)) / (10000 - taxOfOldToken);
-
-    return (expectedAmt * migrationRate) / MIGRATION_PRECISION;
-  }
-
-  function insufficientClaims() external view returns (uint256) {
-    uint256 tokenBal = newToken.balanceOf(address(this));
-    uint256 expectedAmt = (totalStaked * (10000 + bonusRate)) / (10000 - taxOfOldToken);
-    expectedAmt = (expectedAmt * migrationRate) / MIGRATION_PRECISION - totalClaimed;
-
-    if (tokenBal > expectedAmt) return 0;
-    return expectedAmt - tokenBal;
+    user.paidAmount = _amount;
+    newToken.safeTransfer(msg.sender, _amount);
+    emit Claim(msg.sender, _amount);
   }
 
   function setMigrationToken(address _newToken) external onlyOwner {
@@ -128,19 +96,12 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
     require(_newToken != address(oldToken), "cannot set old token address");
 
     newToken = IERC20(_newToken);
-    migrationRate = (newToken.totalSupply() * MIGRATION_PRECISION) / oldToken.totalSupply();
     emit SetMigrationToken(_newToken);
   }
 
-  function setBonusRate(uint256 _bonus) external onlyOwner {
-    require(!claimable, "claim was enabled");
-    require(_bonus < PERCENT_PRECISION, "invalid percent");
-    bonusRate = _bonus;
-    emit SetBonusRate(_bonus);
-  }
-
-  function setSnapShotMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+  function setMerkleRoot(bytes32 _merkleRoot, bytes32 _claimMerkleRoot) external onlyOwner {
     merkleRoot = _merkleRoot;
+    claimMerkleRoot = _claimMerkleRoot;
     emit SetSnapShot(_merkleRoot);
   }
 

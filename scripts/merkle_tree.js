@@ -10,29 +10,46 @@ const { abi } = require("../artifacts/contracts/others/MerkelRootTest.sol/Merkel
 const snapshot = csvToJson.fieldDelimiter(",").getJsonFromCsv("scripts/snapshot.csv");
 
 const generateMerkleTree = () => {
-  const leaves = snapshot.map((user) =>
-    solidityKeccak256(
+  const leaves = snapshot.map((user) => {
+    return solidityKeccak256(
       ["address", "uint256"],
       [
         user.address,
         ethers.utils.parseUnits(+user.amount > 1 ? (+user.amount).toString() : (+user.amount).toFixed(9), 9)._hex,
       ]
     )
+  }
+    
   );
   const tree = new MerkleTree(leaves, keccak256, { sort: true });
 
+  const leaves1 = snapshot.map((user) =>
+    solidityKeccak256(
+      ["address", "uint256"],
+      [
+        user.address,
+        ethers.utils.parseUnits(+user.claimAmt > 1 ? (+user.claimAmt).toString() : (+user.claimAmt).toFixed(9), 9)._hex,
+      ]
+    )
+  );
+  const tree1 = new MerkleTree(leaves1, keccak256, { sort: true });
+
   let sum = new BigNumber("0");
+  let claim = new BigNumber("0");
   snapshot.forEach((user) => {
     if (user.address !== "0x000000000000000000000000000000000000dead") {
       sum = sum.plus(user.amount);
+      claim = claim.plus(user.claimAmt)
     }
   });
   console.log(`total: ${sum.toString()}`);
-  console.log(`expected: `, sum.multipliedBy(1.1).div(1e9).toString());
+  console.log(`expected: `, claim.toString());
 
   const merkleRoot = tree.getHexRoot();
+  const claimMerkleRoot = tree1.getHexRoot();
   // console.log(`Merkle Tree:\n`, tree.toString());
   console.log(`Merkle Root: ${merkleRoot}`);
+  console.log(`Claim Merkle Root: ${claimMerkleRoot}`);
 };
 
 const generateProof = (address, amount) => {
@@ -72,7 +89,7 @@ const checkProof = async () => {
       ethers.utils.parseUnits(+user.amount > 1 ? (+user.amount).toString() : (+user.amount).toFixed(9), 9),
       proof
     );
-    if(!result) console.log(user.address, user.amount, result);
+    console.log(user.address, user.amount, result);
   }
 };
 
@@ -80,7 +97,7 @@ const storeJSON = async () => {
   fs.writeFileSync("scripts/snapshot.json", JSON.stringify(snapshot, null, 4));
 };
 
-// generateMerkleTree();
-// storeJSON();
+generateMerkleTree();
+storeJSON();
 
-checkProof();
+// checkProof();

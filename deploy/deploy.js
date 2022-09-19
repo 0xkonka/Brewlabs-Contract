@@ -43,30 +43,37 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             other: false,
         }
 
-        if(config.other) {
-            Utils.infoMsg("Deploying ImpactXPMigration contract");
+        if(config.other) {           
+            Utils.infoMsg("Deploying BlocVestTreasury contract");
 
-            let deployed = await deploy('ImpactXPMigration', {
+            let deployed = await deploy('BlocVestTreasury', {
                 from: account,
-                args: [
-                    "0xb12494C8824fc069757F47d177E666c571Cd49aE", // old
-                    "0x54Cb643ab007f47882E8120A8c57B639005c2688", // new
-                ],
+                args: [],
                 log:  false
             });
     
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
+
+            await sleep(30)
+            let contractInstance = await ethers.getContractAt("BlocVestTreasury", deployedAddress)
+            let tx = await contractInstance.initialize(
+                "0x592032513b329a0956b3f14d661119880F2361a6", // _token
+                "0x0000000000000000000000000000000000000000", // _dividendToken
+                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
+                [
+                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+                    "0x592032513b329a0956b3f14d661119880F2361a6",
+                ]
+            )
+            await tx.wait()
            
-            // // verify
+            // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/ImpactXPMigration.sol:ImpactXPMigration",
-                constructorArguments: [
-                    "0xb12494C8824fc069757F47d177E666c571Cd49aE", // old
-                    "0x54Cb643ab007f47882E8120A8c57B639005c2688", // new
-                ],
+                contract: "contracts/others/BlocVestTreasury.sol:BlocVestTreasury",
+                constructorArguments: [],
             }) 
         }
 
