@@ -256,7 +256,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         pending = estimateRewardAmount(pending);
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-            earnedToken.safeTransfer(address(_to), pending);
+            earnedToken.safeTransfer(_to, pending);
             
             totalPaid = totalPaid + pending;
             totalEarned = totalEarned - pending;
