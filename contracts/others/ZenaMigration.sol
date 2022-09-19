@@ -13,9 +13,6 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 contract ZenaMigration is Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
 
-  uint256 public constant MIGRATION_PRECISION = 10**20;
-  uint256 public constant PERCENT_PRECISION = 10000;
-
   IERC20 public oldToken;
   IERC20 public newToken;
 
