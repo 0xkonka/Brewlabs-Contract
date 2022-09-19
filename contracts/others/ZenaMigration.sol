@@ -71,7 +71,7 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
   function claim(uint256 _amount, bytes32[] memory _merkleProof) external nonReentrant {
     UserInfo storage user = userInfo[msg.sender];
     require(claimable, "claim not enabled");
-    require(user.amount > 0, "did not migrate yet");
+    require(user.amount > 0, "not migrate yet");
     require(user.paidAmount == 0, "already claimed");
 
     // Verify the merkle proof.
