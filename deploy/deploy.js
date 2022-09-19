@@ -44,36 +44,30 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {           
-            Utils.infoMsg("Deploying BlocVestTreasury contract");
+            Utils.infoMsg("Deploying ZenaMigration contract");
 
-            let deployed = await deploy('BlocVestTreasury', {
+            let deployed = await deploy('ZenaMigration', {
                 from: account,
-                args: [],
+                args: [
+                    "0xb7F2bca9b034f8cc143339Dd12bb31D3D50Cf27a",
+                    "0xE78e307158c1b5a682cCC5a05DF9ca1Fb15e5f99",
+                ],
                 log:  false
             });
     
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            await sleep(30)
-            let contractInstance = await ethers.getContractAt("BlocVestTreasury", deployedAddress)
-            let tx = await contractInstance.initialize(
-                "0x592032513b329a0956b3f14d661119880F2361a6", // _token
-                "0x0000000000000000000000000000000000000000", // _dividendToken
-                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
-                [
-                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x592032513b329a0956b3f14d661119880F2361a6",
-                ]
-            )
-            await tx.wait()
-           
+          
             // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/BlocVestTreasury.sol:BlocVestTreasury",
-                constructorArguments: [],
+                contract: "contracts/others/ZenaMigration.sol:ZenaMigration",
+                constructorArguments: [
+                    "0xb7F2bca9b034f8cc143339Dd12bb31D3D50Cf27a",
+                    "0xE78e307158c1b5a682cCC5a05DF9ca1Fb15e5f99",
+                ],
             }) 
         }
 

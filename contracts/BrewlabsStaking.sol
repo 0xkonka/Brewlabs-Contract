@@ -244,9 +244,10 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             address(this),
             _amount
         );
-        uint256 afterAmount = stakingToken.balanceOf(address(this));
-        
+        uint256 afterAmount = stakingToken.balanceOf(address(this));        
         uint256 realAmount = afterAmount - beforeAmount;
+        if(realAmount > _amount) realAmount = _amount;
+
         if (depositFee > 0) {
             uint256 fee = realAmount * depositFee / 10000;
             stakingToken.safeTransfer(walletA, fee);

@@ -81,6 +81,7 @@ contract ImpactXPMigration is Ownable, ReentrancyGuard {
     oldToken.safeTransferFrom(msg.sender, address(this), _amount);
     uint256 afterAmt = oldToken.balanceOf(address(this));
     uint256 realAmt = afterAmt - beforeAmt;
+    if(realAmt > _amount) realAmt = _amount;
 
     UserInfo storage user = userInfo[msg.sender];
     user.amount += realAmt;

@@ -256,6 +256,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         stakingToken.safeTransferFrom(address(msg.sender), address(this), _amount);
         uint256 afterAmount = stakingToken.balanceOf(address(this));        
         uint256 realAmount = afterAmount - beforeAmount;
+        if(realAmount > _amount) realAmount = _amount;
 
         if (hasUserLimit) {
             require(
