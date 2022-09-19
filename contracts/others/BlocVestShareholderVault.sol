@@ -242,33 +242,9 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         emit Withdraw(msg.sender, realAmount);
     }
 
-    function harvest() external payable onlyActive nonReentrant {
-        UserInfo storage user = userInfo[msg.sender];
-
-        _transferPerformanceFee();
-        _updatePool();
-
-        if (user.amount == 0) return;
-        require(user.lastClaimTime + (harvestCycle * TIME_UNITS) < block.timestamp, "cannot harvest");
-
-        uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
-        pending = estimateRewardAmount(pending);
-        if (pending > 0) {
-            require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-            earnedToken.safeTransfer(address(msg.sender), pending);
-            
-            totalPaid = totalPaid + pending;
-            totalEarned = totalEarned - pending;
-        }
-        
-        user.totalEarned = user.totalEarned + pending;
-        user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
-        user.lastClaimTime = block.timestamp;
-    }
-
     function harvest(address _to) external payable onlyActive nonReentrant {
         require(_to != address(0x0), "invalid address");
-        UserInfo storage user = userInfo[_to];
+        UserInfo storage user = userInfo[msg.sender];
 
         _transferPerformanceFee();
         _updatePool();
