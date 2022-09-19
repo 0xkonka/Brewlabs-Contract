@@ -22,7 +22,6 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
   bytes32 private merkleRoot;
   bytes32 private claimMerkleRoot;
   uint256 private totalStaked;
-  uint256 private totalClaimed;
 
   bool public claimable = false;
 
@@ -63,22 +62,19 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
     bytes32 leaf = keccak256(abi.encodePacked(msg.sender, _amount));
     require(MerkleProof.verify(_merkleProof, merkleRoot, leaf), "Invalid merkle proof.");
 
-    uint256 beforeAmt = oldToken.balanceOf(address(this));
     oldToken.safeTransferFrom(msg.sender, address(this), _amount);
-    uint256 afterAmt = oldToken.balanceOf(address(this));
-    uint256 realAmt = afterAmt - beforeAmt;
 
     UserInfo storage user = userInfo[msg.sender];
-    user.amount = realAmt;
-    totalStaked = realAmt;
+    user.amount = _amount;
+    totalStaked += _amount;
 
-    emit Deposit(msg.sender, realAmt);
+    emit Deposit(msg.sender, _amount);
   }
 
   function claim(uint256 _amount, bytes32[] memory _merkleProof) external nonReentrant {
     UserInfo storage user = userInfo[msg.sender];
     require(claimable, "claim not enabled");
-    require(user.amount > 0, "did not migrate");
+    require(user.amount > 0, "did not migrate yet");
     require(user.paidAmount == 0, "already claimed");
 
     // Verify the merkle proof.
@@ -87,6 +83,7 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
 
     user.paidAmount = _amount;
     newToken.safeTransfer(msg.sender, _amount);
+
     emit Claim(msg.sender, _amount);
   }
 
