@@ -22,10 +22,8 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   using SafeERC20 for IERC20;
   bytes4 private constant _ERC721_RECEIVED = 0x150b7a02;
 
-  // IERC20 public bvst = IERC20(0xC7b29e78BcE023757928eD3839Ff92F94391842E);
-  // IERC20 public bvstLP = IERC20(0xaA187EDdD4b37B8864bd5015acF07d65B79E9101);
-  IERC20 public bvst = IERC20(0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175);
-  IERC20 public bvstLP = IERC20(0xB37d9c39d6A3873Dca3CBfA01D795a03f41b7298);
+  IERC20 public bvst = IERC20(0x592032513b329a0956b3f14d661119880F2361a6);
+  IERC20 public bvstLP = IERC20(0xF9B07b7528FEEb48811794361De37b4BAdE1734f);
 
   uint256 public claimLimit = 365;
   uint256 public userLimit = 25000 ether;
@@ -63,8 +61,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   mapping(address => uint256) public autoCompounds;
   address[] public autoCompounders;
 
-  address public treasury = 0x6219B6b621E6E66a6c5a86136145E6E5bc6e4672;
-  // address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
+  address public treasury = 0xBd6B80CC1ed8dd3DBB714b2c8AD8b100A7712DA7;
   uint256 public performanceFee = 0.0035 ether;
 
   event Deposit(address indexed user, uint256 amount);

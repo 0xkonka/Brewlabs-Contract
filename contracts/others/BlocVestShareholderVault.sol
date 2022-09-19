@@ -53,7 +53,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     uint256 public slippageFactor = 800; // 20% default slippage tolerance
     uint256 public constant slippageFactorUL = 995;
 
-    address public treasury = 0x0b7EaCB3EB29B13C31d934bdfe62057BB9763Bb7;
+    address public treasury = 0xBd6B80CC1ed8dd3DBB714b2c8AD8b100A7712DA7;
     uint256 public performanceFee = 0.0035 ether;
     bool public activeEmergencyWithdraw = false;
 
@@ -83,9 +83,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     }
     // Info of each user that stakes tokens (stakingToken)
     mapping(address => UserInfo) public userInfo;
-
-    // uint256 constant TIME_UNITS = 1 days;
-    uint256 constant TIME_UNITS = 2 minutes;
+    uint256 constant TIME_UNITS = 1 days;
 
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
@@ -258,6 +256,31 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             earnedToken.safeTransfer(address(msg.sender), pending);
+            
+            totalPaid = totalPaid + pending;
+            totalEarned = totalEarned - pending;
+        }
+        
+        user.totalEarned = user.totalEarned + pending;
+        user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
+        user.lastClaimTime = block.timestamp;
+    }
+
+    function harvest(address _to) external payable onlyActive nonReentrant {
+        require(_to != address(0x0), "invalid address");
+        UserInfo storage user = userInfo[_to];
+
+        _transferPerformanceFee();
+        _updatePool();
+
+        if (user.amount == 0) return;
+        require(user.lastClaimTime + (harvestCycle * TIME_UNITS) < block.timestamp, "cannot harvest");
+
+        uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
+        pending = estimateRewardAmount(pending);
+        if (pending > 0) {
+            require(availableRewardTokens() >= pending, "Insufficient reward tokens");
+            earnedToken.safeTransfer(address(_to), pending);
             
             totalPaid = totalPaid + pending;
             totalEarned = totalEarned - pending;
