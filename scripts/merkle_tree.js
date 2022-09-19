@@ -28,7 +28,7 @@ const generateMerkleTree = () => {
       ["address", "uint256"],
       [
         user.address,
-        ethers.utils.parseUnits(+user.claimAmt > 1 ? (+user.claimAmt).toString() : (+user.claimAmt).toFixed(9), 9)._hex,
+        ethers.utils.parseUnits(+user.claimAmt > 1 ? (+user.claimAmt).toString() : (+user.claimAmt).toFixed(18), 18)._hex,
       ]
     )
   );
