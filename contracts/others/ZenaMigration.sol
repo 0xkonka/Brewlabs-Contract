@@ -34,8 +34,7 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
   event claimEnabled();
   event HarvestOldToken(uint256 amount);
   event SetMigrationToken(address token);
-  event SetBonusRate(uint256 rate);
-  event SetSnapShot(bytes32 merkleRoot);
+  event SetSnapShot(bytes32 merkleRoot, bytes32 claimMerkleRoot);
 
   modifier canClaim() {
     require(claimable, "cannot claim");
@@ -54,6 +53,7 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
 
   function deposit(uint256 _amount, bytes32[] memory _merkleProof) external nonReentrant {
     require(merkleRoot != "", "Migration not enabled");
+    require(userInfo[msg.sender].amount == 0, "already migrated");
 
     // Verify the merkle proof.
     bytes32 leaf = keccak256(abi.encodePacked(msg.sender, _amount));
@@ -96,7 +96,7 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
   function setMerkleRoot(bytes32 _merkleRoot, bytes32 _claimMerkleRoot) external onlyOwner {
     merkleRoot = _merkleRoot;
     claimMerkleRoot = _claimMerkleRoot;
-    emit SetSnapShot(_merkleRoot);
+    emit SetSnapShot(_merkleRoot, _claimMerkleRoot);
   }
 
   function enableClaim() external onlyOwner {
