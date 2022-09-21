@@ -135,8 +135,8 @@ contract MetaMerceLocker is Ownable {
 
         uint256 reflectionAmt = availableDividendTokens();
         if(reflectionAmt < allocatedReflections) return 0;
+        reflectionAmt = reflectionAmt - allocatedReflections;
 
-        reflectionAmt = reflectionAmt.sub(allocatedReflections);
         uint256 _accReflectionPerShare = accReflectionPerShare.add(reflectionAmt.mul(PRECISION_FACTOR).div(totalDistributed));
         
         Distribution storage _distribution = distributions[_user];
