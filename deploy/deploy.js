@@ -44,30 +44,38 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {           
-            Utils.infoMsg("Deploying ZenaMigration contract");
+            Utils.infoMsg("Deploying BlocVestShareholderVault contract");
 
-            let deployed = await deploy('ZenaMigration', {
+            let deployed = await deploy('BlocVestShareholderVault', {
                 from: account,
-                args: [
-                    "0xb7F2bca9b034f8cc143339Dd12bb31D3D50Cf27a",
-                    "0xE78e307158c1b5a682cCC5a05DF9ca1Fb15e5f99",
-                ],
+                args: [],
                 log:  false
             });
     
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
+            let contractInstance = await ethers.getContractAt("BlocVestShareholderVault", deployedAddress)
+            let tx = await contractInstance.initialize(
+                "0x592032513b329a0956b3f14d661119880F2361a6",
+                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+                "0x10ed43c718714eb63d5aa57b78b54704e256024e",
+                [
+                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+                    "0x592032513b329a0956b3f14d661119880F2361a6"
+                ],
+                "0x1dD565b26FBc45e51Fa5aA360A918BA31B5aADd5"
+            )
+            await tx.wait()
+
           
             // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/ZenaMigration.sol:ZenaMigration",
-                constructorArguments: [
-                    "0xb7F2bca9b034f8cc143339Dd12bb31D3D50Cf27a",
-                    "0xE78e307158c1b5a682cCC5a05DF9ca1Fb15e5f99",
-                ],
+                contract: "contracts/others/BlocVestShareholderVault.sol:BlocVestShareholderVault",
+                constructorArguments: [],
             }) 
         }
 
