@@ -437,26 +437,22 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockup", deployedAddress)
             const res = await contractInstance.initialize(
-                "0x5A5844CAb96A7b8B257Fc606Aa6119c5cBc6D4c4", // _stakingToken 
-                "0x5A5844CAb96A7b8B257Fc606Aa6119c5cBc6D4c4", // _earnedToken 
-                "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c", // _reflectionToken 
+                "0xe06f46AFD251B06152B478d8eE3aCea534063994", // _stakingToken 
+                "0xe06f46AFD251B06152B478d8eE3aCea534063994", // _earnedToken 
+                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", // _reflectionToken 
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
                 [
-                    "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
+                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
                     "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x5A5844CAb96A7b8B257Fc606Aa6119c5cBc6D4c4"
+                    "0xe06f46AFD251B06152B478d8eE3aCea534063994"
                 ],
-                "0x0000000000000000000000000000000000000000", // whitelist contract                                                 
+                "0x6Aa5F8B4cC8cdF5284C47FB3C02EE49F2C77679B", // whitelist contract                                                 
             )
             console.log('initialize BrewlabsLockup', res)
             
-            await sleep(20)
-            let _rate = ethers.utils.parseUnits('0.009511167', 9)
-            await contractInstance.addLockup(90, 0, 50, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
-            await sleep(20)
-            _rate = ethers.utils.parseUnits('0.028533501', 9)
-            await contractInstance.addLockup(180, 0, 50, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
+            let _rate = ethers.utils.parseUnits('1342275.494672754946727549', 18)
+            await contractInstance.addLockup(30, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
 
             // verify
             // await sleep(60)

@@ -22,16 +22,17 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
     uint256 public bonusRate = 2000;
     uint256 public depositLimit = 500 ether;
 
+    uint256[] public tax = [500, 1000, 2000];
+    uint256 public constant MAX_TAX_LIMIT = 1000;
+
     struct UserInfo {
         uint256 amount;
         uint256 usdAmount;
         uint256 initialAmount;
+        uint256 nominatedType;
         uint256 nominatedCycle;
         uint256 lastDepositTime;
         uint256 lastClaimTime;
-        uint256 deposited;
-        uint256 depositedUsd;
-        uint256 reward;
         uint256 totalStaked;
         uint256 totalReward;
         bool isNominated;
@@ -51,6 +52,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
     event ServiceInfoUpadted(address addr, uint256 fee);
     event SetBonusRate(uint256 rate);
     event SetDepositLimit(uint256 limit);
+    event SetTax(uint256[] tax);
 
     constructor(IERC20 _token, address _oracle) {
         stakingToken = _token;
@@ -67,31 +69,37 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         _transferPerformanceFee();
 
         uint256 beforeAmount = stakingToken.balanceOf(address(this));
-        stakingToken.safeTransferFrom(
-            address(msg.sender),
-            address(this),
-            _amount
-        );
-        uint256 afterAmount = stakingToken.balanceOf(address(this));        
+        stakingToken.safeTransferFrom(msg.sender, address(this), _amount);
+        uint256 afterAmount = stakingToken.balanceOf(address(this));
         uint256 realAmount = afterAmount - beforeAmount;
+
+        uint256 fee = realAmount * tax[user.nominatedType] / 10000;
+        uint256 maxTax = stakingToken.totalSupply() * MAX_TAX_LIMIT / 10000;
+        if(fee > maxTax) fee = maxTax;
+        stakingToken.safeTransfer(treasury, fee);
+        realAmount -= fee;
 
         uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
         uint256 usdAmount = realAmount * tokenPrice / 1 ether;
         require(usdAmount <= depositLimit, "cannot exceed max deposit limit");
 
         if(user.amount > 0) {
-            if(user.lastClaimTime == user.lastDepositTime) {
-                user.deposited += user.amount;
-                user.depositedUsd += user.usdAmount;
-            }
-
             uint256 claimable = 0;
-            uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS + TIME_UNITS;
-            if(block.timestamp < expireTime && user.usdAmount >= user.initialAmount && usdAmount >= user.initialAmount) {
-                claimable = user.usdAmount * bonusRate / 10000;
+            if(user.lastClaimTime == user.lastDepositTime) {
+                uint256 depositedTokens = user.usdAmount * 1e18 / tokenPrice;
+                if(depositedTokens > user.amount) {
+                    depositedTokens = user.amount;
+                }
+                claimable = depositedTokens;
             }
 
-            user.reward += claimable;
+            uint256 expireTime = user.lastDepositTime + (user.nominatedCycle + 1) * TIME_UNITS;
+            if(block.timestamp < expireTime && user.usdAmount >= user.initialAmount && usdAmount >= user.initialAmount) {
+                claimable += (user.usdAmount * bonusRate / 10000) * 1e18 / tokenPrice;
+            }
+
+            stakingToken.safeTransfer(msg.sender, claimable);
+            user.totalReward += claimable;
         }
 
         if(user.initialAmount == 0) {
@@ -117,6 +125,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
 
         UserInfo storage user = userInfo[msg.sender];
         user.nominatedCycle = nominated[_type];
+        user.nominatedType = _type;
 
         emit CycleNominated(msg.sender, nominated[_type]);
     }
@@ -128,46 +137,34 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
 
         uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS;
         if(block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
-            user.deposited += user.amount;
-            user.depositedUsd += user.usdAmount;
+            uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));  
+            uint256 claimable = user.usdAmount * 1e18 / tokenPrice;
+            if(claimable > user.amount) {
+                claimable = user.amount;
+            }
+            
+            stakingToken.safeTransfer(msg.sender, claimable);
+            user.totalReward += claimable;
+
+            emit Claim(msg.sender, claimable);
         }
 
-        uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));        
-        uint256 claimable = user.reward * 1e18 / tokenPrice;
-        user.totalReward += claimable + user.depositedUsd;
-
-        uint256 depositedTokens = user.depositedUsd * 1e18 / tokenPrice;
-        if(depositedTokens > user.deposited) {
-            depositedTokens = user.deposited;
-        }
-        claimable += depositedTokens;
-
-        stakingToken.safeTransfer(msg.sender, claimable);
-
-        user.deposited = 0;
-        user.depositedUsd = 0;
-        user.reward = 0;
         user.lastClaimTime = block.timestamp;
-        emit Claim(msg.sender, claimable);
     }
 
     function pendingRewards(address _user) external view returns (uint256) {
         UserInfo memory user = userInfo[_user];
         
-        uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
-        uint256 claimable = user.reward * 1e18 / tokenPrice;
-        
+        uint256 claimable = 0;        
         uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS;
         if(block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
-            user.deposited += user.amount;
-            user.depositedUsd += user.usdAmount;
+            uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
+            
+            claimable = user.usdAmount * 1e18 / tokenPrice;
+            if(claimable > user.amount) {
+                claimable = user.amount;
+            }
         }
-
-        uint256 depositedTokens = user.depositedUsd * 1e18 / tokenPrice;
-        if(depositedTokens > user.deposited) {
-            depositedTokens = user.deposited;
-        }
-        claimable += depositedTokens;
 
         return claimable;
     }
@@ -213,10 +210,19 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         emit SetDepositLimit(_limit);
     }
 
-    function updateBonusRate(uint256 _rate) external onlyOwner {
+    function setBonusRate(uint256 _rate) external onlyOwner {
         require(_rate <= 10000, "Invalid rate");
         bonusRate = _rate;
         emit SetBonusRate(_rate);
+    }
+
+    function setTaxes(uint256[] memory _tax) external onlyOwner {
+        require(_tax.length == 3, "invalid tax config");
+        for(uint i = 0; i < 3; i++) {
+            require(_tax[i] <= 5000, "exceed tax limit");
+            tax[i] = _tax[i];
+        }
+        emit SetTax(_tax);
     }
 
     receive() external payable {}
