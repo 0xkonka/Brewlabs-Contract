@@ -44,38 +44,43 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {           
-            Utils.infoMsg("Deploying BlocVestShareholderVault contract");
+            Utils.infoMsg("Deploying BlocVestAccumulatorVault contract");
 
-            let deployed = await deploy('BlocVestShareholderVault', {
+            let deployed = await deploy('BlocVestAccumulatorVault', {
                 from: account,
-                args: [],
+                args: [
+                    "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175",
+                    "0x3fDea0A6F7FBb631E04FFBff7935B2452357fc5B"
+                ],
                 log:  false
             });
     
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            let contractInstance = await ethers.getContractAt("BlocVestShareholderVault", deployedAddress)
-            let tx = await contractInstance.initialize(
-                "0x592032513b329a0956b3f14d661119880F2361a6",
-                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-                "0x10ed43c718714eb63d5aa57b78b54704e256024e",
-                [
-                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x592032513b329a0956b3f14d661119880F2361a6"
-                ],
-                "0x1dD565b26FBc45e51Fa5aA360A918BA31B5aADd5"
-            )
-            await tx.wait()
-
+            // let contractInstance = await ethers.getContractAt("BlocVestShareholderVault", deployedAddress)
+            // let tx = await contractInstance.initialize(
+            //     "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175",
+            //     "0x2995bD504647b5EeE414A78be1d7b24f49f00FFE",
+            //     "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
+            //     [
+            //         "0x2995bD504647b5EeE414A78be1d7b24f49f00FFE",
+            //         "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+            //         "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175"
+            //     ],
+            //     "0x3fDea0A6F7FBb631E04FFBff7935B2452357fc5B"
+            // )
+            // await tx.wait()
           
             // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/BlocVestShareholderVault.sol:BlocVestShareholderVault",
-                constructorArguments: [],
+                contract: "contracts/others/BlocVestAccumulatorVault.sol:BlocVestAccumulatorVault",
+                constructorArguments: [
+                    "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175",
+                    "0x3fDea0A6F7FBb631E04FFBff7935B2452357fc5B"
+                ],
             }) 
         }
 
