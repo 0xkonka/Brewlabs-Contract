@@ -164,7 +164,6 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         return claimable;
     }
 
-
     function _transferPerformanceFee() internal {
         require(msg.value >= performanceFee, 'should pay small gas to compound or harvest');
 
