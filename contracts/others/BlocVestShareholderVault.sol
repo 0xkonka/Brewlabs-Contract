@@ -166,6 +166,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         
         uint256 realAmount = afterAmount - beforeAmount + pending;
         uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
+        require(tokenPrice > 0, "invalid token price");
         
         user.amount = user.amount + realAmount;
         user.usdAmount = user.usdAmount + realAmount * tokenPrice / 1e18;

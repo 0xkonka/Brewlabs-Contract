@@ -72,6 +72,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         uint256 realAmount = afterAmount - beforeAmount;
 
         uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
+        require(tokenPrice > 0, "invalid token price");
         uint256 usdAmount = realAmount * tokenPrice / 1 ether;
         require(usdAmount <= depositLimit, "cannot exceed max deposit limit");
 
@@ -154,6 +155,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS;
         if(block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
             uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
+            if(tokenPrice == 0) return 0;
             
             claimable = user.usdAmount * 1e18 / tokenPrice;
             if(claimable > user.amount) {
