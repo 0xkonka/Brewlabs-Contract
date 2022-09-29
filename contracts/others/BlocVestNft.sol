@@ -23,13 +23,14 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
   uint256 public onetimeMintingLimit = 40;
   address public payingToken = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
   uint256[4] public prices = [500 ether, 1000 ether, 2500 ether, 5000 ether];
+  bool[4] public categoryMintable = [true, true, false, false];
 
   address public treasury = 0xBd6B80CC1ed8dd3DBB714b2c8AD8b100A7712DA7;
   uint256 public performanceFee = 0.0015 ether;
 
   mapping(uint256 => string) private _tokenURIs;
   mapping(uint256 => uint256) public rarities;
-  mapping(address => bool) private whitelist;
+  mapping(address => bool) private whitelist;  
   mapping(address => mapping(uint256 => bool)) private feeExcluded;
 
   event BaseURIUpdated(string uri);
@@ -39,9 +40,10 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
   event SetSalePrices(uint256[4] prices);
   event SetOneTimeLimit(uint256 limit);
   event ServiceInfoUpadted(address treasury, uint256 fee);
+  event UpdateCategoryMintable(uint256 category, bool status);
   event WhiteListUpdated(address addr, bool enabled);
   event FeeExcluded(address addr, uint256 category);
-  event FeeIncluded(address addr, uint256 category);
+  event FeeIncluded(address addr, uint256 category);  
 
   constructor() ERC721("BlocVest", "BVST") {}
 
@@ -60,6 +62,7 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
   function mint(uint256 _category) external payable {
     require(mintAllowed, "mint was disabled");
     require(_category < 4, "invalid category");
+    require(categoryMintable[_category] == true, "Cannot mint this category");
     require(!checkHoldCategory(msg.sender, _category), "already hold this card");
 
     _transferPerformanceFee();
@@ -102,6 +105,12 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
     require(mintAllowed, "already disabled");
     mintAllowed = false;
     emit MintDisabled();
+  }
+
+  function setCategoryMintable(uint256 _category, bool _status) external onlyOwner {
+    require(_category < 4, "invalid category");
+    categoryMintable[_category] = _status;
+    emit UpdateCategoryMintable(_category, _status);
   }
 
   function setPayingToken(address _token) external onlyOwner {
