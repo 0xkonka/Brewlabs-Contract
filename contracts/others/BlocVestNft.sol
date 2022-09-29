@@ -24,7 +24,7 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
   address public payingToken = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
   uint256[4] public prices = [500 ether, 1000 ether, 2500 ether, 5000 ether];
 
-  address public treasury;
+  address public treasury = 0xBd6B80CC1ed8dd3DBB714b2c8AD8b100A7712DA7;
   uint256 public performanceFee = 0.0015 ether;
 
   mapping(uint256 => string) private _tokenURIs;
@@ -43,9 +43,7 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
   event FeeExcluded(address addr, uint256 category);
   event FeeIncluded(address addr, uint256 category);
 
-  constructor() ERC721("BlocVest NFT Card", "Bvest") {
-    treasury = msg.sender;
-  }
+  constructor() ERC721("BlocVest", "BVST") {}
 
   function _transfer(
     address from,

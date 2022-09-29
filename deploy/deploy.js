@@ -44,37 +44,51 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {           
-            Utils.infoMsg("Deploying BlocVestShareholderVault contract");
+            Utils.infoMsg("Deploying BlocVestTrickleVault contract");
 
-            let deployed = await deploy('BlocVestShareholderVault', {
+            let deployed = await deploy('BlocVestTrickleVault', {
                 from: account,
-                args: [],
+                args: [
+                    "0xa7a646C90A65C1633c2308b354FADb775f924D69", // nft
+                    "0x10ed43c718714eb63d5aa57b78b54704e256024e", // router
+                    [  // bvst-bnb path
+                        "0x592032513b329a0956b3f14d661119880F2361a6",
+                        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+                    ]
+                ],
                 log:  false
             });
     
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            let contractInstance = await ethers.getContractAt("BlocVestShareholderVault", deployedAddress)
-            let tx = await contractInstance.initialize(
-                "0x592032513b329a0956b3f14d661119880F2361a6",
-                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-                "0x10ed43c718714eb63d5aa57b78b54704e256024e",
-                [
-                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x592032513b329a0956b3f14d661119880F2361a6"
-                ],
-                "0x1dD565b26FBc45e51Fa5aA360A918BA31B5aADd5"
-            )
-            await tx.wait()
+            // let contractInstance = await ethers.getContractAt("BlocVestShareholderVault", deployedAddress)
+            // let tx = await contractInstance.initialize(
+            //     "0x592032513b329a0956b3f14d661119880F2361a6",
+            //     "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+            //     "0x10ed43c718714eb63d5aa57b78b54704e256024e",
+            //     [
+            //         "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+            //         "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+            //         "0x592032513b329a0956b3f14d661119880F2361a6"
+            //     ],
+            //     "0x1dD565b26FBc45e51Fa5aA360A918BA31B5aADd5"
+            // )
+            // await tx.wait()
           
             // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/BlocVestShareholderVault.sol:BlocVestShareholderVault",
-                constructorArguments: [],
+                contract: "contracts/others/BlocVestTrickleVault.sol:BlocVestTrickleVault",
+                constructorArguments: [
+                    "0xa7a646C90A65C1633c2308b354FADb775f924D69", // nft
+                    "0x10ed43c718714eb63d5aa57b78b54704e256024e", // router
+                    [  // bvst-bnb path
+                        "0x592032513b329a0956b3f14d661119880F2361a6",
+                        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+                    ]
+                ],
             }) 
         }
 
