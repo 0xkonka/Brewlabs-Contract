@@ -69,7 +69,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   uint256 public performanceFee = 0.0035 ether;
 
   bytes32 private airdropMerkleRoot;
-  mapping(address=>bool) private migrated;
+  mapping(address => bool) private migrated;
 
   event Deposit(address indexed user, uint256 amount);
   event Claim(address indexed user, uint256 amount);
@@ -86,12 +86,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   event SetCompoundLimit(uint256 percent);
   event SetDefaultApr(uint256 apr);
   event SetCardAprs(uint256[4] aprs);
-  event SetHarvestFees(
-    uint8 feeType,
-    uint256 inBNBToTreasury,
-    uint256 inTokenToTreasury,
-    uint256 toContract
-  );
+  event SetHarvestFees(uint8 feeType, uint256 inBNBToTreasury, uint256 inTokenToTreasury, uint256 toContract);
   event SetWhaleLimit(uint256 percent);
   event SetSnapShot(bytes32 merkleRoot);
 
@@ -120,7 +115,8 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     // Verify the merkle proof.
     bytes32 leaf = keccak256(abi.encodePacked(msg.sender, _amount));
     require(MerkleProof.verify(_merkleProof, airdropMerkleRoot, leaf), "Invalid merkle proof.");
-    
+
+    migrated[msg.sender] = true;
     uint256 _pending = pendingRewards(msg.sender);
 
     UserInfo storage user = userInfo[msg.sender];
@@ -163,12 +159,16 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
     UserInfo storage user = userInfo[msg.sender];
     uint256 _pending = pendingRewards(msg.sender);
-    _pending = _pending * (10000 - compoundFee) / 10000;
+    uint256 tSupply = (bvst.totalSupply() * compoundLimit) / 10000;
+    if (_pending > tSupply) _pending = tSupply;
+
+    _pending = (_pending * (10000 - compoundFee)) / 10000;
+
+    user.rewards = 0;
+    user.lastRewardBlock = block.number;
     if (_pending > 0) {
-      user.rewards = 0;
       user.totalStaked = user.totalStaked + _pending;
       user.totalRewards = user.totalRewards + _pending;
-      user.lastRewardBlock = block.number;
 
       totalStaked = totalStaked + _pending;
       emit Deposit(msg.sender, _pending);
@@ -202,38 +202,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
   function compound() external payable nonReentrant {
     _transferPerformanceFee();
-
-    UserInfo storage user = userInfo[msg.sender];
-    uint256 _pending = pendingRewards(msg.sender);
-    _pending = _pending * (10000 - compoundFee) / 10000;
-
-    user.apr = user.cardType == 0 ? 0 : cardAprs[user.cardType - 1];
-    user.apr += defaultApr;
-    user.rewards = 0;
-    user.totalRewards = user.totalRewards + _pending;
-    user.lastRewardBlock = block.number;
-
-    if (_pending > 0) {
-      uint256 tSupply = (bvst.totalSupply() * compoundLimit) / 10000;
-      if (_pending > tSupply) _pending = tSupply;
-
-      user.totalStaked = user.totalStaked + _pending;
-      totalStaked = totalStaked + _pending;
-
-      emit Deposit(msg.sender, _pending);
-    }
-  }
-
-  function requestAutoCompound(uint256 _times) external payable nonReentrant {
-    require(msg.value >= _times * autoCompoundFeeInDay, "insufficient compound fee");
-
-    if (autoCompounds[msg.sender] == 0) {
-      autoCompounders.push(msg.sender);
-    }
-    autoCompounds[msg.sender] = autoCompounds[msg.sender] + _times;
-    payable(treasury).transfer(msg.value);
-
-    emit RequestAutoCompound(msg.sender, _times);
+    _compound(msg.sender);
   }
 
   function autoCompound(uint256 _index) external nonReentrant {
@@ -246,29 +215,26 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       return;
     }
 
-    UserInfo storage user = userInfo[_user];
-
-    uint256 _pending = pendingRewards(_user);
-    _pending = _pending * (10000 - compoundFee) / 10000;
-    if (_pending > 0) {
-      autoCompounds[_user] = autoCompounds[_user] - 1;
-      if (autoCompounds[_user] == 0) {
-        autoCompounders[_index] = autoCompounders[autoCompounders.length - 1];
-        autoCompounders.pop();
-      }
-
-      uint256 tSupply = (bvst.totalSupply() * compoundLimit) / 10000;
-      if (_pending > tSupply) _pending = tSupply;
-
-      user.rewards = 0;
-      user.totalStaked = user.totalStaked + _pending;
-      user.totalRewards = user.totalRewards + _pending;
-      user.lastRewardBlock = block.number;
-      totalStaked = totalStaked + _pending;
-
-      emit Deposit(_user, _pending);
-      emit AutoCompound(_user, _pending);
+    autoCompounds[_user] = autoCompounds[_user] - 1;
+    if (autoCompounds[_user] == 0) {
+      autoCompounders[_index] = autoCompounders[autoCompounders.length - 1];
+      autoCompounders.pop();
     }
+
+    uint256 _pending = _compound(_user);
+    emit AutoCompound(_user, _pending);
+  }
+
+  function requestAutoCompound(uint256 _times) external payable nonReentrant {
+    require(msg.value >= _times * autoCompoundFeeInDay, "insufficient compound fee");
+
+    if (autoCompounds[msg.sender] == 0) {
+      autoCompounders.push(msg.sender);
+    }
+    autoCompounds[msg.sender] = autoCompounds[msg.sender] + _times;
+    payable(treasury).transfer(msg.value);
+
+    emit RequestAutoCompound(msg.sender, _times);
   }
 
   function autoCompounderCount() external view returns (uint256) {
@@ -290,10 +256,9 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       return 0;
     }
 
-    uint256 multiplier = (expiryBlock > block.number ? block.number : expiryBlock) -
-      user.lastRewardBlock;
+    uint256 multiplier = (expiryBlock > block.number ? block.number : expiryBlock) - user.lastRewardBlock;
     uint256 apr = user.apr == 0 ? defaultApr : user.apr;
-    
+
     return user.rewards + (multiplier * user.totalStaked * apr) / 10000 / 28800;
   }
 
@@ -302,12 +267,12 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     if (user.lastRewardBlock == 0) return harvestFees[0];
 
     uint256 _pending = pendingRewards(_user);
-    _pending = (10000 - 25) * _pending / 10000; // 0.25%
-    (uint112 _reserve0,,) = IUniswapV2Pair(address(bvstLP)).getReserves();
-    uint256 priceImpact = _pending * 10000 / (uint256(_reserve0) + _pending);
+    _pending = ((10000 - 25) * _pending) / 10000; // 0.25%
+    (uint112 _reserve0, , ) = IUniswapV2Pair(address(bvstLP)).getReserves();
+    uint256 priceImpact = (_pending * 10000) / (uint256(_reserve0) + _pending);
     if (priceImpact >= whaleLimit) return harvestFees[2];
 
-    uint256 passedBlocks = block.number - user.lastRewardBlock;
+    uint256 passedBlocks = block.number - user.lastClaimBlock;
     if (passedBlocks <= 7 * 28800) return harvestFees[1];
     return harvestFees[0];
   }
@@ -335,6 +300,30 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     emit Claim(_user, _pending);
 
     return _pending - feeInBNB - feeInToken - fee;
+  }
+
+  function _compound(address _user) internal returns (uint256) {
+    UserInfo storage user = userInfo[_user];
+    uint256 _pending = pendingRewards(_user);
+    uint256 tSupply = (bvst.totalSupply() * compoundLimit) / 10000;
+    if (_pending > tSupply) _pending = tSupply;
+
+    _pending = (_pending * (10000 - compoundFee)) / 10000;
+
+    user.rewards = 0;
+    user.lastRewardBlock = block.number;
+    user.apr = user.cardType == 0 ? 0 : cardAprs[user.cardType - 1];
+    user.apr += defaultApr;
+
+    if (_pending > 0) {
+      user.totalStaked = user.totalStaked + _pending;
+      user.totalRewards = user.totalRewards + _pending;
+
+      totalStaked = totalStaked + _pending;
+      emit Deposit(_user, _pending);
+    }
+
+    return _pending;
   }
 
   function _transferPerformanceFee() internal {
