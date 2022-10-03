@@ -75,9 +75,11 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   event NftStaked(address indexed user, address nft, uint256 tokenId);
 
   event SetDepositFee(uint256 percent);
+  event SetCompoundFee(uint256 percent);
   event SetAutoCompoundFee(uint256 fee);
   event SetUserDepositLimit(uint256 limit);
   event SetClaimLimit(uint256 count);
+  event SetCompoundLimit(uint256 percent);
   event SetDefaultApr(uint256 apr);
   event SetCardAprs(uint256[4] aprs);
   event SetHarvestFees(
@@ -232,7 +234,9 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
       uint256 tSupply = (bvst.totalSupply() * compoundLimit) / 10000;
       if (_pending > tSupply) _pending = tSupply;
 
+      user.rewards = 0;
       user.totalStaked = user.totalStaked + _pending;
+      user.totalRewards = user.totalRewards + _pending;
       user.lastRewardBlock = block.number;
       totalStaked = totalStaked + _pending;
 
@@ -289,12 +293,11 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     uint256 _pending = pendingRewards(_user);
     user.apr = user.cardType == 0 ? 0 : cardAprs[user.cardType - 1];
     user.apr += defaultApr;
-    if (_pending == 0) return 0;
-
     user.rewards = 0;
     user.totalRewards = user.totalRewards + _pending;
     user.lastRewardBlock = block.number;
 
+    if (_pending == 0) return 0;
     uint256 feeInBNB = (_pending * tax.feeInBNB) / 10000;
     if (feeInBNB > 0) {
       _safeSwap(feeInBNB, tokenToBnbPath, treasury);
@@ -377,6 +380,18 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     require(_percent < 10000, "invalid limit");
     whaleLimit = _percent;
     emit SetWhaleLimit(_percent);
+  }
+
+  function setCompoundFee(uint256 _percent) external onlyOwner {
+    require(_percent <= 10000, "invalid percent");
+    compoundFee = _percent;
+    emit SetCompoundFee(_percent);
+  }
+
+  function setCompoundLimit(uint256 _percent) external onlyOwner {
+    require(_percent < 10000, "invalid percent");
+    compoundLimit = _percent;
+    emit SetCompoundLimit(_percent);
   }
 
   function setServiceInfo(address _treasury, uint256 _fee) external {
