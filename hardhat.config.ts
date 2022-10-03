@@ -53,67 +53,67 @@ module.exports = {
       url: `https://kovan.infura.io/v3/${infuraProjectId}`,
       chainId: 42,
       //gasPrice: 20000000000,
-      accounts: [`0x${accountPrivateKey}`],
+      accounts: [accountPrivateKey["mainnet"]],
     },
 
     ropsten: {
       url: `https://ropsten.infura.io/v3/${infuraProjectId}`,
       chainId: 3,
       //gasPrice: 20000000000,
-      accounts: [`0x${accountPrivateKey}`],
+      accounts: [accountPrivateKey["mainnet"]],
     },
 
     rinkeby: {
       url: `https://rinkeby.infura.io/v3/${infuraProjectId}`,
       chainId: 4,
       //gasPrice: 20000000000,
-      accounts: [`0x${accountPrivateKey}`],
+      accounts: [accountPrivateKey["mainnet"]],
     },
 
     eth_mainnet: {
       url: `https://mainnet.infura.io/v3/${infuraProjectId}`,
       chainId: 1,
       //gasPrice: 20000000000,
-      accounts: [`0x${accountPrivateKey}`],
+      accounts: [accountPrivateKey["mainnet"]],
     },
 
     bsc_mainnet: {
       url: `https://bsc-dataseed.binance.org/`,
       chainId: 56,
       //gasPrice: 20000000000,
-      accounts: [`0x${accountPrivateKey}`],
+      accounts: [accountPrivateKey["bsc"]],
     },
 
     bsc_testnet: {
       url: `https://data-seed-prebsc-1-s1.binance.org:8545/`,
       chainId: 97,
       //gasPrice: 20000000000,
-      accounts: [`0x${accountPrivateKey}`],
+      accounts: [accountPrivateKey["bsc"]],
     },
 
     matic: {
       url: `https://polygon-rpc.com`,
       chainId: 137,
       //gasPrice: 20000000000,
-      accounts: [`0x${accountPrivateKey}`],
+      accounts: [accountPrivateKey["bsc"]],
     },
     fantom: {
       url: `https://rpc.ftm.tools/`,
       chainId: 250,
       //gasPrice: 20000000000,
-      accounts: [`0x${accountPrivateKey}`],
+      accounts: [accountPrivateKey["bsc"]],
     },
     avalanche: {
       url: `https://api.avax.network/ext/bc/C/rpc`,
       chainId: 43114,
       //gasPrice: 20000000000,
-      accounts: [`0x${accountPrivateKey}`],
+      accounts: [accountPrivateKey["bsc"]],
     },
     cronos: {
       url: `https://evm.cronos.org`,
       chainId: 25,
       //gasPrice: 20000000000,
-      accounts: [`0x${accountPrivateKey}`],
+      accounts: [accountPrivateKey["bsc"]],
     },
   },
 

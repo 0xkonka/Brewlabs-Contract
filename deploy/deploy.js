@@ -14,6 +14,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         Utils.infoMsg(" ------------------------------------------------------------------------------- ")
         Utils.infoMsg(" --------------------------- Deploying Brewlabs Contracts ------------------- ")
         Utils.infoMsg(" ------------------------------------------------------------------------------- ")
+        Utils.infoMsg(` Deployer:  ${account}`)
 
         const config = {
             tokenFreezer: false,
