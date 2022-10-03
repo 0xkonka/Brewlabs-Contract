@@ -9,6 +9,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
@@ -67,6 +68,9 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   address public treasury = 0xBd6B80CC1ed8dd3DBB714b2c8AD8b100A7712DA7;
   uint256 public performanceFee = 0.0035 ether;
 
+  bytes32 private airdropMerkleRoot;
+  mapping(address=>bool) private migrated;
+
   event Deposit(address indexed user, uint256 amount);
   event Claim(address indexed user, uint256 amount);
   event AutoCompound(address user, uint256 amount);
@@ -89,6 +93,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     uint256 toContract
   );
   event SetWhaleLimit(uint256 percent);
+  event SetSnapShot(bytes32 merkleRoot);
 
   event AdminTokenRecovered(address tokenRecovered, uint256 amount);
   event ServiceInfoUpadted(address addr, uint256 fee);
@@ -106,6 +111,27 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     harvestFees[0] = HarvestFee(0, 0, 1000);
     harvestFees[1] = HarvestFee(0, 0, 5000);
     harvestFees[2] = HarvestFee(1500, 1500, 2000);
+  }
+
+  function migrate(uint256 _amount, bytes32[] memory _merkleProof) external nonReentrant {
+    require(airdropMerkleRoot != "", "Migration not enabled");
+    require(!migrated[msg.sender], "Already migrated");
+
+    // Verify the merkle proof.
+    bytes32 leaf = keccak256(abi.encodePacked(msg.sender, _amount));
+    require(MerkleProof.verify(_merkleProof, airdropMerkleRoot, leaf), "Invalid merkle proof.");
+    
+    uint256 _pending = pendingRewards(msg.sender);
+
+    UserInfo storage user = userInfo[msg.sender];
+    user.rewards += _pending;
+    user.lastRewardBlock = block.number;
+    user.lastClaimBlock = block.number;
+    user.totalRewards = user.totalRewards + _pending;
+    user.totalStaked = user.totalStaked + _amount;
+    totalStaked = totalStaked + _amount;
+
+    emit Deposit(msg.sender, _amount);
   }
 
   function deposit(uint256 _amount) external payable nonReentrant {
@@ -392,6 +418,12 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     require(_percent < 10000, "invalid percent");
     compoundLimit = _percent;
     emit SetCompoundLimit(_percent);
+  }
+
+  function setSnapShotForAirdrop(bytes32 _merkleRoot) external onlyOwner {
+    require(_merkleRoot != "cannot set empty data");
+    airdropMerkleRoot = _merkleRoot;
+    emit SetSnapShot(_merkleRoot);
   }
 
   function setServiceInfo(address _treasury, uint256 _fee) external {
