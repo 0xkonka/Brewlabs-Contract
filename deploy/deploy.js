@@ -466,7 +466,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             console.log('initialize BrewlabsLockup', res)
             
             let _rate = ethers.utils.parseUnits('1342275.494672754946727549', 18)
-            await contractInstance.addLockup(30, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
+            let tx = await contractInstance.addLockup(30, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
+            await tx.wait()
 
             // verify
             // await sleep(60)
