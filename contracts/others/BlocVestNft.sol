@@ -30,7 +30,7 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
 
   mapping(uint256 => string) private _tokenURIs;
   mapping(uint256 => uint256) public rarities;
-  mapping(address => bool) private whitelist;  
+  mapping(address => bool) private whitelist;
   mapping(address => mapping(uint256 => bool)) private feeExcluded;
 
   event BaseURIUpdated(string uri);
@@ -43,7 +43,7 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
   event UpdateCategoryMintable(uint256 category, bool status);
   event WhiteListUpdated(address addr, bool enabled);
   event FeeExcluded(address addr, uint256 category);
-  event FeeIncluded(address addr, uint256 category);  
+  event FeeIncluded(address addr, uint256 category);
 
   constructor() ERC721("BlocVest", "BVST") {}
 
@@ -85,14 +85,22 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
     emit WhiteListUpdated(_addr, _enabled);
   }
 
-  function excludeFromFee(address _addr, uint256 _category) external onlyOwner {
-    feeExcluded[_addr][_category] = true;
-    emit FeeExcluded(_addr, _category);
+  function excludeFromFee(address[] memory _addrs, uint256 _category) external onlyOwner {
+    require(_addrs.length <= 200, "exceed limit");
+
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      feeExcluded[_addrs[i]][_category] = true;
+      emit FeeExcluded(_addrs[i], _category);
+    }
   }
 
-  function includeInFee(address _addr, uint256 _category) external onlyOwner {
-    feeExcluded[_addr][_category] = false;
-    emit FeeIncluded(_addr, _category);
+  function includeInFee(address[] memory _addrs, uint256 _category) external onlyOwner {
+    require(_addrs.length <= 200, "exceed limit");
+
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      feeExcluded[_addrs[i]][_category] = false;
+      emit FeeIncluded(_addrs[i], _category);
+    }
   }
 
   function enabledMint() external onlyOwner {
@@ -148,13 +156,7 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
     emit BaseURIUpdated(_uri);
   }
 
-  function tokenURI(uint256 tokenId)
-    public
-    view
-    virtual
-    override
-    returns (string memory)
-  {
+  function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
     require(_exists(tokenId), "BlocVest: URI query for nonexistent token");
 
     string memory base = _baseURI();
@@ -165,9 +167,7 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
         '{"name": "BlocVest NFT Card", "description": "BlocVest NFT Card #',
         tokenId.toString(),
         ': BlocVest NFT Cards are generated as a result of each individual.", "image": "',
-        string(
-          abi.encodePacked(base, categoryNames[rarities[tokenId]], ".mp4")
-        ),
+        string(abi.encodePacked(base, categoryNames[rarities[tokenId]], ".mp4")),
         '", "attributes":[{"trait_type":"category", "value":"',
         categoryNames[rarities[tokenId]],
         '"}, {"trait_type":"number", "value":"',
@@ -176,24 +176,14 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
       )
     );
 
-    return
-      string(
-        abi.encodePacked(
-          "data:application/json;base64,",
-          _base64(bytes(metadata))
-        )
-      );
+    return string(abi.encodePacked("data:application/json;base64,", _base64(bytes(metadata))));
   }
 
   function categoryOf(uint256 tokenId) external view returns (string memory) {
     return categoryNames[rarities[tokenId]];
   }
 
-  function checkHoldCategory(address _user, uint256 _category)
-    internal
-    view
-    returns (bool)
-  {
+  function checkHoldCategory(address _user, uint256 _category) internal view returns (bool) {
     uint256 balance = balanceOf(_user);
     if (balance == 0) return false;
 
@@ -226,8 +216,7 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
     if (data.length == 0) return "";
 
     // load the table into memory
-    string
-      memory table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    string memory table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     // multiply by 4/3 rounded up
     uint256 encodedLen = 4 * ((data.length + 2) / 3);
@@ -261,20 +250,11 @@ contract BlocVestNft is ERC721Enumerable, Ownable {
         let input := mload(dataPtr)
 
         // write 4 characters
-        mstore(
-          resultPtr,
-          shl(248, mload(add(tablePtr, and(shr(18, input), 0x3F))))
-        )
+        mstore(resultPtr, shl(248, mload(add(tablePtr, and(shr(18, input), 0x3F)))))
         resultPtr := add(resultPtr, 1)
-        mstore(
-          resultPtr,
-          shl(248, mload(add(tablePtr, and(shr(12, input), 0x3F))))
-        )
+        mstore(resultPtr, shl(248, mload(add(tablePtr, and(shr(12, input), 0x3F)))))
         resultPtr := add(resultPtr, 1)
-        mstore(
-          resultPtr,
-          shl(248, mload(add(tablePtr, and(shr(6, input), 0x3F))))
-        )
+        mstore(resultPtr, shl(248, mload(add(tablePtr, and(shr(6, input), 0x3F)))))
         resultPtr := add(resultPtr, 1)
         mstore(resultPtr, shl(248, mload(add(tablePtr, and(input, 0x3F)))))
         resultPtr := add(resultPtr, 1)
