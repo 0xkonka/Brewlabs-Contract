@@ -123,7 +123,6 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     user.rewards += _pending;
     user.lastRewardBlock = block.number;
     user.lastClaimBlock = block.number;
-    user.totalRewards = user.totalRewards + _pending;
     user.totalStaked = user.totalStaked + _amount;
     totalStaked = totalStaked + _amount;
 
@@ -147,7 +146,6 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     user.rewards += _pending;
     user.lastRewardBlock = block.number;
     user.lastClaimBlock = block.number;
-    user.totalRewards = user.totalRewards + _pending;
     user.totalStaked = user.totalStaked + realAmount;
     totalStaked = totalStaked + realAmount;
 
@@ -159,17 +157,16 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
     UserInfo storage user = userInfo[msg.sender];
     uint256 _pending = pendingRewards(msg.sender);
+    user.totalRewards = user.totalRewards + _pending;
+
     uint256 tSupply = (bvst.totalSupply() * compoundLimit) / 10000;
     if (_pending > tSupply) _pending = tSupply;
-
     _pending = (_pending * (10000 - compoundFee)) / 10000;
 
     user.rewards = 0;
     user.lastRewardBlock = block.number;
     if (_pending > 0) {
       user.totalStaked = user.totalStaked + _pending;
-      user.totalRewards = user.totalRewards + _pending;
-
       totalStaked = totalStaked + _pending;
       emit Deposit(msg.sender, _pending);
     }
@@ -267,6 +264,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
     if (user.lastRewardBlock == 0) return harvestFees[0];
 
     uint256 _pending = pendingRewards(_user);
+
     _pending = ((10000 - 25) * _pending) / 10000; // 0.25%
     (uint112 _reserve0, , ) = IUniswapV2Pair(address(bvstLP)).getReserves();
     uint256 priceImpact = (_pending * 10000) / (uint256(_reserve0) + _pending);
@@ -305,9 +303,10 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   function _compound(address _user) internal returns (uint256) {
     UserInfo storage user = userInfo[_user];
     uint256 _pending = pendingRewards(_user);
+    user.totalRewards = user.totalRewards + _pending;
+
     uint256 tSupply = (bvst.totalSupply() * compoundLimit) / 10000;
     if (_pending > tSupply) _pending = tSupply;
-
     _pending = (_pending * (10000 - compoundFee)) / 10000;
 
     user.rewards = 0;
@@ -317,8 +316,6 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
 
     if (_pending > 0) {
       user.totalStaked = user.totalStaked + _pending;
-      user.totalRewards = user.totalRewards + _pending;
-
       totalStaked = totalStaked + _pending;
       emit Deposit(_user, _pending);
     }
