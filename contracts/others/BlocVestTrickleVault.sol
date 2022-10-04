@@ -363,13 +363,9 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   }
 
   function setCardAprs(uint256[4] memory _aprs) external onlyOwner {
-    require(totalStaked > 0, "is staking");
-    uint256 totalAlloc = 0;
     for (uint256 i = 0; i <= 4; i++) {
-      totalAlloc = totalAlloc + _aprs[i];
-      require(_aprs[i] > 0, "Invalid apr");
+      require(_aprs[i] < 10000, "Invalid apr");
     }
-
     cardAprs = _aprs;
     emit SetCardAprs(_aprs);
   }
