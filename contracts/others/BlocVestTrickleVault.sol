@@ -69,7 +69,7 @@ contract BlocVestTrickleVault is Ownable, IERC721Receiver, ReentrancyGuard {
   uint256 public performanceFee = 0.0035 ether;
 
   bytes32 private airdropMerkleRoot;
-  mapping(address => bool) private migrated;
+  mapping(address => bool) public migrated;
 
   event Deposit(address indexed user, uint256 amount);
   event Claim(address indexed user, uint256 amount);
