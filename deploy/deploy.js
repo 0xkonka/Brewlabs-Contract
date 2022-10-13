@@ -97,11 +97,17 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.infoMsg("Deploying BrewlabsPriceOracle contract");
             let wbnb;
             switch(network.config.chainId) {
-                case 97: 
-                    wbnb = "0xae13d989dac2f0debff460ac112a837c89baa7cd" // bsc testnet
+                case 1: 
+                    wbnb = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" // mainnet
+                    break;
+                case 5: 
+                    wbnb = "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6" // goerli testnet
                     break;
                 case 56: 
                     wbnb = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c" // bsc mainnet
+                    break;
+                case 97: 
+                    wbnb = "0xae13d989dac2f0debff460ac112a837c89baa7cd" // bsc testnet
                     break;
                 default: 
                 Utils.errorMsg(`Not support ${network.config.chainId}`)
@@ -119,45 +125,37 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
     
             // initialize
             let contractInstance = await ethers.getContractAt("BrewlabsPriceOracle", deployedAddress)
-            if(network.config.chainId === 56) {
-                // set busd price
-                await sleep(30)
-                let tx = await contractInstance.setDirectPrice("0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", ethers.utils.parseUnits("1", 18));
+            
+            await sleep(30)
+            let tx
+            if(network.config.chainId === 1) {
+                // set usdc price
+                tx = await contractInstance.setDirectPrice("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", ethers.utils.parseUnits("1", 18));
+                await tx.wait()
+                // set eth chainlink feed (eth-usd)                
+                tx = await contractInstance.setAggregators([wbnb], ["0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"]) 
+                await tx.wait()
+            } else if(network.config.chainId === 5) {
+                // set usdc price
+                tx = await contractInstance.setDirectPrice("0xD87Ba7A50B2E7E660f678A895E4B72E7CB4CCd9C", ethers.utils.parseUnits("1", 18));
                 await tx.wait()
                 // set bnb chainlink feed (bnb-usd)
+                tx = await contractInstance.setAggregators([wbnb], ["0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e"]) 
+                await tx.wait()
+            } else if(network.config.chainId === 56) {
+                // set busd price
+                tx = await contractInstance.setDirectPrice("0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", ethers.utils.parseUnits("1", 18));
+                await tx.wait()
+                // set bnb chainlink feed (bnb-usd)                
                 tx = await contractInstance.setAggregators([wbnb], ["0x0567f2323251f0aab15c8dfb1967e4e8a7d42aee"]) 
                 await tx.wait()
-                
-                
-                Utils.infoMsg("Deploying BrewlabsTwapOracle contract");
-                let twapDeployed = await deploy('BrewlabsTwapOracle', {
-                    from: account,
-                    args: [
-                        "0xF9B07b7528FEEb48811794361De37b4BAdE1734f", // pair
-                        14400, // period
-                        1663777859, // startTime
-                    ],
-                    log:  false
-                });
-
-                // verify
-                await sleep(30)
-                await hre.run("verify:verify", {
-                    address: twapDeployed.address,
-                    contract: "contracts/BrewlabsTwapOracle.sol:BrewlabsTwapOracle",
-                    constructorArguments: [
-                        "0xF9B07b7528FEEb48811794361De37b4BAdE1734f", // pair
-                        14400, // period
-                        1663777859, // startTime
-                    ],
-                }) 
             } else if(network.config.chainId === 97) {
                 // set busd price
-                await sleep(30)
-                await contractInstance.setDirectPrice("0x2995bD504647b5EeE414A78be1d7b24f49f00FFE", ethers.utils.parseUnits("1", 18));
+                tx = await contractInstance.setDirectPrice("0x2995bD504647b5EeE414A78be1d7b24f49f00FFE", ethers.utils.parseUnits("1", 18));
+                await tx.wait()
                 // set bnb chainlink feed (bnb-usd)
-                await sleep(30)
-                await contractInstance.setAggregators([wbnb], ["0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526"]) 
+                tx = await contractInstance.setAggregators([wbnb], ["0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526"]) 
+                await tx.wait()
 
                 Utils.infoMsg("Deploying BrewlabsTwapOracle contract");
                 let twapDeployed = await deploy('BrewlabsTwapOracle', {
