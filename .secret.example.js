@@ -5,8 +5,7 @@ module.exports = {
 
   etherscanApiKey: {
     // your etherscan api key
-    rinkeby: "xxxxx",
-    kovan: "xxxxx",
+    goerli: "xxxxx",
     mainnet: "xxxxx",
     bsc: "xxxxx",
     bbscTestnetsc: "xxxxx",

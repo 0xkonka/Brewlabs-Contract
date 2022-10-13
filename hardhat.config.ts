@@ -49,23 +49,9 @@ module.exports = {
       allowUnlimitedContractSize: true,
     },
 
-    kovan: {
-      url: `https://kovan.infura.io/v3/${infuraProjectId}`,
-      chainId: 42,
-      //gasPrice: 20000000000,
-      accounts: [accountPrivateKey["mainnet"]],
-    },
-
-    ropsten: {
-      url: `https://ropsten.infura.io/v3/${infuraProjectId}`,
-      chainId: 3,
-      //gasPrice: 20000000000,
-      accounts: [accountPrivateKey["mainnet"]],
-    },
-
-    rinkeby: {
-      url: `https://rinkeby.infura.io/v3/${infuraProjectId}`,
-      chainId: 4,
+    goerli: {
+      url: `https://goerli.infura.io/v3/${infuraProjectId}`,
+      chainId: 5,
       //gasPrice: 20000000000,
       accounts: [accountPrivateKey["mainnet"]],
     },
