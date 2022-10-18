@@ -29,7 +29,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
   uint256 public lastRewardBlock;
 
   address public treasury = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
-  uint256 public performanceFee = 0.00089 ether;
+  uint256 public performanceFee = 0.0035 ether;
 
   // The staked token
   IERC721 public stakingNft;
@@ -208,6 +208,10 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     totalStaked = totalStaked - _amount;
 
     emit EmergencyWithdraw(msg.sender, _tokenIds);
+  }
+
+  function stakedInfo(address _user) external view returns (uint256, uint256[] memory) {
+    return (userInfo[_user].amount, userInfo[_user].tokenIds);
   }
 
   /**

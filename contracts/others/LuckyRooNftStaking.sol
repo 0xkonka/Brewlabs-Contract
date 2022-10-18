@@ -32,8 +32,8 @@ contract LuckyRooNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
   // The block number of the last pool update
   uint256 public lastRewardBlock;
 
-  address public treasury = 0xf91AfC2c104d040c5FCcDA625d038b09AE407019;
-  uint256 public performanceFee = 0.00089 ether;
+  address public treasury = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
+  uint256 public performanceFee = 0.0035 ether;
 
   // The staked token
   IERC721 public stakingNft;
@@ -169,6 +169,10 @@ contract LuckyRooNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
     totalStaked = totalStaked - _amount;
     emit Withdraw(msg.sender, _tokenIds);
+  }
+
+  function stakedInfo(address _user) external view returns (uint256, uint256[] memory) {
+    return (userInfo[_user].amount, userInfo[_user].tokenIds);
   }
 
   function claimReward() external payable nonReentrant {
