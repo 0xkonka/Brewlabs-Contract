@@ -449,22 +449,22 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockup", deployedAddress)
             const res = await contractInstance.initialize(
-                "0xe06f46AFD251B06152B478d8eE3aCea534063994", // _stakingToken 
-                "0xe06f46AFD251B06152B478d8eE3aCea534063994", // _earnedToken 
-                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", // _reflectionToken 
+                "0x9d9fA9DbAe391C3FB6866F43De62FF3B393133b2", // _stakingToken 
+                "0x9d9fA9DbAe391C3FB6866F43De62FF3B393133b2", // _earnedToken 
+                "0x2170Ed0880ac9A755fd29B2688956BD959F933F8", // _reflectionToken 
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
                 [
-                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+                    "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
                     "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0xe06f46AFD251B06152B478d8eE3aCea534063994"
+                    "0x9d9fA9DbAe391C3FB6866F43De62FF3B393133b2"
                 ],
-                "0x6Aa5F8B4cC8cdF5284C47FB3C02EE49F2C77679B", // whitelist contract                                                 
+                "0x0000000000000000000000000000000000000000", // whitelist contract                                                 
             )
             console.log('initialize BrewlabsLockup', res)
             
-            let _rate = ethers.utils.parseUnits('1342275.494672754946727549', 18)
-            let tx = await contractInstance.addLockup(30, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
+            let _rate = ethers.utils.parseUnits('1.664764079147640791', 18)
+            let tx = await contractInstance.addLockup(180, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
             await tx.wait()
 
             // verify
