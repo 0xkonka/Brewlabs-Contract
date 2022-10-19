@@ -171,10 +171,6 @@ contract LuckyRooNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     emit Withdraw(msg.sender, _tokenIds);
   }
 
-  function stakedInfo(address _user) external view returns (uint256, uint256[] memory) {
-    return (userInfo[_user].amount, userInfo[_user].tokenIds);
-  }
-
   function claimReward() external payable nonReentrant {
     UserInfo storage user = userInfo[msg.sender];
 
@@ -216,6 +212,10 @@ contract LuckyRooNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     totalStaked = totalStaked - _amount;
 
     emit EmergencyWithdraw(msg.sender, _tokenIds);
+  }
+
+  function stakedInfo(address _user) external view returns (uint256, uint256[] memory) {
+    return (userInfo[_user].amount, userInfo[_user].tokenIds);
   }
 
   /**
