@@ -50,18 +50,18 @@ contract LuckyRooTreasury is Ownable {
   address public feeWallet = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
 
   address public uniRouterAddress;
-  address[] public ethToTokenPath;
-  address[] public ethToDividendPath;
+  address[] public bnbToTokenPath;
+  address[] public bnbToDividendPath;
   address[] public dividendToTokenPath;
-  uint256 public slippageFactor = 8300; // 17%
+  uint256 public slippageFactor = 8000; // 20%
   uint256 public constant slippageFactorUL = 9950;
 
   event Initialized(
     address token,
     address dividendToken,
     address router,
-    address[] ethToTokenPath,
-    address[] ethToDividendPath,
+    address[] bnbToTokenPath,
+    address[] bnbToDividendPath,
     address[] dividendToTokenPath
   );
 
@@ -73,7 +73,7 @@ contract LuckyRooTreasury is Ownable {
   event Harvested(address account, uint256 amount);
   event Swapped(address token, uint256 amountETH, uint256 amountToken);
 
-  event EthHarvested(address to, uint256 amount);
+  event BnbHarvested(address to, uint256 amount);
   event EmergencyWithdrawn();
   event AdminTokenRecovered(address tokenRecovered, uint256 amount);
   event BusdHarvested(address to, uint256[] amounts);
@@ -82,8 +82,8 @@ contract LuckyRooTreasury is Ownable {
   event SetSwapConfig(
     address router,
     uint256 slipPage,
-    address[] ethToTokenPath,
-    address[] ethToDividendPath,
+    address[] bnbToTokenPath,
+    address[] bnbToDividendPath,
     address[] dividendToTokenPath
   );
   event TransferBuyBackWallet(address staking, address wallet);
@@ -101,16 +101,16 @@ contract LuckyRooTreasury is Ownable {
    * @param _token: token address
    * @param _dividendToken: reflection token address
    * @param _uniRouter: uniswap router address for swap tokens
-   * @param _ethToTokenPath: swap path to buy Token
-   * @param _ethToDividendPath: swap path to buy dividend token
+   * @param _bnbToTokenPath: swap path to buy Token
+   * @param _bnbToDividendPath: swap path to buy dividend token
    * @param _dividendToTokenPath: swap path to buy Token with dividend token
    */
   function initialize(
     IERC20 _token,
     address _dividendToken,
     address _uniRouter,
-    address[] memory _ethToTokenPath,
-    address[] memory _ethToDividendPath,
+    address[] memory _bnbToTokenPath,
+    address[] memory _bnbToDividendPath,
     address[] memory _dividendToTokenPath
   ) external onlyOwner {
     require(!isInitialized, "Already initialized");
@@ -122,19 +122,19 @@ contract LuckyRooTreasury is Ownable {
 
     token = _token;
     dividendToken = _dividendToken;
-    pair = IUniV2Factory(IUniRouter02(_uniRouter).factory()).getPair(_ethToTokenPath[0], address(token));
+    pair = IUniV2Factory(IUniRouter02(_uniRouter).factory()).getPair(_bnbToTokenPath[0], address(token));
 
     uniRouterAddress = _uniRouter;
-    ethToTokenPath = _ethToTokenPath;
-    ethToDividendPath = _ethToDividendPath;
+    bnbToTokenPath = _bnbToTokenPath;
+    bnbToDividendPath = _bnbToDividendPath;
     dividendToTokenPath = _dividendToTokenPath;
 
     emit Initialized(
       address(_token),
       _dividendToken,
       _uniRouter,
-      _ethToTokenPath,
-      _ethToDividendPath,
+      _bnbToTokenPath,
+      _bnbToDividendPath,
       _dividendToTokenPath
     );
   }
@@ -152,7 +152,7 @@ contract LuckyRooTreasury is Ownable {
     ethAmt = (ethAmt * buybackRate) / PERCENT_PRECISION;
 
     if (ethAmt > 0) {
-      uint256 _tokenAmt = _safeSwapEth(ethAmt, ethToTokenPath, address(this));
+      uint256 _tokenAmt = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
       emit TokenBuyBack(ethAmt, _tokenAmt);
     }
   }
@@ -183,7 +183,7 @@ contract LuckyRooTreasury is Ownable {
     ethAmt = (ethAmt * addLiquidityRate) / PERCENT_PRECISION / 2;
 
     if (ethAmt > 0) {
-      uint256 _tokenAmt = _safeSwapEth(ethAmt, ethToTokenPath, address(this));
+      uint256 _tokenAmt = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
       emit TokenBuyBack(ethAmt, _tokenAmt);
 
       (uint256 amountToken, uint256 amountETH, uint256 liquidity) = _addLiquidityEth(
@@ -211,7 +211,7 @@ contract LuckyRooTreasury is Ownable {
       }
     } else {
       if (ethAmt > 0) {
-        uint256 _tokenAmt = _safeSwapEth(ethAmt, ethToDividendPath, address(this));
+        uint256 _tokenAmt = _safeSwapEth(ethAmt, bnbToDividendPath, address(this));
         emit Swapped(dividendToken, ethAmt, _tokenAmt);
       }
 
@@ -223,11 +223,11 @@ contract LuckyRooTreasury is Ownable {
     }
   }
 
-  function harvestETH(address _to) external onlyOwner {
+  function harvestBNB(address _to) external onlyOwner {
     require(_to != address(0x0), "invalid address");
     uint256 ethAmt = address(this).balance;
     payable(_to).transfer(ethAmt);
-    emit EthHarvested(_to, ethAmt);
+    emit BnbHarvested(_to, ethAmt);
   }
 
   function harvestBUSD(address _to) external onlyOwner {
@@ -404,15 +404,15 @@ contract LuckyRooTreasury is Ownable {
    * @notice Set buyback wallet of farm contract
    * @param _uniRouter: dex router address
    * @param _slipPage: slip page for swap
-   * @param _ethToTokenPath: eth-token swap path
-   * @param _ethToDividendPath: eth-token swap path
+   * @param _bnbToTokenPath: eth-token swap path
+   * @param _bnbToDividendPath: eth-token swap path
    * @param _dividendToTokenPath: eth-token swap path
    */
   function setSwapSettings(
     address _uniRouter,
     uint256 _slipPage,
-    address[] memory _ethToTokenPath,
-    address[] memory _ethToDividendPath,
+    address[] memory _bnbToTokenPath,
+    address[] memory _bnbToDividendPath,
     address[] memory _dividendToTokenPath
   ) external onlyOwner {
     require(_uniRouter != address(0x0), "invalid address");
@@ -420,11 +420,11 @@ contract LuckyRooTreasury is Ownable {
 
     uniRouterAddress = _uniRouter;
     slippageFactor = _slipPage;
-    ethToTokenPath = _ethToTokenPath;
-    ethToDividendPath = _ethToDividendPath;
+    bnbToTokenPath = _bnbToTokenPath;
+    bnbToDividendPath = _bnbToDividendPath;
     dividendToTokenPath = _dividendToTokenPath;
 
-    emit SetSwapConfig(_uniRouter, _slipPage, _ethToTokenPath, _ethToDividendPath, _dividendToTokenPath);
+    emit SetSwapConfig(_uniRouter, _slipPage, _bnbToTokenPath, _bnbToDividendPath, _dividendToTokenPath);
   }
 
   /**
