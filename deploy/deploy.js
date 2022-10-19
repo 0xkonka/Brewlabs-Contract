@@ -40,22 +40,20 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             kodi: false,
             kodiTreasury: false,
             oracle: false,
+            twapOracle: false,
 
             other: false,
         }
 
         if(config.other) {           
-            Utils.infoMsg("Deploying BlocVestTrickleVault contract");
+            Utils.infoMsg("Deploying LuckyRooAirdrop contract");
 
-            let deployed = await deploy('BlocVestTrickleVault', {
+            let deployed = await deploy('LuckyRooAirdrop', {
                 from: account,
                 args: [
-                    "0x46f172679dfC3081B871529baC29596F7B593515", // nft
-                    "0x10ed43c718714eb63d5aa57b78b54704e256024e", // router
-                    [  // bvst-bnb path
-                        "0x592032513b329a0956b3f14d661119880F2361a6",
-                        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    ]
+                    "0xc587d9053cd1118f25F645F9E08BB98c9712A4EE", // vrf coordinator
+                    "0x404460C6A5EdE2D891e8297795264fDe62ADBB75", // link token
+                    "0xba6e730de88d94a5510ae6613898bfb0c3de5d16e609c5b7da808747125506f7", // key hash
                 ],
                 log:  false
             });
@@ -63,32 +61,22 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            // let contractInstance = await ethers.getContractAt("BlocVestShareholderVault", deployedAddress)
-            // let tx = await contractInstance.initialize(
-            //     "0x592032513b329a0956b3f14d661119880F2361a6",
-            //     "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-            //     "0x10ed43c718714eb63d5aa57b78b54704e256024e",
-            //     [
-            //         "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-            //         "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-            //         "0x592032513b329a0956b3f14d661119880F2361a6"
-            //     ],
-            //     "0x1dD565b26FBc45e51Fa5aA360A918BA31B5aADd5"
-            // )
-            // await tx.wait()
+            let contractInstance = await ethers.getContractAt("LuckyRooAirdrop", deployedAddress)
+            let tx = await contractInstance.initialize(
+                "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938",
+                "0xC2cd261Da5Ffb9A7F0616a6e9858472EdCf1C3df"
+            )
+            await tx.wait()
           
             // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/BlocVestTrickleVault.sol:BlocVestTrickleVault",
+                contract: "contracts/others/LuckyRooAirdrop.sol:LuckyRooAirdrop",
                 constructorArguments: [
-                    "0x46f172679dfC3081B871529baC29596F7B593515", // nft
-                    "0x10ed43c718714eb63d5aa57b78b54704e256024e", // router
-                    [  // bvst-bnb path
-                        "0x592032513b329a0956b3f14d661119880F2361a6",
-                        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    ]
+                    "0xc587d9053cd1118f25F645F9E08BB98c9712A4EE", // vrf coordinator
+                    "0x404460C6A5EdE2D891e8297795264fDe62ADBB75", // link token
+                    "0xba6e730de88d94a5510ae6613898bfb0c3de5d16e609c5b7da808747125506f7", // key hash
                 ],
             }) 
         }
@@ -188,6 +176,36 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 address: deployedAddress,
                 contract: "contracts/BrewlabsPriceOracle.sol:BrewlabsPriceOracle",
                 constructorArguments: [wbnb],
+            }) 
+        }
+        
+        if(config.twapOracle) {
+            Utils.infoMsg("Deploying BrewlabsTwapOracle contract");
+            
+            let deployed = await deploy('BrewlabsTwapOracle', {
+                from: account,
+                args: [
+                    "0xFF578AC8eF9Df9d02368842b7B0810A14e770d71", // pair
+                    14400, // period
+                    1666137600, // startTime                    
+                ],
+                log:  false
+            });
+    
+            let deployedAddress = deployed.address;
+    
+            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+    
+            // verify
+            await sleep(30)
+            await hre.run("verify:verify", {
+                address: deployedAddress,
+                contract: "contracts/BrewlabsTwapOracle.sol:BrewlabsTwapOracle",
+                constructorArguments: [
+                    "0xFF578AC8eF9Df9d02368842b7B0810A14e770d71", // pair
+                    14400, // period
+                    1666137600, // startTime
+                ],
             }) 
         }
 
@@ -448,24 +466,23 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             // initialize
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockup", deployedAddress)
-            const res = await contractInstance.initialize(
-                "0x9d9fA9DbAe391C3FB6866F43De62FF3B393133b2", // _stakingToken 
-                "0x9d9fA9DbAe391C3FB6866F43De62FF3B393133b2", // _earnedToken 
-                "0x2170Ed0880ac9A755fd29B2688956BD959F933F8", // _reflectionToken 
+            let res = await contractInstance.initialize(
+                "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938", // _stakingToken 
+                "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938", // _earnedToken 
+                "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938", // _reflectionToken 
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
-                [
-                    "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
-                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x9d9fA9DbAe391C3FB6866F43De62FF3B393133b2"
-                ],
+                [],
                 "0x0000000000000000000000000000000000000000", // whitelist contract                                                 
             )
             console.log('initialize BrewlabsLockup', res)
             
-            let _rate = ethers.utils.parseUnits('1.664764079147640791', 18)
-            let tx = await contractInstance.addLockup(180, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate, _totalStakedLimit
-            await tx.wait()
+            let _rate = ethers.utils.parseUnits('16647.640791476407914764', 18)
+            res = await contractInstance.addLockup(60, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate
+            await res.wait()
+            _rate = ethers.utils.parseUnits('19025.875190258751902587', 18)
+            res = await contractInstance.addLockup(90, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate
+            await res.wait()
 
             // verify
             // await sleep(60)
