@@ -15,6 +15,8 @@ interface IToken {
 contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    uint256 private constant PERCENT_PRECISION = 10000;
+
     // Whether it is initialized
     bool public isInitialized;
     uint256 public duration = 365; // 365 days
@@ -24,16 +26,16 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
     // The pool limit (0 if none)
     uint256 public poolLimitPerUser;
 
-
     // The block number when staking starts.
     uint256 public startBlock;
     // The block number when staking ends.
     uint256 public bonusEndBlock;
 
+    bool public activeEmergencyWithdraw = false;
 
     // swap router and path, slipPage
-    uint256 public slippageFactor = 800; // 20% default slippage tolerance
-    uint256 public constant slippageFactorUL = 995;
+    uint256 public slippageFactor = 8000; // 20% default slippage tolerance
+    uint256 public constant slippageFactorUL = 9950;
 
     address public uniRouterAddress;
     address[] public reflectionToStakedPath;
@@ -62,6 +64,9 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
     uint256 private totalEarned;
     uint256[] private totalReflections;
     uint256[] private reflections;
+
+    uint256 private paidRewards;
+    uint256 private shouldTotalPaid;
 
     struct Lockup {
         uint256 duration;
@@ -96,6 +101,7 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
     event Withdraw(address indexed user, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 amount);
     event AdminTokenRecovered(address tokenRecovered, uint256 amount);
+    event SetEmergencyWithdrawStatus(bool status);
 
     event NewStartAndEndBlocks(uint256 startBlock, uint256 endBlock);
     event LockupUpdated(uint256 _duration, uint256 _fee0, uint256 _fee1, uint256 _rate);
@@ -161,7 +167,6 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
             }
             PRECISION_FACTOR_REFLECTION.push(uint256(10**(40 - decimalsdividendToken)));
         }
-
 
         uniRouterAddress = _uniRouter;
         earnedToStakedPath = _earnedToStakedPath;
@@ -329,23 +334,15 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
 
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-            earnedToken.safeTransfer(address(msg.sender), pending);
-            
-            if(totalEarned > pending) {
-                totalEarned = totalEarned - pending;
-            } else {
-                totalEarned = 0;
-            }
+            earnedToken.safeTransfer(address(msg.sender), pending);            
+            _updateEarned(pending);
+            paidRewards = paidRewards + pending;
         }
 
         if (pendingCompound > 0) {
             require(availableRewardTokens() >= pendingCompound, "Insufficient reward tokens");
-            
-            if(totalEarned > pendingCompound) {
-                totalEarned = totalEarned - pendingCompound;
-            } else {
-                totalEarned = 0;
-            }
+            _updateEarned(pendingCompound);
+            paidRewards = paidRewards + pendingCompound;
             
             emit Deposit(msg.sender, compounded);
         }
@@ -428,22 +425,14 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             earnedToken.safeTransfer(address(msg.sender), pending);
-            
-            if(totalEarned > pending) {
-                totalEarned = totalEarned - pending;
-            } else {
-                totalEarned = 0;
-            }
+            _updateEarned(pending);
+            paidRewards = paidRewards + pending;
         }
 
         if (pendingCompound > 0) {
-            require(availableRewardTokens() >= pendingCompound, "Insufficient reward tokens");
-            
-            if(totalEarned > pendingCompound) {
-                totalEarned = totalEarned - pendingCompound;
-            } else {
-                totalEarned = 0;
-            }
+            require(availableRewardTokens() >= pendingCompound, "Insufficient reward tokens");            
+            _updateEarned(pendingCompound);
+            paidRewards = paidRewards + pendingCompound;
 
             user.amount = user.amount + compounded;
             lockupInfo.totalStaked = lockupInfo.totalStaked + compounded;
@@ -518,11 +507,8 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             
-            if(totalEarned > pending) {
-                totalEarned = totalEarned - pending;
-            } else {
-                totalEarned = 0;
-            }
+            _updateEarned(pending);
+            paidRewards = paidRewards + pending;
 
             user.amount = user.amount + compounded;
             lockupInfo.totalStaked = lockupInfo.totalStaked + compounded;
@@ -552,6 +538,8 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
      * @dev Needs to be for emergency.
      */
     function emergencyWithdraw() external nonReentrant {
+        require(activeEmergencyWithdraw, "Emergnecy withdraw not enabled");
+
         UserInfo storage user = userStaked[msg.sender];
         Stake[] storage stakes = userStakes[msg.sender];
 
@@ -614,8 +602,7 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
             return address(this).balance;
         }
 
-        uint256 _amount = IERC20(dividendTokens[index]).balanceOf(address(this));
-        
+        uint256 _amount = IERC20(dividendTokens[index]).balanceOf(address(this));        
         if(address(dividendTokens[index]) == address(earnedToken)) {
             if(_amount < totalEarned) return 0;
             _amount = _amount - totalEarned;
@@ -627,6 +614,21 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
         }
 
         return _amount;
+    }
+
+    function insufficientRewards() external view returns (uint256) {
+        uint256 adjustedShouldTotalPaid = shouldTotalPaid;
+        uint256 remainRewards = availableRewardTokens() + paidRewards;
+
+        if(startBlock == 0) {
+            adjustedShouldTotalPaid += lockupInfo.rate * duration * 28800;
+        } else {
+            uint256 remainBlocks = _getMultiplier(lockupInfo.lastRewardBlock, bonusEndBlock);
+            adjustedShouldTotalPaid += lockupInfo.rate * remainBlocks;
+        }
+
+        if(remainRewards >= adjustedShouldTotalPaid) return 0;
+        return adjustedShouldTotalPaid - remainRewards;
     }
 
     function userInfo(address _account) external view returns (uint256 amount, uint256 available, uint256 locked) {
@@ -858,6 +860,13 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
 
         emit ServiceInfoUpadted(_addr, _fee);
     }
+
+    function setEmergencyWithdraw(bool _status) external {
+        require(msg.sender == buyBackWallet || msg.sender == owner(), "setEmergencyWithdraw: FORBIDDEN");
+
+        activeEmergencyWithdraw = _status;
+        emit SetEmergencyWithdrawStatus(_status);
+    }
     
     function setDuration(uint256 _duration) external onlyOwner {
         require(startBlock == 0, "Pool was already started");
@@ -938,8 +947,8 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
             _reward * PRECISION_FACTOR / lockupInfo.totalStaked
         );
         lockupInfo.lastRewardBlock = block.number;
+        shouldTotalPaid = shouldTotalPaid + _reward;
     }
-
     
     function estimateDividendAmount(uint256 index, uint256 amount) internal view returns(uint256) {
         uint256 dTokenBal = availableDividendTokens(index);
@@ -964,6 +973,14 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
             return 0;
         } else {
             return bonusEndBlock - _from;
+        }
+    }
+
+    function _updateEarned(uint256 _amount) internal {
+        if(totalEarned > _amount) {
+            totalEarned = totalEarned - _amount;
+        } else {
+            totalEarned = 0;
         }
     }
 

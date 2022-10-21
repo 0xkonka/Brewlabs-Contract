@@ -185,7 +185,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployed = await deploy('BrewlabsTwapOracle', {
                 from: account,
                 args: [
-                    "0xFF578AC8eF9Df9d02368842b7B0810A14e770d71", // pair
+                    "0x2C97b52D9390590ef0Dd4346188d82431a9CdE88", // pair
                     14400, // period
                     1666137600, // startTime                    
                 ],
@@ -202,7 +202,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 address: deployedAddress,
                 contract: "contracts/BrewlabsTwapOracle.sol:BrewlabsTwapOracle",
                 constructorArguments: [
-                    "0xFF578AC8eF9Df9d02368842b7B0810A14e770d71", // pair
+                    "0x2C97b52D9390590ef0Dd4346188d82431a9CdE88", // pair
                     14400, // period
                     1666137600, // startTime
                 ],
@@ -669,7 +669,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             // initialize
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockupMulti", deployedAddress)
-            const _rewardPerBlock = ethers.utils.parseUnits('1157.407407407', 18)
+            const _rewardPerBlock = ethers.utils.parseUnits('1141.552511415525114155', 18)
             const res = await contractInstance.initialize(
                 "0xc50F00779559b2E13Dee314530cC387CC5dD85ae", // _stakingToken
                 "0xc50F00779559b2E13Dee314530cC387CC5dD85ae", // _earnedToken
@@ -683,7 +683,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 _rewardPerBlock,                              // reward per block
                 0,                                            // deposit fee
                 50,                                           // withdraw fee
-                14,                                           // lock duration (days)
+                7,                                           // lock duration (days)
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
             )
