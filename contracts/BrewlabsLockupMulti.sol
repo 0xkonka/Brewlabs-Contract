@@ -225,7 +225,7 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
             );
         }
         if (lockupInfo.depositFee > 0) {
-            uint256 fee = realAmount * lockupInfo.depositFee / 10000;
+            uint256 fee = realAmount * lockupInfo.depositFee / PERCENT_PRECISION;
             if (fee > 0) {
                 stakingToken.safeTransfer(walletA, fee);
                 realAmount = realAmount - fee;
@@ -371,7 +371,7 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
 
         if(realAmount > 0) {
             if (lockupInfo.withdrawFee > 0) {
-                uint256 fee = realAmount * lockupInfo.withdrawFee / 10000;
+                uint256 fee = realAmount * lockupInfo.withdrawFee / PERCENT_PRECISION;
                 stakingToken.safeTransfer(walletA, fee);
                 realAmount = realAmount - fee;
             }
@@ -995,7 +995,7 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
         IERC20(_path[0]).safeApprove(uniRouterAddress, _amountIn);
         IUniRouter02(uniRouterAddress).swapExactTokensForTokensSupportingFeeOnTransferTokens(
             _amountIn,
-            amountOut * slippageFactor / 1000,
+            amountOut * slippageFactor / PERCENT_PRECISION,
             _path,
             _to,
             block.timestamp + 600
