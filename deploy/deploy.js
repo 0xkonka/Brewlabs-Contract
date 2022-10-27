@@ -46,25 +46,21 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {           
-            Utils.infoMsg("Deploying LuckyRooAirdrop contract");
+            Utils.infoMsg("Deploying ProjectXLocker contract");
 
-            let deployed = await deploy('LuckyRooAirdrop', {
+            let deployed = await deploy('ProjectXLocker', {
                 from: account,
-                args: [
-                    "0xc587d9053cd1118f25F645F9E08BB98c9712A4EE", // vrf coordinator
-                    "0x404460C6A5EdE2D891e8297795264fDe62ADBB75", // link token
-                    "0xba6e730de88d94a5510ae6613898bfb0c3de5d16e609c5b7da808747125506f7", // key hash
-                ],
+                args: [],
                 log:  false
             });
     
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            let contractInstance = await ethers.getContractAt("LuckyRooAirdrop", deployedAddress)
+            let contractInstance = await ethers.getContractAt("ProjectXLocker", deployedAddress)
             let tx = await contractInstance.initialize(
-                "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938",
-                "0xC2cd261Da5Ffb9A7F0616a6e9858472EdCf1C3df"
+                "0x9d9fA9DbAe391C3FB6866F43De62FF3B393133b2",
+                "0xCE783928d656166e9270E8642559F1Bbe8412d5a"
             )
             await tx.wait()
           
@@ -72,12 +68,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/LuckyRooAirdrop.sol:LuckyRooAirdrop",
-                constructorArguments: [
-                    "0xc587d9053cd1118f25F645F9E08BB98c9712A4EE", // vrf coordinator
-                    "0x404460C6A5EdE2D891e8297795264fDe62ADBB75", // link token
-                    "0xba6e730de88d94a5510ae6613898bfb0c3de5d16e609c5b7da808747125506f7", // key hash
-                ],
+                contract: "contracts/others/ProjectXLocker.sol:ProjectXLocker",
+                constructorArguments: [],
             }) 
         }
 

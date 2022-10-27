@@ -15,7 +15,7 @@ contract ProjectXLocker is Ownable {
     address public  reflectionToken;
     uint256 private accReflectionPerShare;
     uint256 private allocatedReflections;
-    uint256 private totalAllocated;
+    uint256 public totalAllocated;
 
     uint256 private constant PRECISION_FACTOR = 1 ether;
     uint256 private constant BLOCKS_PER_DAY = 28800;
@@ -33,11 +33,11 @@ contract ProjectXLocker is Ownable {
     mapping(address => bool) isDistributor;
     address[] public distributors;
 
-    event AddDistribution(address distributor, uint256 allocation, uint256 duration);
-    event UpdateDistribution(address distributor, uint256 allocation, uint256 duration);
-    event RemoveDistribution(address distributor);
-    event Claim(address distributor, uint256 amount);
-    event Harvest(address distributor, uint256 amount);
+    event AddDistribution(address indexed distributor, uint256 allocation, uint256 duration);
+    event UpdateDistribution(address indexed distributor, uint256 allocation, uint256 duration);
+    event RemoveDistribution(address indexed distributor);
+    event Claim(address indexed distributor, uint256 amount);
+    event Harvest(address indexed distributor, uint256 amount);
         
     modifier onlyActive() {
         require(isActive == true, "Not active");
@@ -79,6 +79,8 @@ contract ProjectXLocker is Ownable {
         isDistributor[distributor] = false;
         
         Distribution storage _distribution = distributions[distributor];
+        require(!_distribution.claimed, "Already claimed");
+
         totalAllocated -= _distribution.alloc;
 
         _distribution.distributor = address(0x0);
@@ -108,6 +110,8 @@ contract ProjectXLocker is Ownable {
     }
 
     function claim() external onlyActive {
+        require(isDistributor[msg.sender] == true, "Not found");
+
         Distribution storage _distribution = distributions[msg.sender];
         require(_distribution.unlockBlock <= block.number, "Not unlocked yet");
         require(!_distribution.claimed, "Already claimed");
@@ -123,7 +127,7 @@ contract ProjectXLocker is Ownable {
 
     function harvest() public onlyActive {
         if(!isDistributor[msg.sender]) return;
-        if(!distributions[msg.sender].claimed) return;
+        if(distributions[msg.sender].claimed) return;
 
         _updatePool();
 
@@ -141,14 +145,15 @@ contract ProjectXLocker is Ownable {
 
     function pendingClaim(address _user) external view returns (uint256) {
         if(!isDistributor[_user]) return 0;
-        if(!distributions[msg.sender].claimed) return 0;
+        if(distributions[_user].claimed) return 0;
+        if(distributions[_user].unlockBlock > block.number) return 0;
 
         return distributions[_user].alloc;
     }
 
     function pendingReflection(address _user) external view returns (uint256) {
         if(!isDistributor[_user]) return 0;
-        if(!distributions[msg.sender].claimed) return 0;
+        if(distributions[_user].claimed) return 0;
 
         uint256 tokenAmt = token.balanceOf(address(this));
         if(tokenAmt == 0 || totalAllocated == 0) return 0;
@@ -202,6 +207,23 @@ contract ProjectXLocker is Ownable {
 
         accReflectionPerShare += reflectionAmt * PRECISION_FACTOR / totalAllocated;
         allocatedReflections += reflectionAmt;
+    }
+
+    /**
+     * @notice It allows the admin to recover wrong tokens sent to the contract
+     * @param _token: the address of the token to withdraw
+     * @dev This function is only callable by admin.
+     */
+    function rescueTokens(address _token) external onlyOwner {
+        require(_token != address(token) && _token != address(reflectionToken), "Cannot be token & dividend token");
+
+        if(_token == address(0x0)) {
+            uint256 _tokenAmount = address(this).balance;
+            payable(msg.sender).transfer(_tokenAmount);
+        } else {
+            uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
+            IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
+        }
     }
 
     receive() external payable {}
