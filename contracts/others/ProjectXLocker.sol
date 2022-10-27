@@ -70,7 +70,7 @@ contract ProjectXLocker is Ownable {
 
         totalAllocated += _distribution.alloc;
 
-        emit AddDistribution(_distributor, _allocation, _duration);
+        emit AddDistribution(_distributor, _distribution.alloc, _duration);
     }
 
     function removeDistribution(address distributor) external onlyOwner {
@@ -106,7 +106,7 @@ contract ProjectXLocker is Ownable {
         _distribution.reflectionDebt = _allocation * accReflectionPerShare * PRECISION_FACTOR;
         
         totalAllocated += _distribution.alloc;
-        emit UpdateDistribution(_distributor, _allocation, _duration);
+        emit UpdateDistribution(_distributor, _distribution.alloc, _duration);
     }
 
     function claim() external onlyActive {
