@@ -54,7 +54,6 @@ contract ProjectXLocker is Ownable {
         reflectionToken = _reflectionToken;
     }
 
-
     function addDistribution(address _distributor, uint256 _allocation, uint256 _duration) external onlyOwner {
         require(isDistributor[_distributor] == false, "Already set");
 
