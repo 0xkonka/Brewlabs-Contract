@@ -182,18 +182,6 @@ contract ProjectXLocker is Ownable {
         isActive = _isActive;
     }
 
-    function emergencyWithdraw() external onlyOwner {
-        uint256 tokenAmt = token.balanceOf(address(this));
-        if(tokenAmt > 0) {
-            token.transfer(msg.sender, tokenAmt);
-        }
-
-        uint256 reflectionAmt = IERC20(reflectionToken).balanceOf(address(this));
-        if(reflectionAmt > 0) {
-            IERC20(reflectionToken).transfer(msg.sender, reflectionAmt);
-        }
-    }
-
     function _updatePool() internal {
         uint256 tokenAmt = token.balanceOf(address(this));
         if(tokenAmt == 0 || totalAllocated == 0) return;

@@ -60,7 +60,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let contractInstance = await ethers.getContractAt("ProjectXLocker", deployedAddress)
             let tx = await contractInstance.initialize(
                 "0x9d9fA9DbAe391C3FB6866F43De62FF3B393133b2",
-                "0xCE783928d656166e9270E8642559F1Bbe8412d5a"
+                "0x2170Ed0880ac9A755fd29B2688956BD959F933F8"
             )
             await tx.wait()
           
