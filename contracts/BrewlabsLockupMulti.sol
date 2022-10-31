@@ -272,7 +272,7 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
         newStake.duration = _duration;
         newStake.end = end;
         newStake.amount = _amount;
-        newStake.rewardDebt = newStake.amount * lockupInfo.accTokenPerShare * PRECISION_FACTOR;
+        newStake.rewardDebt = newStake.amount * lockupInfo.accTokenPerShare / PRECISION_FACTOR;
     }
 
     /*
