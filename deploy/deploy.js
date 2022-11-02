@@ -51,7 +51,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployed = await deploy('ProjectXLocker', {
                 from: account,
                 args: [],
-                log:  false
+                log: true,
+                skipIfAlreadyDeployed: true,
             });
     
             let deployedAddress = deployed.address;    
