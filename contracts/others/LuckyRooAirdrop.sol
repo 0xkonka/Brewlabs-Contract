@@ -60,7 +60,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     mapping(address => DistributorInfo) public userInfo;
     address[] public distributors;
     
-    address public treasury = 0xE64812272f989c63907B002843973b302E85c023;
+    address public treasury = 0x040e5Cc052308b73aD545F0E4293940Ca5487D1f;
     uint256 public performanceFee = 0.0035 ether;
     
     // BSC Mainnet ERC20_LINK_ADDRESS

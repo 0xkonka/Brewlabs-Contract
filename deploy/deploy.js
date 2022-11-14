@@ -46,9 +46,9 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {           
-            Utils.infoMsg("Deploying ProjectXLocker contract");
+            Utils.infoMsg("Deploying LuckyRooTreasury contract");
 
-            let deployed = await deploy('ProjectXLocker', {
+            let deployed = await deploy('LuckyRooTreasury', {
                 from: account,
                 args: [],
                 log: true,
@@ -58,10 +58,21 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            let contractInstance = await ethers.getContractAt("ProjectXLocker", deployedAddress)
+            let contractInstance = await ethers.getContractAt("LuckyRooTreasury", deployedAddress)
             let tx = await contractInstance.initialize(
-                "0x9d9fA9DbAe391C3FB6866F43De62FF3B393133b2",
-                "0x2170Ed0880ac9A755fd29B2688956BD959F933F8"
+                    "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938", 
+	                "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938", // _dividendToken
+	                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // uniswap router v2
+	                [
+	                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+	                    "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938",
+	                ],
+	                [
+	                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+	                    "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938",
+	                ],
+	                [],
+
             )
             await tx.wait()
           
@@ -69,7 +80,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/ProjectXLocker.sol:ProjectXLocker",
+                contract: "contracts/others/LuckyRooTreasury.sol:LuckyRooTreasury",
                 constructorArguments: [],
             }) 
         }
