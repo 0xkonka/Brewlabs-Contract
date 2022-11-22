@@ -44,7 +44,7 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
   /**
    * @notice Initialize the contract
    * @param _oldToken: token address
-   * @param _newToken: reflection token address
+   * @param _newToken: new token address
    */
   constructor(address _oldToken, address _newToken) {
     oldToken = IERC20(_oldToken);
@@ -122,8 +122,8 @@ contract ZenaMigration is Ownable, ReentrancyGuard {
       if (_amount > 0) {
         payable(msg.sender).transfer(_amount);
       } else {
-        uint256 _tokenAmount = address(this).balance;
-        payable(msg.sender).transfer(_tokenAmount);
+        uint256 _bnbAmount = address(this).balance;
+        payable(msg.sender).transfer(_bnbAmount);
       }
     } else {
       if (_amount > 0) {
