@@ -46,14 +46,13 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {           
-            Utils.infoMsg("Deploying LuckyRooAirdrop contract");
+            Utils.infoMsg("Deploying ZenaMigration contract");
 
-            let deployed = await deploy('LuckyRooAirdrop', {
+            let deployed = await deploy('ZenaMigration', {
                 from: account,
-                args: [
-                    "0xc587d9053cd1118f25F645F9E08BB98c9712A4EE", // vrf coordinator
-                    "0x404460C6A5EdE2D891e8297795264fDe62ADBB75", // link token
-                    "0xba6e730de88d94a5510ae6613898bfb0c3de5d16e609c5b7da808747125506f7", // key hash
+                args: [     
+                    "0xb7F2bca9b034f8cc143339Dd12bb31D3D50Cf27a",
+                    "0x251e88310e67FE13E4eeD4Cc766A91Eb832Dd19b",
                 ],
                 log: true,
                 skipIfAlreadyDeployed: true,
@@ -62,22 +61,14 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            let contractInstance = await ethers.getContractAt("LuckyRooAirdrop", deployedAddress)
-            let tx = await contractInstance.initialize(
-                "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938",
-                "0xC2cd261Da5Ffb9A7F0616a6e9858472EdCf1C3df"
-            )
-            await tx.wait()
-          
             // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/LuckyRooAirdrop.sol:LuckyRooAirdrop",
+                contract: "contracts/others/ZenaMigration.sol:ZenaMigration",
                 constructorArguments: [                    
-                    "0xc587d9053cd1118f25F645F9E08BB98c9712A4EE", // vrf coordinator
-                    "0x404460C6A5EdE2D891e8297795264fDe62ADBB75", // link token
-                    "0xba6e730de88d94a5510ae6613898bfb0c3de5d16e609c5b7da808747125506f7", // key hash
+                    "0xb7F2bca9b034f8cc143339Dd12bb31D3D50Cf27a",
+                    "0x251e88310e67FE13E4eeD4Cc766A91Eb832Dd19b",
                 ],
             }) 
         }
