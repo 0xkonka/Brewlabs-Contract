@@ -356,12 +356,12 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         if(config.farm) {
             Utils.infoMsg("Deploying BrewlabsFarm contract");
             const _hasDividend = false;
-            const _rewardPerBlock = ethers.utils.parseUnits("0.951293759512937595", 18)
+            const _rewardPerBlock = ethers.utils.parseUnits("142.694063926940639269", 18)
             let deployed = await deploy('BrewlabsFarm', 
                 {
                     from: account,
                     args: [
-                        "0xe5977835A013e3A5a52f44f8422734bd2dc545F0",
+                        "0x606379220AB266bBE4b0FeF8469e6E602f295a84",
                         "0x0000000000000000000000000000000000000000",
                         _rewardPerBlock,
                         _hasDividend,
@@ -378,7 +378,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let contractInstance = await ethers.getContractAt("BrewlabsFarm", deployedAddress)
             await contractInstance.add(
                 1000,                                                   // allocPoint
-                "0x6b75970104032cE9720902Cea0A0E57Ce24a6077",           // lp token address
+                "0x378369E4Ff88FF7AE0a4f7d71e93b88233bC77cF",           // lp token address
                 0,                                                      // deposit fee
                 0,                                                      // withdraw fee 
                 365,                                                    // duration
@@ -391,7 +391,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 address: deployedAddress,
                 contract: "contracts/BrewlabsFarm.sol:BrewlabsFarm",
                 constructorArguments: [
-                    "0xe5977835A013e3A5a52f44f8422734bd2dc545F0",
+                    "0x606379220AB266bBE4b0FeF8469e6E602f295a84",
                     "0x0000000000000000000000000000000000000000",
                     _rewardPerBlock, 
                     _hasDividend,
