@@ -1,4 +1,3 @@
- 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -6,9 +5,9 @@ pragma solidity ^0.8.0;
  * @author Brewlabs
  * This contract has been developed by brewlabs.info
  */
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@openzeppelin/contracts/utils/math/SafeMath.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract TokenVesting is Ownable, ReentrancyGuard {
@@ -33,7 +32,6 @@ contract TokenVesting is Ownable, ReentrancyGuard {
     // The dividend token of vested token
     address public dividendToken;
 
-
     event Claimed(address indexed user, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 amount);
     event AdminTokenRecovered(address tokenRecovered, uint256 amount);
@@ -51,11 +49,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
      * @param _dividendToken: reflection token address
      * @param _claimPerBlock: claim amount per block (in vestedToken)
      */
-    function initialize(
-        IERC20 _vestedToken,
-        address _dividendToken,
-        uint256 _claimPerBlock
-    ) external onlyOwner {
+    function initialize(IERC20 _vestedToken, address _dividendToken, uint256 _claimPerBlock) external onlyOwner {
         require(!isInitialized, "Already initialized");
 
         // Make this contract initialized
@@ -68,11 +62,11 @@ contract TokenVesting is Ownable, ReentrancyGuard {
     }
 
     function claim() external nonReentrant onlyOwner {
-        if(startBlock == 0) return;
+        if (startBlock == 0) return;
 
         uint256 multiplier = _getMultiplier(lastClaimBlock, block.number);
         uint256 amount = multiplier.mul(claimPerBlock);
-        if(amount > 0) {
+        if (amount > 0) {
             vestedToken.safeTransfer(msg.sender, amount);
             emit Claimed(msg.sender, amount);
         }
@@ -80,24 +74,24 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         lastClaimBlock = block.number;
     }
 
-    function harvest() external onlyOwner {      
+    function harvest() external onlyOwner {
         uint256 amount = 0;
-        if(address(dividendToken) == address(0x0)) {
+        if (address(dividendToken) == address(0x0)) {
             amount = address(this).balance;
-            if(amount > 0) {
+            if (amount > 0) {
                 payable(msg.sender).transfer(amount);
             }
         } else {
             amount = IERC20(dividendToken).balanceOf(address(this));
-            if(amount > 0) {
+            if (amount > 0) {
                 IERC20(dividendToken).safeTransfer(msg.sender, amount);
             }
         }
     }
 
-    function emergencyWithdraw() external nonReentrant onlyOwner{
+    function emergencyWithdraw() external nonReentrant onlyOwner {
         uint256 amount = vestedToken.balanceOf(address(this));
-        if(amount > 0) {
+        if (amount > 0) {
             vestedToken.safeTransfer(msg.sender, amount);
         }
 
@@ -105,24 +99,23 @@ contract TokenVesting is Ownable, ReentrancyGuard {
     }
 
     function pendingClaim() external view returns (uint256) {
-        if(startBlock == 0) return 0;
+        if (startBlock == 0) return 0;
         uint256 multiplier = _getMultiplier(lastClaimBlock, block.number);
         uint256 amount = multiplier.mul(claimPerBlock);
-        
+
         return amount;
     }
 
     function pendingDividends() external view returns (uint256) {
         uint256 amount = 0;
-        if(address(dividendToken) == address(0x0)) {
+        if (address(dividendToken) == address(0x0)) {
             amount = address(this).balance;
         } else {
             amount = IERC20(dividendToken).balanceOf(address(this));
         }
-        
+
         return amount;
     }
-
 
     /**
      * @notice It allows the admin to recover wrong tokens sent to the contract
@@ -136,7 +129,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
             "Cannot be vested or dividend token address"
         );
 
-        if(_tokenAddress == address(0x0)) {
+        if (_tokenAddress == address(0x0)) {
             payable(msg.sender).transfer(_tokenAmount);
         } else {
             IERC20(_tokenAddress).safeTransfer(address(msg.sender), _tokenAmount);
@@ -151,7 +144,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         startBlock = block.number.add(100);
         claimEndBlock = startBlock.add(duration * 28800);
         lastClaimBlock = startBlock;
-        
+
         emit NewStartAndEndBlocks(startBlock, claimEndBlock);
     }
 
@@ -170,10 +163,10 @@ contract TokenVesting is Ownable, ReentrancyGuard {
     function updateClaimPerBlock(uint256 _claimPerBlock) external onlyOwner {
         // require(block.number < startBlock, "Claim was already started");
 
-        if(startBlock > 0) {
+        if (startBlock > 0) {
             uint256 multiplier = _getMultiplier(lastClaimBlock, block.number);
             uint256 amount = multiplier.mul(claimPerBlock);
-            if(amount > 0) {
+            if (amount > 0) {
                 vestedToken.safeTransfer(msg.sender, amount);
                 emit Claimed(msg.sender, amount);
             }

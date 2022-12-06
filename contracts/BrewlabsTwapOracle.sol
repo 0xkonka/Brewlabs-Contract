@@ -7,7 +7,6 @@ import "./libs/UniswapV2OracleLibrary.sol";
 import "./libs/IUniPair.sol";
 import "./libs/Epoch.sol";
 
-
 // fixed window oracle that recomputes the average price for the entire period once every period
 // note that the price average is only guaranteed to be over at least 1 period, but may be over a longer period
 contract BrewlabsTwapOracle is Epoch {
@@ -30,11 +29,7 @@ contract BrewlabsTwapOracle is Epoch {
     event Updated(uint256 price0CumulativeLast, uint256 price1CumulativeLast);
 
     /* ========== CONSTRUCTOR ========== */
-    constructor(
-        IUniswapV2Pair _pair,
-        uint256 _period,
-        uint256 _startTime
-    ) Epoch(_period, _startTime, 0) {
+    constructor(IUniswapV2Pair _pair, uint256 _period, uint256 _startTime) Epoch(_period, _startTime, 0) {
         pair = _pair;
         token0 = pair.token0();
         token1 = pair.token1();
@@ -48,9 +43,12 @@ contract BrewlabsTwapOracle is Epoch {
 
     /* ========== MUTABLE FUNCTIONS ========== */
 
-    /** @dev Updates 1-day EMA price from Uniswap.  */
+    /**
+     * @dev Updates 1-day EMA price from Uniswap.
+     */
     function update() external checkEpoch {
-        (uint256 price0Cumulative, uint256 price1Cumulative, uint32 blockTimestamp) = UniswapV2OracleLibrary.currentCumulativePrices(address(pair));
+        (uint256 price0Cumulative, uint256 price1Cumulative, uint32 blockTimestamp) =
+            UniswapV2OracleLibrary.currentCumulativePrices(address(pair));
         uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
 
         if (timeElapsed == 0) {
@@ -81,19 +79,24 @@ contract BrewlabsTwapOracle is Epoch {
     }
 
     function twap(address _token, uint256 _amountIn) external view returns (uint144 _amountOut) {
-        (uint256 price0Cumulative, uint256 price1Cumulative, uint32 blockTimestamp) = UniswapV2OracleLibrary.currentCumulativePrices(address(pair));
+        (uint256 price0Cumulative, uint256 price1Cumulative, uint32 blockTimestamp) =
+            UniswapV2OracleLibrary.currentCumulativePrices(address(pair));
         uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
         if (_token == token0) {
-            if(timeElapsed == 0) {
+            if (timeElapsed == 0) {
                 _amountOut = price0Average.mul(_amountIn).decode144();
             } else {
-                _amountOut = FixedPoint.uq112x112(uint224((price0Cumulative - price0CumulativeLast) / timeElapsed)).mul(_amountIn).decode144();
+                _amountOut = FixedPoint.uq112x112(uint224((price0Cumulative - price0CumulativeLast) / timeElapsed)).mul(
+                    _amountIn
+                ).decode144();
             }
         } else if (_token == token1) {
-            if(timeElapsed == 0) {
+            if (timeElapsed == 0) {
                 _amountOut = price1Average.mul(_amountIn).decode144();
             } else {
-                _amountOut = FixedPoint.uq112x112(uint224((price1Cumulative - price1CumulativeLast) / timeElapsed)).mul(_amountIn).decode144();
+                _amountOut = FixedPoint.uq112x112(uint224((price1Cumulative - price1CumulativeLast) / timeElapsed)).mul(
+                    _amountIn
+                ).decode144();
             }
         }
     }

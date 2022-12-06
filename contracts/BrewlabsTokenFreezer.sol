@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/access/Ownable.sol';
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@openzeppelin/contracts/utils/math/SafeMath.sol';
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-import './libs/IBrewlabsTokenLocker.sol';
-import './libs/IUniFactory.sol';
-import './libs/IUniPair.sol';
+import "./libs/IBrewlabsTokenLocker.sol";
+import "./libs/IUniFactory.sol";
+import "./libs/IUniPair.sol";
 
 contract BrewlabsTokenFreezer is Ownable {
     using SafeMath for uint256;
@@ -19,10 +19,11 @@ contract BrewlabsTokenFreezer is Ownable {
         uint256 editFee;
         uint256 defrostFee;
     }
+
     FeeStruct public gFees;
 
     address public implementation;
-    mapping (address => address) public tokenLockers;
+    mapping(address => address) public tokenLockers;
 
     address public treasury = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
     address private devAddr;
@@ -33,7 +34,7 @@ contract BrewlabsTokenFreezer is Ownable {
     event FeeUpdated(uint256 mintFee, uint256 editFee, uint256 defrostFee);
     event UpdateImplementation(address impl);
 
-    constructor (address _implementation) {
+    constructor(address _implementation) {
         implementation = _implementation;
 
         devAddr = msg.sender;
@@ -43,7 +44,15 @@ contract BrewlabsTokenFreezer is Ownable {
         gFees.defrostFee = 5 ether;
     }
 
-    function createTokenLocker(address _op, address _token, address _reflectionToken, uint256 _amount, uint256 _cycle, uint256 _cAmount, uint256 _unlockTime) external payable returns (address locker) {
+    function createTokenLocker(
+        address _op,
+        address _token,
+        address _reflectionToken,
+        uint256 _amount,
+        uint256 _cycle,
+        uint256 _cAmount,
+        uint256 _unlockTime
+    ) external payable returns (address locker) {
         require(msg.value >= gFees.mintFee, "not enough fee");
 
         _transferFee(gFees.mintFee);
@@ -55,17 +64,19 @@ contract BrewlabsTokenFreezer is Ownable {
         uint256 amountIn = afterAmt.sub(beforeAmt);
 
         locker = tokenLockers[_token];
-        if(locker == address(0x0)) {
+        if (locker == address(0x0)) {
             bytes32 salt = keccak256(abi.encodePacked(_op, _token, block.timestamp));
             locker = Clones.cloneDeterministic(implementation, salt);
-            IBrewlabsTokenLocker(locker).initialize(_token, _reflectionToken, treasury, gFees.editFee, gFees.defrostFee, devAddr, devRate, address(this));
+            IBrewlabsTokenLocker(locker).initialize(
+                _token, _reflectionToken, treasury, gFees.editFee, gFees.defrostFee, devAddr, devRate, address(this)
+            );
 
             tokenLockers[_token] = locker;
             emit TokenLockerCreated(locker, _token, _reflectionToken);
         }
 
         uint256 unlockRate = 0;
-        if(_cycle > 0) {
+        if (_cycle > 0) {
             unlockRate = _cAmount.div(_cycle.mul(TIME_UNIT));
         }
 
@@ -89,7 +100,7 @@ contract BrewlabsTokenFreezer is Ownable {
         IBrewlabsTokenLocker(_locker).setTreasury(_treasury);
     }
 
-    function transferOwnershipOfLocker( address payable _locker, address _newOwner) external onlyOwner {
+    function transferOwnershipOfLocker(address payable _locker, address _newOwner) external onlyOwner {
         IBrewlabsTokenLocker(_locker).transferOwnership(_newOwner);
     }
 
@@ -117,12 +128,12 @@ contract BrewlabsTokenFreezer is Ownable {
     }
 
     function _transferFee(uint256 _fee) internal {
-        if(msg.value > _fee) {
+        if (msg.value > _fee) {
             payable(msg.sender).transfer(msg.value.sub(_fee));
         }
 
         uint256 _devFee = _fee.mul(devRate).div(10000);
-        if(_devFee > 0) {
+        if (_devFee > 0) {
             payable(devAddr).transfer(_devFee);
         }
 

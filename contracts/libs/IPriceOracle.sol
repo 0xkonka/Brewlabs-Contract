@@ -3,10 +3,10 @@ pragma solidity ^0.8.0;
 
 interface IPriceOracle {
     /**
-      * @notice Get the price of a token
-      * @param token The token to get the price of
-      * @return The asset price mantissa (scaled by 1e18).
-      *  Zero means the price is unavailable.
-      */
-    function getTokenPrice(address token) external view returns (uint);
+     * @notice Get the price of a token
+     * @param token The token to get the price of
+     * @return The asset price mantissa (scaled by 1e18).
+     *  Zero means the price is unavailable.
+     */
+    function getTokenPrice(address token) external view returns (uint256);
 }

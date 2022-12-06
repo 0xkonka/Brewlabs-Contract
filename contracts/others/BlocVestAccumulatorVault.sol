@@ -5,9 +5,9 @@ pragma solidity ^0.8.0;
  * @author Brewlabs
  * This contract has been developed by brewlabs.info
  */
- 
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
+
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../libs/IPriceOracle.sol";
 
@@ -36,6 +36,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         uint256 totalReward;
         bool isNominated;
     }
+
     mapping(address => UserInfo) public userInfo;
     uint256 public userCount;
     uint256 public totalStaked;
@@ -62,7 +63,10 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
 
         require(_amount > 0, "Amount should be greator than 0");
         require(user.nominatedCycle > 0, "not nominate days");
-        require(user.lastDepositTime + user.nominatedCycle * TIME_UNITS < block.timestamp, "cannot deposit before pass nominated days");
+        require(
+            user.lastDepositTime + user.nominatedCycle * TIME_UNITS < block.timestamp,
+            "cannot deposit before pass nominated days"
+        );
 
         _transferPerformanceFee();
 
@@ -76,21 +80,22 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         uint256 usdAmount = realAmount * tokenPrice / 1 ether;
         require(usdAmount <= depositLimit, "cannot exceed max deposit limit");
 
-        if(user.amount > 0) {
+        if (user.amount > 0) {
             uint256 claimable = 0;
-            if(user.lastClaimTime == user.lastDepositTime) {
+            if (user.lastClaimTime == user.lastDepositTime) {
                 uint256 depositedTokens = user.usdAmount * 1e18 / tokenPrice;
-                if(depositedTokens > user.amount) {
+                if (depositedTokens > user.amount) {
                     depositedTokens = user.amount;
                 }
                 claimable = depositedTokens;
             }
 
             uint256 expireTime = user.lastDepositTime + (user.nominatedCycle + 1) * TIME_UNITS;
-            if(block.timestamp < expireTime && user.usdAmount >= user.initialAmount && usdAmount >= user.initialAmount) {
+            if (block.timestamp < expireTime && user.usdAmount >= user.initialAmount && usdAmount >= user.initialAmount)
+            {
                 uint256 reward = (user.usdAmount * bonusRates[user.nominatedType] / 10000) * 1e18 / tokenPrice;
                 uint256 maxRewards = stakingToken.totalSupply() * MAX_BONUS_LIMIT / 10000;
-                if(reward > maxRewards) reward = maxRewards;
+                if (reward > maxRewards) reward = maxRewards;
                 claimable += reward;
             }
 
@@ -98,7 +103,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
             user.totalReward += claimable;
         }
 
-        if(user.initialAmount == 0) {
+        if (user.initialAmount == 0) {
             user.initialAmount = usdAmount;
             user.isNominated = true;
             userCount = userCount + 1;
@@ -109,7 +114,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         user.totalStaked += realAmount;
         user.lastDepositTime = block.timestamp;
         user.lastClaimTime = block.timestamp;
-        
+
         totalStaked += realAmount;
 
         emit Deposit(msg.sender, realAmount);
@@ -132,13 +137,13 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
         _transferPerformanceFee();
 
         uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS;
-        if(block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
-            uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));  
+        if (block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
+            uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
             uint256 claimable = user.usdAmount * 1e18 / tokenPrice;
-            if(claimable > user.amount) {
+            if (claimable > user.amount) {
                 claimable = user.amount;
             }
-            
+
             stakingToken.safeTransfer(msg.sender, claimable);
             user.totalReward += claimable;
 
@@ -150,15 +155,15 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
 
     function pendingRewards(address _user) external view returns (uint256) {
         UserInfo memory user = userInfo[_user];
-        
-        uint256 claimable = 0;        
+
+        uint256 claimable = 0;
         uint256 expireTime = user.lastDepositTime + user.nominatedCycle * TIME_UNITS;
-        if(block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
+        if (block.timestamp > expireTime && user.lastClaimTime == user.lastDepositTime) {
             uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
-            if(tokenPrice == 0) return 0;
-            
+            if (tokenPrice == 0) return 0;
+
             claimable = user.usdAmount * 1e18 / tokenPrice;
-            if(claimable > user.amount) {
+            if (claimable > user.amount) {
                 claimable = user.amount;
             }
         }
@@ -167,10 +172,10 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
     }
 
     function _transferPerformanceFee() internal {
-        require(msg.value >= performanceFee, 'should pay small gas to compound or harvest');
+        require(msg.value >= performanceFee, "should pay small gas to compound or harvest");
 
         payable(treasury).transfer(performanceFee);
-        if(msg.value > performanceFee) {
+        if (msg.value > performanceFee) {
             payable(msg.sender).transfer(msg.value - performanceFee);
         }
     }
@@ -182,7 +187,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
      * @dev This function is only callable by admin.
      */
     function rescueTokens(address _token, uint256 _amount) external onlyOwner {
-        if(_token == address(0x0)) {
+        if (_token == address(0x0)) {
             payable(msg.sender).transfer(_amount);
         } else {
             IERC20(_token).safeTransfer(address(msg.sender), _amount);
@@ -208,7 +213,7 @@ contract BlocVestAccumulatorVault is Ownable, ReentrancyGuard {
 
     function setBonusRates(uint256[] memory _rates) external onlyOwner {
         require(_rates.length == 3, "Invalid rate");
-        for(uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             require(_rates[i] <= 5000, "exceed bonus limit");
             bonusRates[i] = _rates[i];
         }

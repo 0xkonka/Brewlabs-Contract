@@ -5,11 +5,11 @@ pragma solidity ^0.8.0;
  * @author Brewlabs
  * This contract has been developed by brewlabs.info
  */
-import '@openzeppelin/contracts/access/Ownable.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@openzeppelin/contracts/utils/math/SafeMath.sol';
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract WanchorTeamLocker is Ownable{
+contract WanchorTeamLocker is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -29,17 +29,17 @@ contract WanchorTeamLocker is Ownable{
     uint256 constant MAX_STAKES = 256;
 
     struct Lock {
-        uint256 amount;              // locked amount
-        uint256 duration;            // team member can claim after duration in days
+        uint256 amount; // locked amount
+        uint256 duration; // team member can claim after duration in days
         uint256 releaseTime;
     }
 
     struct UserInfo {
-        uint256 amount;         // total locked amount
-        uint256 firstIndex;     // first index for unlocked elements
+        uint256 amount; // total locked amount
+        uint256 firstIndex; // first index for unlocked elements
         uint256 reflectionDebt; // Reflection debt
     }
-   
+
     mapping(address => Lock[]) public locks;
     mapping(address => UserInfo) public userInfo;
     address[] public members;
@@ -48,13 +48,13 @@ contract WanchorTeamLocker is Ownable{
     event Deposited(address member, uint256 amount, uint256 duration);
     event Released(address member, uint256 amount);
     event LockDurationUpdated(uint256 duration);
-        
+
     modifier onlyActive() {
         require(isActive == true, "not active");
         _;
     }
 
-    constructor () {}
+    constructor() {}
 
     function initialize(IERC20 _token, address _reflectionToken) external onlyOwner {
         require(initialized == false, "already initialized");
@@ -69,25 +69,25 @@ contract WanchorTeamLocker is Ownable{
 
         _updatePool();
 
-        UserInfo storage user = userInfo[msg.sender];        
+        UserInfo storage user = userInfo[msg.sender];
         uint256 pending = user.amount.mul(accReflectionPerShare).div(PRECISION_FACTOR).sub(user.reflectionDebt);
         if (pending > 0) {
-            if(reflectionToken == address(0x0)) {
+            if (reflectionToken == address(0x0)) {
                 payable(msg.sender).transfer(pending);
             } else {
                 IERC20(reflectionToken).safeTransfer(address(msg.sender), pending);
             }
             allocatedReflections = allocatedReflections.sub(pending);
         }
-        
+
         uint256 beforeAmount = token.balanceOf(address(this));
         token.safeTransferFrom(msg.sender, address(this), amount);
         uint256 afterAmount = token.balanceOf(address(this));
         uint256 realAmount = afterAmount.sub(beforeAmount);
-        
+
         _addLock(msg.sender, realAmount, user.firstIndex);
-        
-        if(isMember[msg.sender] == false) {
+
+        if (isMember[msg.sender] == false) {
             members.push(msg.sender);
             isMember[msg.sender] = true;
         }
@@ -116,7 +116,7 @@ contract WanchorTeamLocker is Ownable{
             _locks[i] = _locks[i - 1];
             i -= 1;
         }
-        
+
         // insert the stake
         Lock storage _lock = _locks[i];
         _lock.amount = _amount;
@@ -124,21 +124,20 @@ contract WanchorTeamLocker is Ownable{
         _lock.releaseTime = releaseTime;
     }
 
-
     function harvest() external onlyActive {
         _updatePool();
 
-        UserInfo storage user = userInfo[msg.sender];        
+        UserInfo storage user = userInfo[msg.sender];
         uint256 pending = user.amount.mul(accReflectionPerShare).div(PRECISION_FACTOR).sub(user.reflectionDebt);
         if (pending > 0) {
-            if(reflectionToken == address(0x0)) {
+            if (reflectionToken == address(0x0)) {
                 payable(msg.sender).transfer(pending);
             } else {
                 IERC20(reflectionToken).safeTransfer(address(msg.sender), pending);
             }
             allocatedReflections = allocatedReflections.sub(pending);
         }
-        
+
         user.reflectionDebt = user.amount.mul(accReflectionPerShare).div(PRECISION_FACTOR);
     }
 
@@ -147,22 +146,22 @@ contract WanchorTeamLocker is Ownable{
 
         UserInfo storage user = userInfo[msg.sender];
         Lock[] storage _locks = locks[msg.sender];
-        
+
         bool bUpdatable = true;
         uint256 firstIndex = user.firstIndex;
-        
+
         uint256 claimAmt = 0;
-        for(uint256 i = user.firstIndex; i < _locks.length; i++) {
+        for (uint256 i = user.firstIndex; i < _locks.length; i++) {
             Lock storage _lock = _locks[i];
 
-            if(bUpdatable && _lock.amount == 0) firstIndex = i;
-            if(_lock.amount == 0) continue;
-            if(_lock.releaseTime > block.timestamp) {
+            if (bUpdatable && _lock.amount == 0) firstIndex = i;
+            if (_lock.amount == 0) continue;
+            if (_lock.releaseTime > block.timestamp) {
                 bUpdatable = false;
                 continue;
             }
 
-            if(i - user.firstIndex > processingLimit) break;
+            if (i - user.firstIndex > processingLimit) break;
 
             claimAmt = claimAmt.add(_lock.amount);
             _lock.amount = 0;
@@ -170,14 +169,14 @@ contract WanchorTeamLocker is Ownable{
             firstIndex = i;
         }
 
-        if(claimAmt > 0) {
+        if (claimAmt > 0) {
             token.safeTransfer(msg.sender, claimAmt);
             emit Released(msg.sender, claimAmt);
         }
-        
+
         uint256 reflectionAmt = user.amount.mul(accReflectionPerShare).div(PRECISION_FACTOR).sub(user.reflectionDebt);
-        if(reflectionAmt > 0) {
-            if(reflectionToken == address(0x0)) {
+        if (reflectionAmt > 0) {
+            if (reflectionToken == address(0x0)) {
                 payable(msg.sender).transfer(reflectionAmt);
             } else {
                 IERC20(reflectionToken).safeTransfer(msg.sender, reflectionAmt);
@@ -192,7 +191,7 @@ contract WanchorTeamLocker is Ownable{
     }
 
     function pendingReflection(address _user) external view returns (uint256) {
-        if(totalLocked == 0) return 0;
+        if (totalLocked == 0) return 0;
 
         uint256 reflectionAmt = availableRelectionTokens();
         reflectionAmt = reflectionAmt.sub(allocatedReflections);
@@ -208,10 +207,10 @@ contract WanchorTeamLocker is Ownable{
         UserInfo memory user = userInfo[_user];
 
         uint256 claimAmt = 0;
-        for(uint256 i = user.firstIndex; i < _locks.length; i++) {
+        for (uint256 i = user.firstIndex; i < _locks.length; i++) {
             Lock memory _lock = _locks[i];
-            if(_lock.amount == 0) continue;
-            if(_lock.releaseTime > block.timestamp) continue;
+            if (_lock.amount == 0) continue;
+            if (_lock.releaseTime > block.timestamp) continue;
 
             claimAmt = claimAmt.add(_lock.amount);
         }
@@ -240,19 +239,19 @@ contract WanchorTeamLocker is Ownable{
 
     function emergencyWithdraw() external onlyOwner {
         uint256 tokenAmt = token.balanceOf(address(this));
-        if(tokenAmt > 0) {
+        if (tokenAmt > 0) {
             token.transfer(msg.sender, tokenAmt);
         }
 
-        if(address(token) == reflectionToken) return;
+        if (address(token) == reflectionToken) return;
 
         uint256 reflectionAmt = address(this).balance;
-        if(reflectionToken != address(0x0)) {
+        if (reflectionToken != address(0x0)) {
             reflectionAmt = IERC20(reflectionToken).balanceOf(address(this));
         }
 
-        if(reflectionAmt > 0) {
-            if(reflectionToken == address(0x0)) {
+        if (reflectionAmt > 0) {
+            if (reflectionToken == address(0x0)) {
                 payable(msg.sender).transfer(reflectionAmt);
             } else {
                 IERC20(reflectionToken).transfer(msg.sender, reflectionAmt);
@@ -264,7 +263,7 @@ contract WanchorTeamLocker is Ownable{
         require(_tokenAddress != address(token), "Cannot recover locked token");
         require(_tokenAddress != reflectionToken, "Cannot recover reflection token");
 
-        if(_tokenAddress == address(0x0)) {
+        if (_tokenAddress == address(0x0)) {
             uint256 amount = address(this).balance;
             payable(msg.sender).transfer(amount);
         } else {
@@ -275,11 +274,11 @@ contract WanchorTeamLocker is Ownable{
 
     function availableRelectionTokens() internal view returns (uint256) {
         uint256 _amount = address(this).balance;
-        if(reflectionToken != address(0x0)) {
+        if (reflectionToken != address(0x0)) {
             _amount = IERC20(reflectionToken).balanceOf(address(this));
 
             if (address(token) == reflectionToken) {
-                if (_amount < totalLocked) return 0;            
+                if (_amount < totalLocked) return 0;
                 return _amount.sub(totalLocked);
             }
         }
@@ -288,7 +287,7 @@ contract WanchorTeamLocker is Ownable{
     }
 
     function _updatePool() internal {
-        if(totalLocked == 0) return;
+        if (totalLocked == 0) return;
 
         uint256 reflectionAmt = availableRelectionTokens();
         reflectionAmt = reflectionAmt.sub(allocatedReflections);

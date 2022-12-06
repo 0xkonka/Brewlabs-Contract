@@ -15,13 +15,14 @@ import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 
 interface IJigsawToken {
-    function getNumberOfTokenHolders() external view returns(uint256);
-    function getTokenHolderAtIndex(uint256 accountIndex) external view returns(address);
+    function getNumberOfTokenHolders() external view returns (uint256);
+    function getTokenHolderAtIndex(uint256 accountIndex) external view returns (address);
     function balanceOf(address account) external view returns (uint256);
 }
-interface IPegSwap{
+
+interface IPegSwap {
     function swap(uint256 amount, address source, address target) external;
-    function getSwappableAmount(address source, address target) external view returns(uint);
+    function getSwappableAmount(address source, address target) external view returns (uint256);
 }
 
 contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
@@ -38,7 +39,7 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     bytes32 keyHash;
     uint32 callbackGasLimit = 150000;
     uint16 requestConfirmations = 3;
-    uint32 numWords =  3;
+    uint32 numWords = 3;
 
     uint256 public s_requestId;
     uint256 public r_requestId;
@@ -48,6 +49,7 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         address[3] winner;
         uint256[3] amount;
     }
+
     uint256 public theOfferingID;
     uint256 public theOfferingRate = 2500;
     uint256[3] public theOfferingHolderRates = [6000, 2500, 1000];
@@ -60,7 +62,7 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
 
     address[3] public wallets;
     uint256[3] public rates = [2500, 2000, 2500];
-    
+
     // BSC Mainnet ERC20_LINK_ADDRESS
     address public constant ERC20_LINK_ADDRESS = 0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39;
     address public constant PEGSWAP_ADDRESS = 0xF8A0BF9cF54Bb92F17374d9e9A321E6a111a51bD;
@@ -133,12 +135,12 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         require(numHolders > 3, "Not enough token holders");
 
         s_requestId = 0;
-        
+
         uint256[3] memory idx;
         uint256[3] memory sortedIdx;
-        for(uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             idx[i] = s_randomWords[i] % (numHolders - i);
-            for(uint j = 0; j < i; j++) {
+            for (uint256 j = 0; j < i; j++) {
                 if (idx[i] >= sortedIdx[j]) {
                     idx[i] = idx[i] + 1;
                 } else {
@@ -148,28 +150,28 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
 
             idx[i] = idx[i] % numHolders;
             sortedIdx[i] = idx[i];
-            if(i > 0 && sortedIdx[i] < sortedIdx[i - 1]) {
+            if (i > 0 && sortedIdx[i] < sortedIdx[i - 1]) {
                 uint256 t = sortedIdx[i];
                 sortedIdx[i] = sortedIdx[i - 1];
                 sortedIdx[i - 1] = t;
             }
         }
 
-        theOfferingID = theOfferingID + 1;        
+        theOfferingID = theOfferingID + 1;
         TheOfferingResult storage triadResult = theOfferingResults[theOfferingID];
 
         uint256 amount = address(this).balance;
         amount = amount * theOfferingRate / 10000;
-        for(uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             address winnerA = jigsawToken.getTokenHolderAtIndex(idx[i]);
             triadResult.winner[i] = winnerA;
 
-            if(isWinner[winnerA]) continue;
+            if (isWinner[winnerA]) continue;
             isWinner[winnerA] = true;
             winnerList.push(winnerA);
 
-            if(isContract(winnerA)) continue;
-            if(jigsawToken.balanceOf(winnerA) < winnerBalanceLimit) continue;
+            if (isContract(winnerA)) continue;
+            if (jigsawToken.balanceOf(winnerA) < winnerBalanceLimit) continue;
 
             uint256 amountA = amount * theOfferingHolderRates[i] / 10000;
             triadResult.amount[i] = amountA;
@@ -179,19 +181,19 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         emit HolderDistributed(theOfferingID, triadResult.winner, triadResult.amount);
     }
 
-    function offeringResult(uint256 _id) external view returns(address[3] memory, uint256[3] memory) {
+    function offeringResult(uint256 _id) external view returns (address[3] memory, uint256[3] memory) {
         return (theOfferingResults[_id].winner, theOfferingResults[_id].amount);
     }
 
-    function totalWinners() external view returns(uint256) {
+    function totalWinners() external view returns (uint256) {
         return winnerList.length;
     }
 
     function resetWinnerList() external onlyOwner {
-        uint count = winnerList.length;
-        for(uint i = 0; i < count; i++) {
-            if(i >= oneTimeResetCount) break;
-            
+        uint256 count = winnerList.length;
+        for (uint256 i = 0; i < count; i++) {
+            if (i >= oneTimeResetCount) break;
+
             address winner = winnerList[winnerList.length - 1];
             isWinner[winner] = false;
             winnerList.pop();
@@ -209,7 +211,7 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
      * @notice Set the distribution rates for the three wallets
      * @dev This function must be called by the owner of the contract.
      */
-    function setDistributorRates(uint256 _rateA, uint256 _rateB, uint256 _rateC) external onlyOwner {        
+    function setDistributorRates(uint256 _rateA, uint256 _rateB, uint256 _rateC) external onlyOwner {
         require(_rateA > 0, "Rate A must be greater than 0");
         require(_rateB > 0, "Rate B must be greater than 0");
         require(_rateC > 0, "Rate C must be greater than 0");
@@ -246,7 +248,7 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         theOfferingRate = _rate;
         emit SetTheOfferingRate(_rate);
     }
-    
+
     /**
      * @notice Set the minimum balance to receive ETH from call offering
      * @dev This function must be called by the owner of the contract.
@@ -270,7 +272,7 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         emit SetTheOfferingHolderRates(_rateA, _rateB, _rateC);
     }
 
-    function setCoordiatorConfig(bytes32 _keyHash, uint32 _gasLimit, uint32 _numWords ) external onlyOwner {
+    function setCoordiatorConfig(bytes32 _keyHash, uint32 _gasLimit, uint32 _numWords) external onlyOwner {
         keyHash = _keyHash;
         callbackGasLimit = _gasLimit;
         numWords = _numWords;
@@ -279,7 +281,11 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     /**
      * @notice fetch subscription information from the VRF coordinator
      */
-    function getSubscriptionInfo() external view returns (uint96 balance, uint64 reqCount, address owner, address[] memory consumers) {
+    function getSubscriptionInfo()
+        external
+        view
+        returns (uint96 balance, uint64 reqCount, address owner, address[] memory consumers)
+    {
         return COORDINATOR.getSubscription(s_subscriptionId);
     }
 
@@ -310,11 +316,7 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
      */
     function fundToCoordiator(uint96 _amount) external onlyOwner {
         LINKTOKEN.transferFrom(msg.sender, address(this), _amount);
-        LINKTOKEN.transferAndCall(
-            address(COORDINATOR),
-            _amount,
-            abi.encode(s_subscriptionId)
-        );
+        LINKTOKEN.transferAndCall(address(COORDINATOR), _amount, abi.encode(s_subscriptionId));
     }
 
     /**
@@ -325,13 +327,9 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         IERC20(ERC20_LINK_ADDRESS).transferFrom(msg.sender, address(this), _amount);
         IERC20(ERC20_LINK_ADDRESS).approve(PEGSWAP_ADDRESS, _amount);
         IPegSwap(PEGSWAP_ADDRESS).swap(_amount, ERC20_LINK_ADDRESS, address(LINKTOKEN));
-        
+
         uint256 tokenBal = LINKTOKEN.balanceOf(address(this));
-        LINKTOKEN.transferAndCall(
-            address(COORDINATOR),
-            tokenBal,
-            abi.encode(s_subscriptionId)
-        );
+        LINKTOKEN.transferAndCall(address(COORDINATOR), tokenBal, abi.encode(s_subscriptionId));
     }
 
     /**
@@ -341,13 +339,8 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     function requestRandomWords() external onlyOwner {
         r_requestId = 0;
         // Will revert if subscription is not set and funded.
-        s_requestId = COORDINATOR.requestRandomWords(
-            keyHash,
-            s_subscriptionId,
-            requestConfirmations,
-            callbackGasLimit,
-            numWords
-        );
+        s_requestId =
+            COORDINATOR.requestRandomWords(keyHash, s_subscriptionId, requestConfirmations, callbackGasLimit, numWords);
     }
 
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
@@ -355,7 +348,6 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         s_randomWords = randomWords;
     }
 
-    
     function emergencyWithdrawETH() external onlyOwner {
         uint256 _tokenAmount = address(this).balance;
         payable(msg.sender).transfer(_tokenAmount);
@@ -373,7 +365,9 @@ contract JigsawDistributor is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
 
     function isContract(address _addr) internal view returns (bool) {
         uint256 size;
-        assembly { size := extcodesize(_addr) }
+        assembly {
+            size := extcodesize(_addr)
+        }
         return size > 0;
     }
 

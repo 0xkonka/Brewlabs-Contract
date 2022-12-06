@@ -20,6 +20,7 @@ contract BlocVestX is ERC20Burnable, Ownable {
         require(isMinter[msg.sender], "not minter");
         _;
     }
+
     constructor() ERC20("BlocVestX", "BVSTX") {}
 
     function mint(address _to, uint256 _amount) external onlyMinter {

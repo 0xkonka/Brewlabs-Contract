@@ -1,4 +1,3 @@
- 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -6,10 +5,10 @@ pragma solidity ^0.8.0;
  * @author Brewlabs
  * This contract has been developed by brewlabs.info
  */
- 
-import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
+
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../libs/IPriceOracle.sol";
 import "../libs/IUniRouter02.sol";
@@ -62,6 +61,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         uint256 rewardDebt; // Reward debt
     }
     // Info of each user that stakes tokens (stakingToken)
+
     mapping(address => UserInfo) public userInfo;
 
     struct PartnerInfo {
@@ -70,6 +70,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         uint256 rewardDebt; // Reward debt
     }
     // Info of each user that stakes tokens (stakingToken)
+
     mapping(address => PartnerInfo) public partnerInfo;
 
     event Deposit(address indexed user, uint256 amount);
@@ -85,13 +86,9 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
     event HarvestCycleUpdated(uint256 _duration);
     event ServiceInfoUpadted(address addr, uint256 fee);
 
-    event SetSettings(
-        uint256 _slippageFactor,
-        address _uniRouter,
-        address[] _path0
-    );
+    event SetSettings(uint256 _slippageFactor, address _uniRouter, address[] _path0);
 
-    modifier onlyActive () {
+    modifier onlyActive() {
         require(isActive, "not enabled");
         _;
     }
@@ -122,10 +119,9 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         earnedToken = _earnedToken;
         oracle = IPriceOracle(_oracle);
 
-
         uint256 decimalsRewardToken = uint256(IERC20Metadata(address(earnedToken)).decimals());
         require(decimalsRewardToken < 30, "Must be inferior to 30");
-        PRECISION_FACTOR = uint256(10**(40 - decimalsRewardToken));
+        PRECISION_FACTOR = uint256(10 ** (40 - decimalsRewardToken));
 
         uniRouterAddress = _uniRouter;
         earnedToStakedPath = _earnedToStakedPath;
@@ -150,8 +146,8 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
 
                 totalPaid = totalPaid + pending;
                 totalEarned = totalEarned - pending;
-                
-                if(address(stakingToken) != address(earnedToken)) {
+
+                if (address(stakingToken) != address(earnedToken)) {
                     beforeAmount = stakingToken.balanceOf(address(this));
                     _safeSwap(pending, earnedToStakedPath, address(this));
                     afterAmount = stakingToken.balanceOf(address(this));
@@ -159,15 +155,15 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
                 }
             }
         }
-        
+
         beforeAmount = stakingToken.balanceOf(address(this));
         stakingToken.safeTransferFrom(msg.sender, address(this), _amount);
         afterAmount = stakingToken.balanceOf(address(this));
-        
+
         uint256 realAmount = afterAmount - beforeAmount + pending;
         uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
         require(tokenPrice > 0, "invalid token price");
-        
+
         user.amount = user.amount + realAmount;
         user.usdAmount = user.usdAmount + realAmount * tokenPrice / 1e18;
         user.totalEarned = user.totalEarned + pending;
@@ -176,7 +172,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
 
         totalStaked = totalStaked + realAmount;
-        
+
         emit Deposit(msg.sender, realAmount);
     }
 
@@ -199,19 +195,19 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         if (pending > 0 && user.lastClaimTime + (harvestCycle * TIME_UNITS) < block.timestamp) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             earnedToken.safeTransfer(address(msg.sender), pending);
-            
+
             totalPaid = totalPaid + pending;
             totalEarned = totalEarned - pending;
         } else {
             pending = 0;
         }
-        
+
         uint256 realAmount = _amount;
         uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
-        if(realAmount * tokenPrice / 1e18 > user.usdAmount) {
+        if (realAmount * tokenPrice / 1e18 > user.usdAmount) {
             realAmount = user.usdAmount * 1e18 / tokenPrice;
             totalStaked = totalStaked - user.amount;
-            
+
             user.amount = 0;
             user.usdAmount = 0;
         } else {
@@ -220,7 +216,7 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
             user.amount = user.amount - _amount;
             user.usdAmount = user.usdAmount - _amount * tokenPrice / 1e18;
         }
-        
+
         stakingToken.safeTransfer(address(msg.sender), realAmount);
         user.totalEarned = user.totalEarned + pending;
         user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
@@ -243,16 +239,16 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             earnedToken.safeTransfer(_to, pending);
-            
+
             totalPaid = totalPaid + pending;
             totalEarned = totalEarned - pending;
         }
-        
+
         user.totalEarned = user.totalEarned + pending;
         user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
         user.lastClaimTime = block.timestamp;
     }
-    
+
     function harvestForPartner() external {
         PartnerInfo storage user = partnerInfo[msg.sender];
 
@@ -265,20 +261,20 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             earnedToken.safeTransfer(msg.sender, pending);
-            
+
             totalPaid = totalPaid + pending;
             totalEarned = totalEarned - pending;
         }
-        
+
         user.totalEarned = user.totalEarned + pending;
         user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
     }
 
     function _transferPerformanceFee() internal {
-        require(msg.value >= performanceFee, 'should pay small gas to compound or harvest');
+        require(msg.value >= performanceFee, "should pay small gas to compound or harvest");
 
         payable(treasury).transfer(performanceFee);
-        if(msg.value > performanceFee) {
+        if (msg.value > performanceFee) {
             payable(msg.sender).transfer(msg.value - performanceFee);
         }
     }
@@ -292,15 +288,15 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
 
         UserInfo storage user = userInfo[msg.sender];
         uint256 amountToTransfer = user.amount;
-        if(amountToTransfer < 0) return;
+        if (amountToTransfer < 0) return;
 
         uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
         pending = estimateRewardAmount(pending);
         totalEarned = totalEarned - pending;
         totalStaked = totalStaked - amountToTransfer;
-        
+
         uint256 tokenPrice = oracle.getTokenPrice(address(stakingToken));
-        if(amountToTransfer * tokenPrice / 1e18 > user.usdAmount) {
+        if (amountToTransfer * tokenPrice / 1e18 > user.usdAmount) {
             amountToTransfer = user.usdAmount * 1e18 / tokenPrice;
         }
         stakingToken.safeTransfer(address(msg.sender), amountToTransfer);
@@ -335,19 +331,18 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
      * @return Pending reward for a given user
      */
     function pendingRewards(address _user) external view returns (uint256) {
-        if(totalStaked == 0) return 0;
+        if (totalStaked == 0) return 0;
 
         UserInfo memory user = userInfo[_user];
-        
+
         uint256 rewardAmount = availableRewardTokens();
-        if(rewardAmount < totalEarned) {
+        if (rewardAmount < totalEarned) {
             rewardAmount = totalEarned;
         }
 
-        uint256 adjustedTokenPerShare = accTokenPerShare + (
-                (rewardAmount - totalEarned) * PRECISION_FACTOR / totalStaked
-            );
-        
+        uint256 adjustedTokenPerShare =
+            accTokenPerShare + ((rewardAmount - totalEarned) * PRECISION_FACTOR / totalStaked);
+
         return user.amount * adjustedTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
     }
 
@@ -355,31 +350,30 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         PartnerInfo memory user = partnerInfo[_user];
 
         uint256 rewardAmount = availableRewardTokens();
-        if(rewardAmount < totalEarned) {
+        if (rewardAmount < totalEarned) {
             rewardAmount = totalEarned;
         }
 
-        uint256 adjustedTokenPerShare = accTokenPerShare + (
-                (rewardAmount - totalEarned) * PRECISION_FACTOR / totalStaked
-            );
+        uint256 adjustedTokenPerShare =
+            accTokenPerShare + ((rewardAmount - totalEarned) * PRECISION_FACTOR / totalStaked);
 
         return user.amount * adjustedTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
     }
-    
+
     function addPartners(uint256 _amount, address[] memory _users, uint256[] memory _allocs) external onlyOwner {
         require(_amount > 0, "Amount should be greator than 0");
         require(_users.length > 0, "empty users");
         require(_users.length == _allocs.length, "invalid params");
 
         _updatePool();
-        
+
         uint256 beforeAmount = stakingToken.balanceOf(address(this));
         stakingToken.safeTransferFrom(msg.sender, address(this), _amount);
-        uint256 afterAmount = stakingToken.balanceOf(address(this));        
+        uint256 afterAmount = stakingToken.balanceOf(address(this));
         uint256 realAmount = afterAmount - beforeAmount;
-        
+
         uint256 totalAlloc = 0;
-        for(uint i = 0; i < _users.length; i++) {
+        for (uint256 i = 0; i < _users.length; i++) {
             require(_allocs[i] < 10000, "invalid percentage");
             totalAlloc += _allocs[i];
 
@@ -398,10 +392,10 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
 
     function cancelPartner(address _user) external onlyOwner {
         PartnerInfo storage user = partnerInfo[_user];
-        require(user.amount > 0, "Invalid parnter") ;
+        require(user.amount > 0, "Invalid parnter");
 
         stakingToken.safeTransfer(msg.sender, user.amount);
-        
+
         user.amount = 0;
         user.rewardDebt = 0;
 
@@ -418,9 +412,9 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         require(isActive == true, "Pool is running");
         require(availableRewardTokens() >= _amount, "Insufficient reward tokens");
 
-        if(_amount == 0) _amount = availableRewardTokens();
+        if (_amount == 0) _amount = availableRewardTokens();
         earnedToken.safeTransfer(address(msg.sender), _amount);
-        
+
         if (totalEarned > 0) {
             if (_amount > totalEarned) {
                 totalEarned = 0;
@@ -437,17 +431,14 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
      * @dev This function is only callable by admin.
      */
     function rescueTokens(address _tokenAddress, uint256 _tokenAmount) external onlyOwner {
-        require(
-            _tokenAddress != address(earnedToken),
-            "Cannot be reward token"
-        );
+        require(_tokenAddress != address(earnedToken), "Cannot be reward token");
 
-        if(_tokenAddress == address(stakingToken)) {
+        if (_tokenAddress == address(stakingToken)) {
             uint256 tokenBal = stakingToken.balanceOf(address(this));
             require(_tokenAmount <= tokenBal - totalStaked, "Insufficient balance");
         }
 
-        if(_tokenAddress == address(0x0)) {
+        if (_tokenAddress == address(0x0)) {
             payable(msg.sender).transfer(_tokenAmount);
         } else {
             IERC20(_tokenAddress).safeTransfer(address(msg.sender), _tokenAmount);
@@ -494,11 +485,10 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         emit SetEmergencyWithdrawStatus(_status);
     }
 
-    function setSettings(
-        uint256 _slippageFactor,
-        address _uniRouter,
-        address[] memory _earnedToStakedPath
-    ) external onlyOwner {
+    function setSettings(uint256 _slippageFactor, address _uniRouter, address[] memory _earnedToStakedPath)
+        external
+        onlyOwner
+    {
         require(_slippageFactor <= slippageFactorUL, "_slippageFactor too high");
 
         slippageFactor = _slippageFactor;
@@ -508,49 +498,41 @@ contract BlocVestShareholderVault is Ownable, ReentrancyGuard {
         emit SetSettings(_slippageFactor, _uniRouter, _earnedToStakedPath);
     }
 
-    /************************
-    ** Internal Methods
-    *************************/
+    /**
+     *
+     * Internal Methods
+     *
+     */
     /*
      * @notice Update reward variables of the given pool to be up-to-date.
      */
     function _updatePool() internal {
-        if(totalStaked == 0) return;
+        if (totalStaked == 0) return;
 
         uint256 rewardAmount = availableRewardTokens();
-        if(rewardAmount < totalEarned) {
+        if (rewardAmount < totalEarned) {
             rewardAmount = totalEarned;
         }
 
-        accTokenPerShare = accTokenPerShare + (
-                (rewardAmount - totalEarned) * PRECISION_FACTOR / totalStaked
-            );
+        accTokenPerShare = accTokenPerShare + ((rewardAmount - totalEarned) * PRECISION_FACTOR / totalStaked);
 
         totalEarned = rewardAmount;
     }
 
-    function estimateRewardAmount(uint256 amount) internal view returns(uint256) {
+    function estimateRewardAmount(uint256 amount) internal view returns (uint256) {
         uint256 dTokenBal = availableRewardTokens();
-        if(amount > totalEarned) amount = totalEarned;
-        if(amount > dTokenBal) amount = dTokenBal;
+        if (amount > totalEarned) amount = totalEarned;
+        if (amount > dTokenBal) amount = dTokenBal;
         return amount;
     }
 
-    function _safeSwap(
-        uint256 _amountIn,
-        address[] memory _path,
-        address _to
-    ) internal {
+    function _safeSwap(uint256 _amountIn, address[] memory _path, address _to) internal {
         uint256[] memory amounts = IUniRouter02(uniRouterAddress).getAmountsOut(_amountIn, _path);
         uint256 amountOut = amounts[amounts.length - 1];
 
         IERC20(_path[0]).safeApprove(uniRouterAddress, _amountIn);
         IUniRouter02(uniRouterAddress).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            _amountIn,
-            amountOut * slippageFactor / 10000,
-            _path,
-            _to,
-            block.timestamp + 600
+            _amountIn, amountOut * slippageFactor / 10000, _path, _to, block.timestamp + 600
         );
     }
 

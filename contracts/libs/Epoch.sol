@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/access/Ownable.sol';
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Epoch is Ownable {
     uint256 private period;
@@ -11,11 +11,7 @@ contract Epoch is Ownable {
 
     /* ========== CONSTRUCTOR ========== */
 
-    constructor(
-        uint256 _period,
-        uint256 _startTime,
-        uint256 _startEpoch
-    ) {
+    constructor(uint256 _period, uint256 _startTime, uint256 _startEpoch) {
         period = _period;
         startTime = _startTime;
         epoch = _startEpoch;
@@ -24,16 +20,16 @@ contract Epoch is Ownable {
 
     /* ========== Modifier ========== */
 
-    modifier checkStartTime {
-        require(block.timestamp >= startTime, 'Epoch: not started yet');
+    modifier checkStartTime() {
+        require(block.timestamp >= startTime, "Epoch: not started yet");
 
         _;
     }
 
-    modifier checkEpoch {
+    modifier checkEpoch() {
         uint256 _nextEpochPoint = nextEpochPoint();
         if (block.timestamp < _nextEpochPoint) {
-            require(msg.sender == owner(), 'Epoch: only operator allowed for pre-epoch');
+            require(msg.sender == owner(), "Epoch: only operator allowed for pre-epoch");
             _;
         } else {
             _;
@@ -72,7 +68,7 @@ contract Epoch is Ownable {
     /* ========== GOVERNANCE ========== */
 
     function setPeriod(uint256 _period) external onlyOwner {
-        require(_period >= 1 hours && _period <= 48 hours, '_period: out of range');
+        require(_period >= 1 hours && _period <= 48 hours, "_period: out of range");
         period = _period;
     }
 

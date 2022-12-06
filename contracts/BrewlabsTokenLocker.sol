@@ -12,7 +12,7 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
 
     bool private initialized = false;
 
-    IERC20  public token;
+    IERC20 public token;
     address public reflectionToken;
 
     uint256 public defrostFee;
@@ -27,21 +27,24 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
     uint256 private totalReflections;
     address private devWallet;
     uint256 private devRate;
-    
+
     struct TokenLock {
         uint256 lockID; // lockID nonce per token
         uint256 lockDate; // the date the token was locked
         uint256 amount; // the amount of tokens still locked
         uint256 unlockTime; // the date the token can be withdrawn
-        uint256 unlockRate; // 0 - not vesting, else - vesting 
+        uint256 unlockRate; // 0 - not vesting, else - vesting
         address operator;
         uint256 tokenDebt;
         uint256 reflectionDebt;
         bool isDefrost;
     }
+
     mapping(uint256 => TokenLock) public locks;
 
-    event NewLock(uint256 lockID, address operator, address token, uint256 amount, uint256 unlockTime, uint256 unlockRate);
+    event NewLock(
+        uint256 lockID, address operator, address token, uint256 amount, uint256 unlockTime, uint256 unlockRate
+    );
     event SplitLock(uint256 lockID, uint256 newLockID, address operator, uint256 amount, uint256 unlockTime);
     event AddLock(uint256 lockID, uint256 amount);
     event TransferLock(uint256 lockID, address operator);
@@ -55,12 +58,21 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
 
     constructor() {}
 
-    function initialize(address _token, address _reflectionToken, address _treasury, uint256 _editFee, uint256 _defrostFee, address _devWallet, uint256 _devRate, address _owner) external {
+    function initialize(
+        address _token,
+        address _reflectionToken,
+        address _treasury,
+        uint256 _editFee,
+        uint256 _defrostFee,
+        address _devWallet,
+        uint256 _devRate,
+        address _owner
+    ) external {
         require(initialized == false, "already initialized");
         require(owner() == address(0x0) || msg.sender == owner(), "not allowed");
 
         initialized = true;
-            
+
         token = IERC20(_token);
         reflectionToken = _reflectionToken;
 
@@ -104,7 +116,7 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
 
     function addLock(uint256 _lockID, uint256 _amount) external payable nonReentrant {
         require(_amount > 0, "Invalid amount");
-        
+
         TokenLock storage lock = locks[_lockID];
         require(lock.operator == msg.sender, "not operator");
         require(lock.unlockTime > block.timestamp, "already unlocked");
@@ -119,7 +131,7 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
 
         lock.amount = lock.amount.add(amountIn);
         lock.reflectionDebt = lock.reflectionDebt.add(amountIn.mul(accReflectionPerShare).div(1e18));
-        
+
         totalLocked = totalLocked.add(amountIn);
         emit AddLock(_lockID, amountIn);
     }
@@ -139,8 +151,8 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
         _transferFee(editFee);
 
         uint256 pending = lock.amount.sub(lock.tokenDebt).mul(accReflectionPerShare).div(1e18).sub(lock.reflectionDebt);
-        if(pending > 0) {
-            if(reflectionToken == address(0x0)) {
+        if (pending > 0) {
+            if (reflectionToken == address(0x0)) {
                 payable(lock.operator).transfer(pending);
             } else {
                 IERC20(reflectionToken).safeTransfer(lock.operator, pending);
@@ -179,8 +191,8 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
         _transferFee(editFee);
 
         uint256 pending = lock.amount.sub(lock.tokenDebt).mul(accReflectionPerShare).div(1e18).sub(lock.reflectionDebt);
-        if(pending > 0) {
-            if(reflectionToken == address(0x0)) {
+        if (pending > 0) {
+            if (reflectionToken == address(0x0)) {
                 payable(lock.operator).transfer(pending);
             } else {
                 IERC20(reflectionToken).safeTransfer(lock.operator, pending);
@@ -220,8 +232,8 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
         _updatePool();
 
         uint256 pending = lock.amount.sub(lock.tokenDebt).mul(accReflectionPerShare).div(1e18).sub(lock.reflectionDebt);
-        if(pending > 0) {
-            if(reflectionToken == address(0x0)) {
+        if (pending > 0) {
+            if (reflectionToken == address(0x0)) {
                 payable(lock.operator).transfer(pending);
             } else {
                 IERC20(reflectionToken).safeTransfer(lock.operator, pending);
@@ -230,7 +242,7 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
         }
 
         uint256 claimAmt = pendingClaims(_lockID);
-        if(claimAmt > 0) {
+        if (claimAmt > 0) {
             token.safeTransfer(lock.operator, claimAmt);
 
             lock.tokenDebt = lock.tokenDebt.add(claimAmt);
@@ -249,8 +261,8 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
         _updatePool();
 
         uint256 pending = lock.amount.sub(lock.tokenDebt).mul(accReflectionPerShare).div(1e18).sub(lock.reflectionDebt);
-        if(pending > 0) {
-            if(reflectionToken == address(0x0)) {
+        if (pending > 0) {
+            if (reflectionToken == address(0x0)) {
                 payable(lock.operator).transfer(pending);
             } else {
                 IERC20(reflectionToken).safeTransfer(lock.operator, pending);
@@ -266,7 +278,7 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
         require(lock.operator == msg.sender, "not operator");
         require(lock.amount > lock.tokenDebt, "not enough locked amount");
         require(lock.unlockTime > block.timestamp, "already unlocked");
-        
+
         _transferFee(defrostFee);
         lock.isDefrost = true;
 
@@ -275,37 +287,36 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
 
     function pendingReflections(uint256 _lockID) external view returns (uint256 pending) {
         TokenLock storage lock = locks[_lockID];
-        if(lock.amount <= lock.tokenDebt) return 0;
+        if (lock.amount <= lock.tokenDebt) return 0;
 
         uint256 reflectionAmt = availableDividendTokens();
-        uint256 _accReflectionPerShare = accReflectionPerShare.add(
-                reflectionAmt.sub(totalReflections).mul(1e18).div(totalLocked)
-            );
+        uint256 _accReflectionPerShare =
+            accReflectionPerShare.add(reflectionAmt.sub(totalReflections).mul(1e18).div(totalLocked));
 
         pending = lock.amount.sub(lock.tokenDebt).mul(_accReflectionPerShare).div(1e18).sub(lock.reflectionDebt);
     }
 
     function pendingClaims(uint256 _lockID) public view returns (uint256) {
         TokenLock storage lock = locks[_lockID];
-        if(lock.unlockTime > block.timestamp) return 0;
-        if(lock.amount <= lock.tokenDebt) return 0;
-        if(lock.unlockRate == 0) return lock.amount.sub(lock.tokenDebt);
+        if (lock.unlockTime > block.timestamp) return 0;
+        if (lock.amount <= lock.tokenDebt) return 0;
+        if (lock.unlockRate == 0) return lock.amount.sub(lock.tokenDebt);
 
         uint256 multiplier = block.timestamp.sub(lock.unlockTime);
         uint256 amount = lock.unlockRate.mul(multiplier);
-        if(amount > lock.amount) amount = lock.amount;
+        if (amount > lock.amount) amount = lock.amount;
 
         return amount.sub(lock.tokenDebt);
     }
 
     function availableDividendTokens() public view returns (uint256) {
-        if(address(reflectionToken) == address(0x0)) {
+        if (address(reflectionToken) == address(0x0)) {
             return address(this).balance;
         }
 
-        uint256 _amount = IERC20(reflectionToken).balanceOf(address(this));        
-        if(reflectionToken == address(token)) {
-            if(_amount < totalLocked) return 0;
+        uint256 _amount = IERC20(reflectionToken).balanceOf(address(this));
+        if (reflectionToken == address(token)) {
+            if (_amount < totalLocked) return 0;
             _amount = _amount.sub(totalLocked);
         }
 
@@ -322,8 +333,8 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
         _updatePool();
 
         uint256 pending = lock.amount.sub(lock.tokenDebt).mul(accReflectionPerShare).div(1e18).sub(lock.reflectionDebt);
-        if(pending > 0) {
-            if(reflectionToken == address(0x0)) {
+        if (pending > 0) {
+            if (reflectionToken == address(0x0)) {
                 payable(treasury).transfer(pending);
             } else {
                 IERC20(reflectionToken).safeTransfer(treasury, pending);
@@ -343,19 +354,17 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
 
     function setTreasury(address _treasury) external onlyOwner {
         require(_treasury != address(0x0), "invalid treasury");
-        
+
         treasury = _treasury;
         emit UpdateTreasury(_treasury);
     }
 
-
     function _updatePool() internal {
-        if(totalLocked > 0) {
+        if (totalLocked > 0) {
             uint256 reflectionAmt = availableDividendTokens();
 
-            accReflectionPerShare = accReflectionPerShare.add(
-                    reflectionAmt.sub(totalReflections).mul(1e18).div(totalLocked)
-                );
+            accReflectionPerShare =
+                accReflectionPerShare.add(reflectionAmt.sub(totalReflections).mul(1e18).div(totalLocked));
 
             totalReflections = reflectionAmt;
         }
@@ -365,19 +374,19 @@ contract BrewlabsTokenLocker is Ownable, ReentrancyGuard {
         require(msg.value >= performanceFee, "should pay small gas to compound or harvest");
 
         payable(treasury).transfer(performanceFee);
-        if(msg.value > performanceFee) {
+        if (msg.value > performanceFee) {
             payable(msg.sender).transfer(msg.value.sub(performanceFee));
         }
     }
 
     function _transferFee(uint256 fee) internal {
         require(msg.value >= fee, "not enough processing fee");
-        if(msg.value > fee) {
+        if (msg.value > fee) {
             payable(msg.sender).transfer(msg.value.sub(fee));
         }
 
         uint256 _devFee = fee.mul(devRate).div(10000);
-        if(_devFee > 0) {
+        if (_devFee > 0) {
             payable(devWallet).transfer(_devFee);
         }
 

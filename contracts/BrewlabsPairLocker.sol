@@ -12,11 +12,11 @@ contract BrewlabsPairLocker is Ownable, ReentrancyGuard {
 
     bool private initialized = false;
 
-    IERC20  public lpToken;
+    IERC20 public lpToken;
     uint256 public editFee;
     uint256 public defrostFee;
     uint256 public NONCE = 0;
-    
+
     address public treasury;
     address private devWallet;
     uint256 private devRate;
@@ -30,6 +30,7 @@ contract BrewlabsPairLocker is Ownable, ReentrancyGuard {
         uint256 tokenDebt;
         bool isDefrost;
     }
+
     mapping(uint256 => PairLock) public locks;
     uint256 public totalLocked;
 
@@ -45,7 +46,15 @@ contract BrewlabsPairLocker is Ownable, ReentrancyGuard {
 
     constructor() {}
 
-    function initialize(address _lpToken, address _treasury, uint256 _editFee, uint256 _defrostFee, address _devWallet, uint256 _devRate, address _owner) external {
+    function initialize(
+        address _lpToken,
+        address _treasury,
+        uint256 _editFee,
+        uint256 _defrostFee,
+        address _devWallet,
+        uint256 _devRate,
+        address _owner
+    ) external {
         require(!initialized, "already initialized");
         require(owner() == address(0x0) || msg.sender == owner(), "not allowed");
 
@@ -82,12 +91,12 @@ contract BrewlabsPairLocker is Ownable, ReentrancyGuard {
 
         totalLocked = totalLocked.add(lock.amount);
 
-        emit NewLock(lock.lockID,  _operator, address(lpToken), lock.amount, _unlockTime);
+        emit NewLock(lock.lockID, _operator, address(lpToken), lock.amount, _unlockTime);
     }
 
     function addLock(uint256 _lockID, uint256 _amount) external payable nonReentrant {
         require(_amount > 0, "Invalid amount");
-        
+
         PairLock storage lock = locks[_lockID];
         require(lock.operator == msg.sender, "not operator");
         require(lock.amount > lock.tokenDebt, "already unlocked");
@@ -105,10 +114,14 @@ contract BrewlabsPairLocker is Ownable, ReentrancyGuard {
         emit AddLock(lock.lockID, amountIn);
     }
 
-    function splitLock(uint256 _lockID, address _operator, uint256 _amount, uint256 _unlockTime) external payable nonReentrant {
+    function splitLock(uint256 _lockID, address _operator, uint256 _amount, uint256 _unlockTime)
+        external
+        payable
+        nonReentrant
+    {
         require(_amount > 0, "Invalid amount");
         require(_operator != address(0x0), "Invalid address");
-        
+
         PairLock storage lock = locks[_lockID];
         require(lock.operator == msg.sender, "not operator");
         require(lock.amount > lock.tokenDebt, "already unlocked");
@@ -118,7 +131,7 @@ contract BrewlabsPairLocker is Ownable, ReentrancyGuard {
 
         _transferFee(editFee);
 
-        lock.amount = lock.amount.sub(_amount);        
+        lock.amount = lock.amount.sub(_amount);
 
         NONCE = NONCE.add(1);
 
@@ -206,19 +219,19 @@ contract BrewlabsPairLocker is Ownable, ReentrancyGuard {
 
     function setTreasury(address _treasury) external onlyOwner {
         require(_treasury != address(0x0), "invalid treasury");
-        
+
         treasury = _treasury;
         emit UpdateTreasury(_treasury);
     }
 
     function _transferFee(uint256 fee) internal {
         require(msg.value >= fee, "not enough processing fee");
-        if(msg.value > fee) {
+        if (msg.value > fee) {
             payable(msg.sender).transfer(msg.value.sub(fee));
         }
 
         uint256 _devFee = fee.mul(devRate).div(10000);
-        if(_devFee > 0) {
+        if (_devFee > 0) {
             payable(devWallet).transfer(_devFee);
         }
 

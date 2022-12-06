@@ -1,9 +1,9 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@openzeppelin/contracts/utils/math/SafeMath.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract BrewlabsTokenConstructor is Ownable {
@@ -25,12 +25,8 @@ contract BrewlabsTokenConstructor is Ownable {
         feeAmount = _feeAmount;
     }
 
-    function constructorTransfer(
-        address _token,
-        uint256 _amount,
-        address _to
-    ) external payable {
-        require(msg.value >= feeAmount, 'Constructor: fee is not enough');
+    function constructorTransfer(address _token, uint256 _amount, address _to) external payable {
+        require(msg.value >= feeAmount, "Constructor: fee is not enough");
         payable(feeAddress).transfer(feeAmount);
         IERC20 token = IERC20(_token);
         token.transferFrom(msg.sender, address(this), _amount);
@@ -43,7 +39,7 @@ contract BrewlabsTokenConstructor is Ownable {
      * @dev This function is only callable by admin.
      */
     function rescueToken(address _token) external onlyOwner {
-        if(_token == address(0x0)) {
+        if (_token == address(0x0)) {
             uint256 _tokenAmount = address(this).balance;
             payable(msg.sender).transfer(_tokenAmount);
         } else {

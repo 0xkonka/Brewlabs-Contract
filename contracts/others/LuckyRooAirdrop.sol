@@ -16,9 +16,9 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 
 import "../libs/IPriceOracle.sol";
 
-interface IPegSwap{
+interface IPegSwap {
     function swap(uint256 amount, address source, address target) external;
-    function getSwappableAmount(address source, address target) external view returns(uint);
+    function getSwappableAmount(address source, address target) external view returns (uint256);
 }
 
 contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
@@ -36,7 +36,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     bytes32 keyHash;
     uint32 callbackGasLimit = 150000;
     uint16 requestConfirmations = 3;
-    uint32 numWords =  3;
+    uint32 numWords = 3;
 
     uint256 public s_requestId;
     uint256 public r_requestId;
@@ -46,6 +46,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         address[3] winner;
         uint256[3] amount;
     }
+
     uint256 public currentID = 1;
     uint256 public distributeRate = 9500;
     uint256 public distributorLimit = 500 ether;
@@ -57,12 +58,13 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         uint256 amount;
         uint256 regAirdropID;
     }
+
     mapping(address => DistributorInfo) public userInfo;
     address[] public distributors;
-    
+
     address public treasury = 0x9725e3D0d813F3e3DBFd6ce48d0620655eB4DFA3;
     uint256 public performanceFee = 0.0035 ether;
-    
+
     // BSC Mainnet ERC20_LINK_ADDRESS
     address public constant ERC20_LINK_ADDRESS = 0xF8A0BF9cF54Bb92F17374d9e9A321E6a111a51bD;
     address public constant PEGSWAP_ADDRESS = 0x1FCc3B22955e76Ca48bF025f1A6993685975Bb9e;
@@ -108,17 +110,17 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         require(user.amount == 0, "claim previous stake first");
 
         _transferPerformanceFee();
-        
+
         uint256 tokenPrice = oracle.getTokenPrice(address(token));
         uint256 tokenBal = token.balanceOf(msg.sender);
         uint256 amount = distributorLimit * 1 ether / tokenPrice;
         require(tokenPrice > 0, "LUCKY ROO price is missing");
         require(tokenBal >= amount, "insufficient holder balance");
-        
+
         uint256 beforeAmt = token.balanceOf(address(this));
         token.safeTransferFrom(msg.sender, address(this), amount);
         uint256 realAmt = token.balanceOf(address(this)) - beforeAmt;
-        if(realAmt > amount) realAmt = amount;
+        if (realAmt > amount) realAmt = amount;
 
         user.amount = realAmt;
         user.regAirdropID = currentID;
@@ -137,10 +139,10 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     }
 
     function _transferPerformanceFee() internal {
-        require(msg.value >= performanceFee, 'should pay small gas to add as a distributor');
+        require(msg.value >= performanceFee, "should pay small gas to add as a distributor");
 
         payable(treasury).transfer(performanceFee);
-        if(msg.value > performanceFee) {
+        if (msg.value > performanceFee) {
             payable(msg.sender).transfer(msg.value - performanceFee);
         }
     }
@@ -162,12 +164,12 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         require(numHolders > 3, "Not enough distributors");
 
         s_requestId = 0;
-        
+
         uint256[3] memory idx;
         uint256[3] memory sortedIdx;
-        for(uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             idx[i] = s_randomWords[i] % (numHolders - i);
-            for(uint j = 0; j < i; j++) {
+            for (uint256 j = 0; j < i; j++) {
                 if (idx[i] >= sortedIdx[j]) {
                     idx[i] = idx[i] + 1;
                 } else {
@@ -177,7 +179,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
 
             idx[i] = idx[i] % numHolders;
             sortedIdx[i] = idx[i];
-            if(i > 0 && sortedIdx[i] < sortedIdx[i - 1]) {
+            if (i > 0 && sortedIdx[i] < sortedIdx[i - 1]) {
                 uint256 t = sortedIdx[i];
                 sortedIdx[i] = sortedIdx[i - 1];
                 sortedIdx[i - 1] = t;
@@ -188,7 +190,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
 
         uint256 amount = address(this).balance;
         amount = amount * distributeRate / 10000;
-        for(uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             address winnerA = distributors[idx[i]];
             airdropResult.winner[i] = winnerA;
 
@@ -203,7 +205,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         distributors = new address[](0);
     }
 
-    function getAirdropResult(uint256 _id) external view returns(address[3] memory, uint256[3] memory) {
+    function getAirdropResult(uint256 _id) external view returns (address[3] memory, uint256[3] memory) {
         return (results[_id].winner, results[_id].amount);
     }
 
@@ -211,7 +213,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
      * @notice Set the distribution rates for the three wallets
      * @dev This function must be called by the owner of the contract.
      */
-    function setAirdropRates(uint256 _rateA, uint256 _rateB, uint256 _rateC) external onlyOwner {        
+    function setAirdropRates(uint256 _rateA, uint256 _rateB, uint256 _rateC) external onlyOwner {
         require(_rateA > 0, "Rate A must be greater than 0");
         require(_rateB > 0, "Rate B must be greater than 0");
         require(_rateC > 0, "Rate C must be greater than 0");
@@ -220,7 +222,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         airdropRates = [_rateA, _rateB, _rateC];
         emit SetDistributorRates(airdropRates);
     }
-    
+
     /**
      * @notice Set the minimum holding tokens to add distributor in usd
      * @dev This function must be called by the owner of the contract.
@@ -240,7 +242,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         emit ServiceInfoUpadted(_treasury, _fee);
     }
 
-    function setCoordiatorConfig(bytes32 _keyHash, uint32 _gasLimit, uint32 _numWords ) external onlyOwner {
+    function setCoordiatorConfig(bytes32 _keyHash, uint32 _gasLimit, uint32 _numWords) external onlyOwner {
         keyHash = _keyHash;
         callbackGasLimit = _gasLimit;
         numWords = _numWords;
@@ -249,7 +251,11 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     /**
      * @notice fetch subscription information from the VRF coordinator
      */
-    function getSubscriptionInfo() external view returns (uint96 balance, uint64 reqCount, address owner, address[] memory consumers) {
+    function getSubscriptionInfo()
+        external
+        view
+        returns (uint96 balance, uint64 reqCount, address owner, address[] memory consumers)
+    {
         return COORDINATOR.getSubscription(s_subscriptionId);
     }
 
@@ -280,11 +286,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
      */
     function fundToCoordiator(uint96 _amount) external onlyOwner {
         LINKTOKEN.transferFrom(msg.sender, address(this), _amount);
-        LINKTOKEN.transferAndCall(
-            address(COORDINATOR),
-            _amount,
-            abi.encode(s_subscriptionId)
-        );
+        LINKTOKEN.transferAndCall(address(COORDINATOR), _amount, abi.encode(s_subscriptionId));
     }
 
     /**
@@ -295,13 +297,9 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         IERC20(ERC20_LINK_ADDRESS).transferFrom(msg.sender, address(this), _amount);
         IERC20(ERC20_LINK_ADDRESS).approve(PEGSWAP_ADDRESS, _amount);
         IPegSwap(PEGSWAP_ADDRESS).swap(_amount, ERC20_LINK_ADDRESS, address(LINKTOKEN));
-        
+
         uint256 tokenBal = LINKTOKEN.balanceOf(address(this));
-        LINKTOKEN.transferAndCall(
-            address(COORDINATOR),
-            tokenBal,
-            abi.encode(s_subscriptionId)
-        );
+        LINKTOKEN.transferAndCall(address(COORDINATOR), tokenBal, abi.encode(s_subscriptionId));
     }
 
     /**
@@ -311,20 +309,15 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     function requestRandomWords() external onlyOwner {
         r_requestId = 0;
         // Will revert if subscription is not set and funded.
-        s_requestId = COORDINATOR.requestRandomWords(
-            keyHash,
-            s_subscriptionId,
-            requestConfirmations,
-            callbackGasLimit,
-            numWords
-        );
+        s_requestId =
+            COORDINATOR.requestRandomWords(keyHash, s_subscriptionId, requestConfirmations, callbackGasLimit, numWords);
     }
 
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
         r_requestId = requestId;
         s_randomWords = randomWords;
     }
-    
+
     function emergencyWithdrawETH() external onlyOwner {
         uint256 _tokenAmount = address(this).balance;
         payable(msg.sender).transfer(_tokenAmount);
@@ -342,7 +335,9 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
 
     function isContract(address _addr) internal view returns (bool) {
         uint256 size;
-        assembly { size := extcodesize(_addr) }
+        assembly {
+            size := extcodesize(_addr)
+        }
         return size > 0;
     }
 
