@@ -844,8 +844,12 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     function transferToHarvest() external onlyOwner {
         if (hasDividend || address(brews) == reflectionToken) return;
 
-        uint256 _amount = IERC20(reflectionToken).balanceOf(address(this));
-        IERC20(reflectionToken).safeTransfer(treasury, _amount);
+        if(reflectionToken == address(0x0)) {
+            payable(treasury).transfer(address(this).balance);
+        } else {
+            uint256 _amount = IERC20(reflectionToken).balanceOf(address(this));
+            IERC20(reflectionToken).safeTransfer(treasury, _amount);
+        }
     }
 
     function recoverWrongToken(address _token) external onlyOwner {
