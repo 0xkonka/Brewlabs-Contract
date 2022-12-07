@@ -187,7 +187,9 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         require(_depositFee <= PERCENT_PRECISION, "set: invalid deposit fee basis points");
         require(_withdrawFee <= PERCENT_PRECISION, "set: invalid deposit fee basis points");
         if (poolInfo[_pid].bonusEndBlock > block.number) {
-            require(poolInfo[_pid].startBlock.add(_duration.mul(BLOCKS_PER_DAY)) > block.number, "set: invalid duration");
+            require(
+                poolInfo[_pid].startBlock.add(_duration.mul(BLOCKS_PER_DAY)) > block.number, "set: invalid duration"
+            );
         }
 
         if (_withUpdate) {
@@ -707,7 +709,8 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         for (uint256 pid = 0; pid < length; pid++) {
             PoolInfo memory pool = poolInfo[pid];
             if (startBlock == 0) {
-                adjustedShouldTotalPaid += (rewardPerBlock * pool.allocPoint * pool.duration * BLOCKS_PER_DAY) / totalAllocPoint;
+                adjustedShouldTotalPaid +=
+                    (rewardPerBlock * pool.allocPoint * pool.duration * BLOCKS_PER_DAY) / totalAllocPoint;
             } else {
                 uint256 multiplier = getMultiplier(pool.lastRewardBlock, pool.bonusEndBlock, pool.bonusEndBlock);
                 adjustedShouldTotalPaid += (multiplier * rewardPerBlock * pool.allocPoint) / totalAllocPoint;
@@ -841,7 +844,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     function transferToHarvest() external onlyOwner {
         if (hasDividend || address(brews) == reflectionToken) return;
 
-        if(reflectionToken == address(0x0)) {
+        if (reflectionToken == address(0x0)) {
             payable(treasury).transfer(address(this).balance);
         } else {
             uint256 _amount = IERC20(reflectionToken).balanceOf(address(this));
