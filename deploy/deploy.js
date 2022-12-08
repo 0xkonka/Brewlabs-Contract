@@ -356,13 +356,13 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         if(config.farm) {
             Utils.infoMsg("Deploying BrewlabsFarm contract");
             const _hasDividend = false;
-            const _rewardPerBlock = ethers.utils.parseUnits("142.694063926940639269", 18)
+            const _rewardPerBlock = ethers.utils.parseUnits("0.964506172", 9)
             let deployed = await deploy('BrewlabsFarm', 
                 {
                     from: account,
                     args: [
-                        "0x606379220AB266bBE4b0FeF8469e6E602f295a84",
-                        "0x0000000000000000000000000000000000000000",
+                        "0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7",
+                        "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
                         _rewardPerBlock,
                         _hasDividend,
                     ],
@@ -378,10 +378,10 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let contractInstance = await ethers.getContractAt("BrewlabsFarm", deployedAddress)
             await contractInstance.add(
                 1000,                                                   // allocPoint
-                "0x378369E4Ff88FF7AE0a4f7d71e93b88233bC77cF",           // lp token address
+                "0xc9cC6515a1df94AAed156F3bD6EFe86a100308fA",           // lp token address
                 0,                                                      // deposit fee
                 0,                                                      // withdraw fee 
-                365,                                                    // duration
+                180,                                                    // duration
                 false
             )
     
@@ -391,8 +391,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 address: deployedAddress,
                 contract: "contracts/BrewlabsFarm.sol:BrewlabsFarm",
                 constructorArguments: [
-                    "0x606379220AB266bBE4b0FeF8469e6E602f295a84",
-                    "0x0000000000000000000000000000000000000000",
+                    "0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7",
+                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
                     _rewardPerBlock, 
                     _hasDividend,
                 ],
