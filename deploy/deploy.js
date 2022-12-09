@@ -459,21 +459,25 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockup", deployedAddress)
             let res = await contractInstance.initialize(
-                "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938", // _stakingToken 
-                "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938", // _earnedToken 
-                "0x9d7107c8E30617CAdc11f9692A19C82ae8bbA938", // _reflectionToken 
+                "0x606379220AB266bBE4b0FeF8469e6E602f295a84", // _stakingToken 
+                "0x606379220AB266bBE4b0FeF8469e6E602f295a84", // _earnedToken 
+                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", // _reflectionToken 
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
-                [],
+                [
+                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+                    "0x606379220AB266bBE4b0FeF8469e6E602f295a84"
+                ],
                 "0x0000000000000000000000000000000000000000", // whitelist contract                                                 
             )
             console.log('initialize BrewlabsLockup', res)
             
-            let _rate = ethers.utils.parseUnits('16647.640791476407914764', 18)
-            res = await contractInstance.addLockup(60, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate
-            await res.wait()
-            _rate = ethers.utils.parseUnits('19025.875190258751902587', 18)
+            let _rate = ethers.utils.parseUnits('142.694063926940639269', 18)
             res = await contractInstance.addLockup(90, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate
+            await res.wait()
+            _rate = ethers.utils.parseUnits('237.823439878234398782', 18)
+            res = await contractInstance.addLockup(180, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate
             await res.wait()
 
             // verify
