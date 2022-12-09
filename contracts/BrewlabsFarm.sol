@@ -472,7 +472,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     }
 
     function claimReward(uint256 _pid) external payable nonReentrant {
-        PoolInfo memory pool = poolInfo[_pid];
+        PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         if (user.amount < 0) return;
 
@@ -496,7 +496,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     }
 
     function compoundReward(uint256 _pid) external payable nonReentrant {
-        PoolInfo memory pool = poolInfo[_pid];
+        PoolInfo storage pool = poolInfo[_pid];
         SwapSetting memory swapSetting = swapSettings[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         if (user.amount < 0) return;
@@ -549,7 +549,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     }
 
     function claimDividend(uint256 _pid) external payable nonReentrant {
-        PoolInfo memory pool = poolInfo[_pid];
+        PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         if (user.amount < 0) return;
         if (!hasDividend) return;
@@ -572,7 +572,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     }
 
     function compoundDividend(uint256 _pid) external payable nonReentrant {
-        PoolInfo memory pool = poolInfo[_pid];
+        PoolInfo storage pool = poolInfo[_pid];
         SwapSetting memory swapSetting = swapSettings[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         if (user.amount < 0) return;
