@@ -62,8 +62,8 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     mapping(address => DistributorInfo) public userInfo;
     address[] public distributors;
 
-    address public treasury = 0x9725e3D0d813F3e3DBFd6ce48d0620655eB4DFA3;
-    uint256 public performanceFee = 0.0035 ether;
+    address public treasury = 0xE2123f0F85953414eb3B4Dfa97790ec8e0102D44;
+    uint256 public performanceFee = 0.0024 ether;
 
     // BSC Mainnet ERC20_LINK_ADDRESS
     address public constant ERC20_LINK_ADDRESS = 0xF8A0BF9cF54Bb92F17374d9e9A321E6a111a51bD;
@@ -133,6 +133,8 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         DistributorInfo storage user = userInfo[msg.sender];
         require(user.amount > 0, "not registered");
         require(user.regAirdropID < currentID, "can claim after this round is finished");
+
+        _transferPerformanceFee();
 
         token.safeTransfer(msg.sender, user.amount);
         user.amount = 0;

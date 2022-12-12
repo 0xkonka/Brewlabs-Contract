@@ -665,21 +665,19 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             // initialize
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockupMulti", deployedAddress)
-            const _rewardPerBlock = ethers.utils.parseUnits('1141.552511415525114155', 18)
+            const _rewardPerBlock = ethers.utils.parseUnits('237.823439878234398782', 18)
             const res = await contractInstance.initialize(
-                "0xc50F00779559b2E13Dee314530cC387CC5dD85ae", // _stakingToken
-                "0xc50F00779559b2E13Dee314530cC387CC5dD85ae", // _earnedToken
+                "0x606379220AB266bBE4b0FeF8469e6E602f295a84", // _stakingToken
+                "0x606379220AB266bBE4b0FeF8469e6E602f295a84", // _earnedToken
                 [
-                    "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
-                    "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
-                    "0x7083609fCE4d1d8Dc0C979AAb8c869Ea2C873402",
-                    "0xCC42724C6683B7E57334c4E856f4c9965ED682bD",
-                    "0x1CE0c2827e2eF14D5C4f29a091d735A204794041",
+                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+                    "0x1D2F0da169ceB9fC7B3144628dB156f3F6c60dBE",
+                    "0xe7057B10E2B59F46D151588d9C8694B4b8328F44",
                 ], // _reflectionToken 
                 _rewardPerBlock,                              // reward per block
                 0,                                            // deposit fee
-                50,                                           // withdraw fee
-                7,                                           // lock duration (days)
+                10,                                           // withdraw fee
+                180,                                           // lock duration (days)
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
             )
