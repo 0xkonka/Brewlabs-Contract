@@ -337,10 +337,6 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         UserInfo storage user = userInfo[_pid][msg.sender];
 
         massUpdatePools();
-        if (pool.bonusEndBlock < block.number) {
-            totalAllocPoint = totalAllocPoint.sub(pool.allocPoint);
-            pool.allocPoint = 0;
-        }
 
         if (user.amount > 0) {
             uint256 pending = user.amount.mul(pool.accTokenPerShare).div(1e12).sub(user.rewardDebt);
@@ -390,7 +386,12 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
         emit Deposit(msg.sender, _pid, _amount);
 
-        if (rewardFee > 0 && pool.allocPoint > 0 && _amount > 0) {
+        if (pool.bonusEndBlock < block.number) {
+            totalAllocPoint = totalAllocPoint.sub(pool.allocPoint);
+            pool.allocPoint = 0;
+            rewardPerBlock = 0;
+            emit UpdateEmissionRate(msg.sender, rewardPerBlock);
+        } else if (rewardFee > 0 && _amount > 0) {
             uint256 bonusEndBlock = 0;
             for (uint256 i = 0; i < poolInfo.length; i++) {
                 if (bonusEndBlock < poolInfo[i].bonusEndBlock) {
@@ -424,6 +425,8 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
             totalAllocPoint = totalAllocPoint.sub(pool.allocPoint);
             pool.allocPoint = 0;
+            rewardPerBlock = 0;
+            emit UpdateEmissionRate(msg.sender, rewardPerBlock);
         } else {
             updatePool(_pid);
         }
