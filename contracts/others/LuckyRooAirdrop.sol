@@ -53,6 +53,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
     uint256[3] public airdropRates = [6000, 2500, 1000];
     mapping(uint256 => AirdropResult) private results;
     uint256 public lastAirdropTime;
+    uint256 public totalStaked;
 
     struct DistributorInfo {
         uint256 amount;
@@ -126,6 +127,8 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         user.regAirdropID = currentID;
         distributors.push(msg.sender);
 
+        totalStaked += realAmt;
+
         emit AddDistributor(msg.sender, realAmt);
     }
 
@@ -137,6 +140,8 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         _transferPerformanceFee();
 
         token.safeTransfer(msg.sender, user.amount);
+
+        totalStaked -= user.amount;
         user.amount = 0;
     }
 
