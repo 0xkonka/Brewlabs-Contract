@@ -131,7 +131,7 @@ contract LuckyRooAirdrop is ReentrancyGuard, VRFConsumerBaseV2, Ownable {
         emit AddDistributor(msg.sender, realAmt);
     }
 
-    function claim() external {
+    function claim() external payable nonReentrant {
         DistributorInfo storage user = userInfo[msg.sender];
         require(user.amount > 0, "not registered");
         require(user.regAirdropID < currentID, "can claim after this round is finished");
