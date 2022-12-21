@@ -837,7 +837,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     function emergencyWithdrawReflections() external onlyOwner {
         if (address(reflectionToken) == address(0x0)) {
             uint256 amount = address(this).balance;
-            payable(address(this)).transfer(amount);
+            payable(address(msg.sender)).transfer(amount);
         } else {
             uint256 amount = IERC20(reflectionToken).balanceOf(address(this));
             IERC20(reflectionToken).transfer(msg.sender, amount);
@@ -863,7 +863,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
         if (_token == address(0x0)) {
             uint256 amount = address(this).balance;
-            payable(address(this)).transfer(amount);
+            payable(address(msg.sender)).transfer(amount);
         } else {
             uint256 amount = IERC20(_token).balanceOf(address(this));
             if (amount > 0) {
