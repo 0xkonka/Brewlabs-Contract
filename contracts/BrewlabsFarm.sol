@@ -250,7 +250,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
         uint256 accTokenPerShare = pool.accTokenPerShare;
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-        if (block.number > pool.lastRewardBlock && lpSupply != 0 && totalAllocPoint > 0) {
+        if (block.number > pool.lastRewardBlock && lpSupply > 0 && totalAllocPoint > 0) {
             uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number, pool.bonusEndBlock);
             uint256 brewsReward = multiplier.mul(rewardPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
             accTokenPerShare = accTokenPerShare.add(brewsReward.mul(1e12).div(lpSupply));
@@ -265,7 +265,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         uint256 accReflectionPerShare = pool.accReflectionPerShare;
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
         if (reflectionToken == address(pool.lpToken)) lpSupply = totalReflectionStaked;
-        if (block.number > pool.lastRewardBlock && lpSupply != 0 && hasDividend && totalAllocPoint > 0) {
+        if (block.number > pool.lastRewardBlock && lpSupply > 0 && hasDividend && totalAllocPoint > 0) {
             uint256 reflectionAmt = availableDividendTokens();
             if (reflectionAmt > totalReflections) {
                 reflectionAmt = reflectionAmt.sub(totalReflections);
@@ -331,11 +331,10 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
     // Deposit LP tokens to BrewlabsFarm for brews allocation.
     function deposit(uint256 _pid, uint256 _amount) external payable nonReentrant {
-        _transferPerformanceFee();
-
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
 
+        _transferPerformanceFee();
         massUpdatePools();
 
         if (user.amount > 0) {
@@ -386,7 +385,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
         emit Deposit(msg.sender, _pid, _amount);
 
-        if (pool.bonusEndBlock < block.number) {
+        if (pool.bonusEndBlock <= block.number) {
             totalAllocPoint = totalAllocPoint.sub(pool.allocPoint);
             pool.allocPoint = 0;
             rewardPerBlock = 0;
@@ -398,7 +397,6 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
                     bonusEndBlock = poolInfo[i].bonusEndBlock;
                 }
             }
-            if (bonusEndBlock <= block.number) return;
 
             uint256 remainRewards = availableRewardTokens() + paidRewards;
             if (remainRewards > shouldTotalPaid) {
@@ -477,10 +475,10 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     function claimReward(uint256 _pid) external payable nonReentrant {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
-        if (user.amount < 0) return;
+        if (user.amount == 0) return;
 
-        updatePool(_pid);
         _transferPerformanceFee();
+        updatePool(_pid);
 
         uint256 pending = user.amount.mul(pool.accTokenPerShare).div(1e12).sub(user.rewardDebt);
         if (pending > 0) {
@@ -502,11 +500,11 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         PoolInfo storage pool = poolInfo[_pid];
         SwapSetting memory swapSetting = swapSettings[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
-        if (user.amount < 0) return;
+        if (user.amount == 0) return;
         if (!swapSetting.enabled) return;
 
-        updatePool(_pid);
         _transferPerformanceFee();
+        updatePool(_pid);
 
         uint256 pending = user.amount.mul(pool.accTokenPerShare).div(1e12).sub(user.rewardDebt);
         if (pending > 0) {
@@ -554,11 +552,11 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     function claimDividend(uint256 _pid) external payable nonReentrant {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
-        if (user.amount < 0) return;
+        if (user.amount == 0) return;
         if (!hasDividend) return;
 
-        updatePool(_pid);
         _transferPerformanceFee();
+        updatePool(_pid);
 
         uint256 pendingReflection = user.amount.mul(pool.accReflectionPerShare).div(1e12).sub(user.reflectionDebt);
         pendingReflection = _estimateDividendAmount(pendingReflection);
@@ -578,11 +576,11 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         PoolInfo storage pool = poolInfo[_pid];
         SwapSetting memory swapSetting = swapSettings[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
-        if (user.amount < 0) return;
+        if (user.amount == 0) return;
         if (!hasDividend) return;
 
-        updatePool(_pid);
         _transferPerformanceFee();
+        updatePool(_pid);
 
         uint256 pending = user.amount.mul(pool.accReflectionPerShare).div(1e12).sub(user.reflectionDebt);
         pending = _estimateDividendAmount(pending);
