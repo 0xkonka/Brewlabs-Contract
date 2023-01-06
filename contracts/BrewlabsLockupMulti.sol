@@ -293,7 +293,7 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
             if (j - user.firstIndex > processingLimit) break;
 
             pending += stake.amount * lockupInfo.accTokenPerShare / PRECISION_FACTOR - stake.rewardDebt;
-            
+
             if (stake.end < block.timestamp || bonusEndBlock < block.number) {
                 if (stake.amount > remained) {
                     stake.amount = stake.amount - remained;
