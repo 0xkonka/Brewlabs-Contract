@@ -25,10 +25,12 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
 
     constructor() ERC721("Brewlabs Indexes Nft", "BINDEX") {}
 
-    function mint() external onlyMinter {
+    function mint() external onlyMinter returns (uint256) {
         tokenIndex++;
         _safeMint(msg.sender, tokenIndex);
         _setTokenURI(tokenIndex, tokenIndex.toString());
+
+        return tokenIndex;
     }
 
     function burn(uint256 tokenId) external {
