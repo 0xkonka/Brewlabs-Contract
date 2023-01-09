@@ -16,4 +16,6 @@ remappings = [
     'hardhat/=node_modules/hardhat/',
 ]
 solc_version = '0.8.14'
+optimizer = true
+optimizer_runs = 100
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
