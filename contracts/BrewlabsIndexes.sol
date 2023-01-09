@@ -2,14 +2,15 @@
 pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
-import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 import "./libs/IUniRouter02.sol";
 
-contract BrewlabsIndexes is Ownable, ReentrancyGuard {
+contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // Whether it is initialized
@@ -43,7 +44,10 @@ contract BrewlabsIndexes is Ownable, ReentrancyGuard {
 
     constructor() {}
 
-    function initialize(IERC20[NUM_TOKENS] memory _tokens, IERC721 _nft, address[NUM_TOKENS][] memory _paths) external onlyOwner {
+    function initialize(IERC20[NUM_TOKENS] memory _tokens, IERC721 _nft, address[NUM_TOKENS][] memory _paths)
+        external
+        onlyOwner
+    {
         require(!isInitialized, "Already initialized");
 
         // Make this contract initialized
@@ -54,9 +58,9 @@ contract BrewlabsIndexes is Ownable, ReentrancyGuard {
         ethToTokenPaths = _paths;
         tokenToEthPaths = _paths;
 
-        for(uint8 i = 0; i < NUM_TOKENS; i++) {
+        for (uint8 i = 0; i < NUM_TOKENS; i++) {
             uint256 len = _paths[i].length;
-            for(uint8 j = 0; j < len / 2; j++) {
+            for (uint8 j = 0; j < len / 2; j++) {
                 address t = tokenToEthPaths[i][j];
                 tokenToEthPaths[i][j] = tokenToEthPaths[i][len - j - 1];
                 tokenToEthPaths[i][len - j - 1] = t;
@@ -75,9 +79,9 @@ contract BrewlabsIndexes is Ownable, ReentrancyGuard {
 
     function _getSwapPath(uint8 _type, uint8 _index) public view returns (address[] memory) {
         uint256 len = ethToTokenPaths[_index].length;
-        address[] memory  _path = new address[](len);
-        for(uint8 j = 0; j < len; j++) {
-            if(_type == 0) {
+        address[] memory _path = new address[](len);
+        for (uint8 j = 0; j < len; j++) {
+            if (_type == 0) {
                 _path[j] = ethToTokenPaths[_index][j];
             } else {
                 _path[j] = ethToTokenPaths[_index][len - j - 1];
@@ -87,14 +91,13 @@ contract BrewlabsIndexes is Ownable, ReentrancyGuard {
         return _path;
     }
 
-    function _expectedEth(uint256[] memory amounts) internal view returns(uint256 amountOut) {
-        amountOut = 0;        
-        for(uint8 i = 0; i < NUM_TOKENS; i++) {
+    function _expectedEth(uint256[] memory amounts) internal view returns (uint256 amountOut) {
+        amountOut = 0;
+        for (uint8 i = 0; i < NUM_TOKENS; i++) {
             uint256[] memory _amounts = IUniRouter02(swapRouter).getAmountsOut(amounts[i], _getSwapPath(1, i));
             amountOut += _amounts[_amounts.length - 1];
         }
     }
-
 
     /**
      * @notice get token from ETH via swap.
