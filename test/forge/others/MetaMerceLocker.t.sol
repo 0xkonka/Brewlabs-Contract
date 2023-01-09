@@ -21,7 +21,7 @@ contract MetaMerceLockerTest is Test {
 
     function setUp() public {
         locker = new MetaMerceLocker();
-        token = new MockErc20();
+        token = new MockErc20(18);
         utils = new Utils();
     }
 
@@ -105,7 +105,7 @@ contract MetaMerceLockerTest is Test {
         locker.withdrawDistribution(distributor);
 
         uint256 allocAmt = allocation * 10 ** token.decimals();
-        token.mintTo(address(this), allocAmt);
+        token.mint(address(this), allocAmt);
         token.approve(address(locker), allocAmt);
         locker.depositToken(allocAmt);
         locker.withdrawDistribution(distributor);
@@ -140,7 +140,7 @@ contract MetaMerceLockerTest is Test {
         vm.expectRevert(abi.encodePacked("cannot update"));
         locker.updateDistribution(distributor, allocation);
 
-        token.mintTo(address(this), allocAmt);
+        token.mint(address(this), allocAmt);
         token.approve(address(locker), allocAmt);
         locker.depositToken(allocAmt);
         locker.withdrawDistribution(distributor);
@@ -166,7 +166,7 @@ contract MetaMerceLockerTest is Test {
         vm.roll(block.number + locker.lockDuration() * 28800 + 1);
         (, uint256 amount,,) = locker.distributions(distributor);
 
-        token.mintTo(address(this), amount);
+        token.mint(address(this), amount);
         token.approve(address(locker), amount);
         locker.depositToken(amount);
         vm.expectEmit(true, false, false, true);
@@ -198,12 +198,12 @@ contract MetaMerceLockerTest is Test {
         pending = locker.pendingReflection(users[2]);
         assertEq(pending, 0);
 
-        token.mintTo(address(this), locker.totalDistributed());
+        token.mint(address(this), locker.totalDistributed());
         token.approve(address(locker), locker.totalDistributed());
         locker.depositToken(locker.totalDistributed());
 
         uint256 _accReflectionPerShare = 0;
-        token.mintTo(address(locker), amount);
+        token.mint(address(locker), amount);
 
         _accReflectionPerShare += (amount * (1 ether)) / locker.totalDistributed();
         pending = locker.pendingReflection(users[1]);
@@ -216,7 +216,7 @@ contract MetaMerceLockerTest is Test {
         assertEq(pending, 0);
 
         _accReflectionPerShare += (amount * (1 ether)) / locker.totalDistributed();
-        token.mintTo(address(locker), amount);
+        token.mint(address(locker), amount);
         pending = locker.pendingReflection(users[2]);
         assertEq(pending, (_accReflectionPerShare * allocations[2]) / (1 ether));
     }
@@ -234,7 +234,7 @@ contract MetaMerceLockerTest is Test {
         status = locker.claimable(user);
         assertTrue(!status);
 
-        token.mintTo(address(this), 1 ether);
+        token.mint(address(this), 1 ether);
         token.approve(address(locker), 1 ether);
         locker.depositToken(1 ether);
 
@@ -254,14 +254,14 @@ contract MetaMerceLockerTest is Test {
         uint256 amount = locker.availableAllocatedTokens();
         assertEq(amount, 0);
 
-        token.mintTo(address(locker), 1 ether);
+        token.mint(address(locker), 1 ether);
         amount = locker.availableAllocatedTokens();
         assertEq(amount, 0);
 
         uint256 total = 0;
         for (uint256 i = 0; i < 7; i++) {
             vm.assume(amounts[i] < 10 ** 22 && amounts[i] > 0);
-            token.mintTo(address(this), amounts[i]);
+            token.mint(address(this), amounts[i]);
             token.approve(address(locker), amounts[i]);
             locker.depositToken(amounts[i]);
 
@@ -278,7 +278,7 @@ contract MetaMerceLockerTest is Test {
         uint256 amount = locker.availableDividendTokens();
         assertEq(amount, 0);
 
-        token.mintTo(address(this), 1 ether);
+        token.mint(address(this), 1 ether);
         token.approve(address(locker), 1 ether);
         locker.depositToken(1 ether);
 
@@ -288,7 +288,7 @@ contract MetaMerceLockerTest is Test {
         uint256 total = 0;
         for (uint256 i = 0; i < 7; i++) {
             vm.assume(amounts[i] < 10 ** 22 && amounts[i] > 0);
-            token.mintTo(address(locker), amounts[i]);
+            token.mint(address(locker), amounts[i]);
 
             total += amounts[i];
             amount = locker.availableDividendTokens();
@@ -315,7 +315,7 @@ contract MetaMerceLockerTest is Test {
 
         vm.assume(amount < 10 ** 22 && amount > 0);
 
-        token.mintTo(address(this), amount);
+        token.mint(address(this), amount);
         token.approve(address(locker), amount);
         locker.depositToken(amount);
 

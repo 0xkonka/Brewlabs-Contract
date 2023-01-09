@@ -22,8 +22,8 @@ contract ProjectXLockerTest is Test {
 
     function setUp() public {
         locker = new ProjectXLocker();
-        token = new MockErc20();
-        reflectionToken = new MockErc20();
+        token = new MockErc20(18);
+        reflectionToken = new MockErc20(18);
 
         utils = new Utils();
     }
@@ -120,7 +120,7 @@ contract ProjectXLockerTest is Test {
         vm.roll(block.number + duration * 28800 + 1);
 
         uint256 allocAmt = allocation * 10 ** token.decimals();
-        token.mintTo(address(locker), allocAmt);
+        token.mint(address(locker), allocAmt);
 
         vm.startPrank(distributor);
         locker.claim();
@@ -178,7 +178,7 @@ contract ProjectXLockerTest is Test {
         vm.expectRevert(abi.encodePacked("ERC20: transfer amount exceeds balance"));
         locker.claim();
 
-        token.mintTo(address(locker), allocAmt);
+        token.mint(address(locker), allocAmt);
         vm.expectEmit(true, false, false, true);
         emit Claim(distributor, allocAmt);
         locker.claim();
@@ -203,7 +203,7 @@ contract ProjectXLockerTest is Test {
         locker.addDistribution(distributor, allocation, duration);
 
         vm.startPrank(distributor);
-        token.mintTo(address(locker), allocAmt - 1e9);
+        token.mint(address(locker), allocAmt - 1e9);
 
         vm.roll(block.number + duration * 28800 + 1);
         locker.claim();
@@ -226,8 +226,8 @@ contract ProjectXLockerTest is Test {
             locker.addDistribution(users[i], i + 1, duration);
         }
 
-        token.mintTo(address(locker), locker.insufficientTokens());
-        reflectionToken.mintTo(address(locker), amount);
+        token.mint(address(locker), locker.insufficientTokens());
+        reflectionToken.mint(address(locker), amount);
 
         vm.startPrank(users[1]);
 
@@ -258,7 +258,7 @@ contract ProjectXLockerTest is Test {
             assertEq(pending, 0);
         }
 
-        token.mintTo(address(locker), locker.insufficientTokens());
+        token.mint(address(locker), locker.insufficientTokens());
 
         vm.startPrank(users[1]);
 
@@ -266,7 +266,7 @@ contract ProjectXLockerTest is Test {
         uint256 allocatedReflections = 0;
         for (uint256 i = 0; i < 3; i++) {
             vm.assume(amounts[i] < 1e22);
-            reflectionToken.mintTo(address(locker), amounts[i]);
+            reflectionToken.mint(address(locker), amounts[i]);
 
             uint256 reflectionAmount = reflectionToken.balanceOf(address(locker));
             if (reflectionAmount > allocatedReflections) {
