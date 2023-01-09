@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -15,32 +14,34 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
 
     // Whether it is initialized
     bool public isInitialized;
+    uint256 private constant PERCENTAGE_PRECISION = 10000;
     uint8 public constant NUM_TOKENS = 2;
 
     IERC721 public nft;
     IERC20[NUM_TOKENS] public tokens;
+    uint256[NUM_TOKENS] private totalStaked;
 
     address public swapRouter;
     address[NUM_TOKENS][] public ethToTokenPaths;
-    address[NUM_TOKENS][] public tokenToEthPaths;
 
     struct UserInfo {
         uint256[NUM_TOKENS] amounts;
         uint256 zappedEthAmount;
     }
-
-    mapping(address => UserInfo) public users;
+    mapping(address => UserInfo) private users;
 
     struct NftInfo {
         uint256[NUM_TOKENS] amounts;
         uint256 zappedEthAmount;
     }
+    mapping(uint256 => NftInfo) private nfts;
 
-    mapping(uint256 => NftInfo) public nfts;
-
-    uint8 public fee;
+    uint256 public fee = 25;
     address public treasury = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
     uint256 public performanceFee = 0.0035 ether;
+
+    event TokenZappedIn(address indexed user, uint256 amount, uint256[NUM_TOKENS] percents, uint256[NUM_TOKENS] amountOuts);
+    event TokenClaimed(address indexed user, uint256[NUM_TOKENS] amounts);
 
     constructor() {}
 
@@ -56,17 +57,71 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         nft = _nft;
         tokens = _tokens;
         ethToTokenPaths = _paths;
-        tokenToEthPaths = _paths;
+    }
 
-        for (uint8 i = 0; i < NUM_TOKENS; i++) {
-            uint256 len = _paths[i].length;
-            for (uint8 j = 0; j < len / 2; j++) {
-                address t = tokenToEthPaths[i][j];
-                tokenToEthPaths[i][j] = tokenToEthPaths[i][len - j - 1];
-                tokenToEthPaths[i][len - j - 1] = t;
+    function buyTokens(uint256[NUM_TOKENS] memory _percents) external payable {
+        _transferPerformanceFee();
+
+        uint256 totalPercentage = 0;
+        for(uint8 i = 0; i < NUM_TOKENS; i++) {
+            totalPercentage += _percents[i];
+        }
+        require(totalPercentage <= PERCENTAGE_PRECISION, "Total percentage cannot exceed 10000");
+
+        uint256 ethAmount = msg.value - performanceFee;
+
+        // pay processing fee
+        uint256 buyingFee = ethAmount * fee / PERCENTAGE_PRECISION;
+        payable(treasury).transfer(buyingFee);
+        ethAmount -= buyingFee;
+
+        UserInfo storage user = users[msg.sender];
+
+        // buy tokens
+        uint256 amount;
+        uint256[NUM_TOKENS] memory amountOuts;
+        for(uint8 i = 0; i < NUM_TOKENS; i++) {
+            uint256 amountIn = ethAmount * _percents[i] / PERCENTAGE_PRECISION;
+            if(amountIn == 0) continue;
+
+            amountOuts[i] = _safeSwapEth(amountIn, getSwapPath(0, i), address(this));
+
+            user.amounts[i] += amountOuts[i];
+            amount += amountIn;
+        }
+        user.zappedEthAmount += amount;
+
+        emit TokenZappedIn(msg.sender, amount, _percents, amountOuts);
+    }
+
+    function claimTokens() external payable {
+        UserInfo storage user = users[msg.sender];
+        require(user.zappedEthAmount > 0, "No available tokens");
+
+        _transferPerformanceFee();
+
+        uint256[NUM_TOKENS] memory amounts;
+        uint256 expectedAmt = _expectedEth(user.amounts);
+        if(expectedAmt > user.zappedEthAmount) {
+            for(uint8 i = 0; i < NUM_TOKENS; i++) {
+                uint256 claimFee = user.amounts[i] * fee / PERCENTAGE_PRECISION;
+                tokens[i].safeTransfer(treasury, claimFee);                
+                tokens[i].safeTransfer(msg.sender, user.amounts[i] - claimFee);
+                amounts[i] = user.amounts[i];
+
+                user.amounts[i] = 0;
+            }
+        } else {
+            for(uint8 i = 0; i < NUM_TOKENS; i++) {
+                tokens[i].safeTransfer(msg.sender, user.amounts[i]);
+                amounts[i] = user.amounts[i];
+
+                user.amounts[i] = 0;
             }
         }
-        isInitialized = true;
+        user.zappedEthAmount = 0;
+        
+        emit TokenClaimed(msg.sender, amounts);
     }
 
     function userInfo(address _user) external view returns (UserInfo memory) {
@@ -77,7 +132,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         return nfts[_tokenId];
     }
 
-    function _getSwapPath(uint8 _type, uint8 _index) public view returns (address[] memory) {
+    function getSwapPath(uint8 _type, uint8 _index) public view returns (address[] memory) {
         uint256 len = ethToTokenPaths[_index].length;
         address[] memory _path = new address[](len);
         for (uint8 j = 0; j < len; j++) {
@@ -91,10 +146,16 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         return _path;
     }
 
-    function _expectedEth(uint256[] memory amounts) internal view returns (uint256 amountOut) {
+    function _transferPerformanceFee() internal {
+        require(msg.value > performanceFee, "Should pay small gas to call method");
+        payable(treasury).transfer(performanceFee);
+    }
+
+    function _expectedEth(uint256[NUM_TOKENS] memory amounts) internal view returns (uint256 amountOut) {
         amountOut = 0;
         for (uint8 i = 0; i < NUM_TOKENS; i++) {
-            uint256[] memory _amounts = IUniRouter02(swapRouter).getAmountsOut(amounts[i], _getSwapPath(1, i));
+            if(amounts[i] == 0) continue;
+            uint256[] memory _amounts = IUniRouter02(swapRouter).getAmountsOut(amounts[i], getSwapPath(1, i));
             amountOut += _amounts[_amounts.length - 1];
         }
     }
@@ -106,9 +167,6 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
      * @param _to: receiver address
      */
     function _safeSwapEth(uint256 _amountIn, address[] memory _path, address _to) internal returns (uint256) {
-        // uint256[] memory amounts = IUniRouter02(swapRouter).getAmountsOut(_amountIn, _path);
-        // uint256 amountOut = amounts[amounts.length - 1];
-
         address _token = _path[_path.length - 1];
         uint256 beforeAmt = IERC20(_token).balanceOf(address(this));
         IUniRouter02(swapRouter).swapExactETHForTokensSupportingFeeOnTransferTokens{value: _amountIn}(
@@ -125,9 +183,6 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
      * @param _path: swap path
      */
     function _safeSwapForETH(uint256 _amountIn, address[] memory _path) internal returns (uint256) {
-        // uint256[] memory amounts = IUniRouter02(swapRouter).getAmountsOut(_amountIn, _path);
-        // uint256 amountOut = amounts[amounts.length - 1];
-
         IERC20(_path[0]).safeApprove(swapRouter, _amountIn);
 
         uint256 beforeAmt = address(this).balance;
@@ -136,6 +191,16 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         );
 
         return address(this).balance - beforeAmt;
+    }
+
+    function rescueTokens(address _token) external onlyOwner {
+        if (_token == address(0x0)) {
+            uint256 _ethAmount = address(this).balance;
+            payable(msg.sender).transfer(_ethAmount);
+        } else {
+            uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
+            IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
+        }
     }
 
     receive() external payable {}
