@@ -819,7 +819,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
      * @dev This function is only callable by admin.
      */
     function recoverWrongTokens(address _tokenAddress, uint256 _tokenAmount) external onlyOwner {
-        require(_tokenAddress != address(earnedToken), "Cannot be reward token");
+        require(_tokenAddress != address(earnedToken) || _tokenAddress == dividendToken, "Cannot be reward token");
 
         if (_tokenAddress == address(stakingToken)) {
             uint256 tokenBal = stakingToken.balanceOf(address(this));
