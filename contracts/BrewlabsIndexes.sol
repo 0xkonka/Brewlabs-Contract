@@ -14,6 +14,15 @@ interface IBrewlabsIndexesNft is IERC721 {
     function burn(uint256 tokenId) external;
 }
 
+// BrewlabsIndexes is index contracts that offer a range of token collections to buy as "Brewlabs Indexes"
+// most likely top 100 tokens that do not require tax slippage.
+// Ideally the index tokens will buy 2-4 tokens (they will mostly be pegged tokens of the top 100 tokens that we will choose).
+//
+// Note User may select an index that will contain PEGGED-ETH + BTCB,
+// the will determine how much (by a sliding scale) BNB they will allocate to each token.
+// For example 1 BNB buy:
+//    User chooses 30%; 0.30 BNB to buy PEGGED-ETH (BEP20)
+//    User chooses 70%, 0.70BNB to buy BTCB.
 contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -28,16 +37,17 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     address public swapRouter;
     address[NUM_TOKENS][] public ethToTokenPaths;
 
+    // Info of each user.
     struct UserInfo {
-        uint256[NUM_TOKENS] amounts;
-        uint256 zappedEthAmount;
+        uint256[NUM_TOKENS] amounts; // How many tokens that user has bought
+        uint256 zappedEthAmount; // ETH amount that user sold
     }
 
     mapping(address => UserInfo) private users;
 
     struct NftInfo {
-        uint256[NUM_TOKENS] amounts;
-        uint256 zappedEthAmount;
+        uint256[NUM_TOKENS] amounts; // locked token amounts in NFT
+        uint256 zappedEthAmount; // ETH amount that sold for above tokens
     }
 
     mapping(uint256 => NftInfo) private nfts;
@@ -65,6 +75,13 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
 
     constructor() {}
 
+    /**
+     * @notice Initialize indexes contract.
+     * @param _tokens: token list that user can buy in a transaction
+     * @param _nft: NFT contract address for locking tokens
+     * @param _router: swap router address
+     * @param _paths: swap paths for each token
+     */
     function initialize(
         IERC20[NUM_TOKENS] memory _tokens,
         IERC721 _nft,
@@ -81,6 +98,11 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         ethToTokenPaths = _paths;
     }
 
+    /**
+     * @notice Buy tokens by paying ETH and lock tokens in contract.
+     *         When buy tokens, should pay performance fee and processing fee.
+     * @param _percents: list of ETH allocation points to buy tokens
+     */
     function buyTokens(uint256[NUM_TOKENS] memory _percents) external payable onlyInitialized {
         _transferPerformanceFee();
 
@@ -116,6 +138,11 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         emit TokenZappedIn(msg.sender, amount, _percents, amountOuts);
     }
 
+    /**
+     * @notice Claim tokens from contract.
+     *         If the user exits the index in a loss then there is no fee.
+     *         If the user exists the index in a profit, processing fee will be applied.
+     */
     function claimTokens() external payable onlyInitialized {
         UserInfo memory user = users[msg.sender];
         require(user.zappedEthAmount > 0, "No available tokens");
@@ -139,6 +166,11 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         delete users[msg.sender];
     }
 
+    /**
+     * @notice Sale tokens from contract and claim ETH.
+     *         If the user exits the index in a loss then there is no fee.
+     *         If the user exists the index in a profit, processing fee will be applied.
+     */
     function saleTokens() external payable onlyInitialized {
         UserInfo memory user = users[msg.sender];
         require(user.zappedEthAmount > 0, "No available tokens");
@@ -163,6 +195,12 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         emit TokenZappedOut(msg.sender, ethAmount);
     }
 
+    /**
+     * @notice Once the user purchases the tokens through the contract, the user can then choose to at anytime
+     *  to mint an NFT that would represent the ownership of their tokens in the contract.
+     * The purpose of this is to allow users to mint an NFT that represents their value in the index and at their discretion,
+     *  transfer or sell that NFT to another wallet.
+     */
     function lockTokens() external payable onlyInitialized {
         UserInfo storage user = users[msg.sender];
         require(user.zappedEthAmount > 0, "No available tokens");
@@ -181,6 +219,9 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         emit TokenLocked(msg.sender, nftData.amounts, nftData.zappedEthAmount, tokenId);
     }
 
+    /**
+     * @notice Stake the NFT back into the index to claim/zap out their tokens.
+     */
     function unlockTokens(uint256 tokenId) external payable onlyInitialized {
         UserInfo storage user = users[msg.sender];
 
@@ -200,14 +241,27 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         delete nfts[tokenId];
     }
 
+    /**
+     * @notice Returns purchased tokens and ETH amount at the time when bought tokens.
+     * @param _user: user address
+     */
     function userInfo(address _user) external view returns (UserInfo memory) {
         return users[_user];
     }
 
+    /**
+     * @notice Returns tokens locked in NFT and ETH amount at the time when bought tokens.
+     * @param _tokenId: owned tokenId
+     */
     function nftInfo(uint256 _tokenId) external view returns (NftInfo memory) {
         return nfts[_tokenId];
     }
 
+    /**
+     * @notice Returns swap path for token specified by index.
+     * @param _type: swap direction(0: ETH to token, 1: token to ETH)
+     * @param _index: token index
+     */
     function getSwapPath(uint8 _type, uint8 _index) public view returns (address[] memory) {
         uint256 len = ethToTokenPaths[_index].length;
         address[] memory _path = new address[](len);
@@ -222,6 +276,11 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         return _path;
     }
 
+    /**
+     * @notice Update swap router and paths for each token.
+     * @param _router: swap router address
+     * @param _paths: list of swap path for each tokens
+     */
     function setSwapSettings(address _router, address[NUM_TOKENS][] memory _paths) external onlyOwner onlyInitialized {
         require(_router != address(0x0), "Invalid address");
         require(IUniRouter02(_router).WETH() != address(0x0), "Invalid swap router");
@@ -231,12 +290,22 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         emit SetSettings(_router, _paths);
     }
 
+    /**
+     * @notice Update processing fee.
+     * @param _fee: percentage in point
+     */
     function setFee(uint256 _fee) external onlyOwner {
         require(_fee <= PERCENTAGE_PRECISION, "Invalid percentage");
         fee = _fee;
         emit SetFee(_fee);
     }
 
+    /**
+     * This method can be called by treasury.
+     * @notice Update treasury wallet and performance fee.
+     * @param _addr: new treasury address
+     * @param _fee: percentage in point
+     */
     function setServiceInfo(address _addr, uint256 _fee) external {
         require(msg.sender == treasury, "setServiceInfo: FORBIDDEN");
         require(_addr != address(0x0), "Invalid address");
@@ -247,6 +316,10 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         emit ServiceInfoUpadted(_addr, _fee);
     }
 
+    /**
+     * @notice Emergency withdraw tokens.
+     * @param _token: new treasury address
+     */
     function rescueTokens(address _token) external onlyOwner {
         if (_token == address(0x0)) {
             uint256 _ethAmount = address(this).balance;
@@ -257,11 +330,18 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         }
     }
 
+    /**
+     * @notice Process performance fee.
+     */
     function _transferPerformanceFee() internal {
         require(msg.value > performanceFee, "Should pay small gas to call method");
         payable(treasury).transfer(performanceFee);
     }
 
+    /**
+     * @notice Returns the expected eth amount by swapping provided tokens.
+     * @param amounts: amounts to swap
+     */
     function _expectedEth(uint256[NUM_TOKENS] memory amounts) internal view returns (uint256 amountOut) {
         amountOut = 0;
         for (uint8 i = 0; i < NUM_TOKENS; i++) {
