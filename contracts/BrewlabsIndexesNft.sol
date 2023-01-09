@@ -4,8 +4,9 @@ pragma solidity ^0.8.13;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC721, ERC721Enumerable, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 
-contract BrewlabsIndexesNft is ERC721Enumerable, Ownable {
+contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable {
     using Strings for uint256;
 
     string private _tokenBaseURI = "";
@@ -32,6 +33,46 @@ contract BrewlabsIndexesNft is ERC721Enumerable, Ownable {
 
     function burn(uint256 tokenId) external {
         _burn(tokenId);
+    }
+
+    function setApprovalForAll(address operator, bool approved)
+        public
+        override (ERC721, IERC721)
+        onlyAllowedOperatorApproval(operator)
+    {
+        super.setApprovalForAll(operator, approved);
+    }
+
+    function approve(address operator, uint256 tokenId)
+        public
+        override (ERC721, IERC721)
+        onlyAllowedOperatorApproval(operator)
+    {
+        super.approve(operator, tokenId);
+    }
+
+    function transferFrom(address from, address to, uint256 tokenId)
+        public
+        override (ERC721, IERC721)
+        onlyAllowedOperator(from)
+    {
+        super.transferFrom(from, to, tokenId);
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId)
+        public
+        override (ERC721, IERC721)
+        onlyAllowedOperator(from)
+    {
+        super.safeTransferFrom(from, to, tokenId);
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data)
+        public
+        override (ERC721, IERC721)
+        onlyAllowedOperator(from)
+    {
+        super.safeTransferFrom(from, to, tokenId, data);
     }
 
     function setMinterRole(address minter, bool status) external onlyOwner {
