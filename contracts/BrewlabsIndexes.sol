@@ -40,7 +40,8 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     address public treasury = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
     uint256 public performanceFee = 0.0035 ether;
 
-    event TokenZappedIn(address indexed user, uint256 amount, uint256[NUM_TOKENS] percents, uint256[NUM_TOKENS] amountOuts);
+    event TokenZappedIn(address indexed user, uint256 ethAmount, uint256[NUM_TOKENS] percents, uint256[NUM_TOKENS] amountOuts);
+    event TokenZappedOut(address indexed user, uint256 ethAmount);
     event TokenClaimed(address indexed user, uint256[NUM_TOKENS] amounts);
 
     constructor() {}
@@ -122,6 +123,31 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         user.zappedEthAmount = 0;
         
         emit TokenClaimed(msg.sender, amounts);
+    }
+
+    function saleTokens() external payable {
+        UserInfo storage user = users[msg.sender];
+        require(user.zappedEthAmount > 0, "No available tokens");
+
+        _transferPerformanceFee();
+
+        uint256 ethAmount;
+        for(uint8 i = 0; i < NUM_TOKENS; i++) {
+            uint256 amountOut = _safeSwapForETH(user.amounts[i], getSwapPath(1, i));
+            ethAmount += amountOut;
+            user.amounts[i] = 0;
+        }
+
+        if(ethAmount > user.zappedEthAmount) {
+            uint256 swapFee = ethAmount * fee / PERCENTAGE_PRECISION;
+            payable(treasury).transfer(swapFee);
+
+            ethAmount -= swapFee;
+        }
+        user.zappedEthAmount = 0;
+
+        payable(msg.sender).transfer(ethAmount);
+        emit TokenZappedOut(msg.sender, ethAmount);
     }
 
     function userInfo(address _user) external view returns (UserInfo memory) {
