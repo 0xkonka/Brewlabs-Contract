@@ -9,6 +9,11 @@ import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Hol
 
 import "./libs/IUniRouter02.sol";
 
+interface IBrewlabsIndexesNft is IERC721 {
+    function mint() external returns (uint256);
+    function burn(uint256 tokenId) external;
+}
+
 contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -43,6 +48,8 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     event TokenZappedIn(address indexed user, uint256 ethAmount, uint256[NUM_TOKENS] percents, uint256[NUM_TOKENS] amountOuts);
     event TokenZappedOut(address indexed user, uint256 ethAmount);
     event TokenClaimed(address indexed user, uint256[NUM_TOKENS] amounts);
+    event TokenLocked(address indexed user, uint256[NUM_TOKENS] amounts, uint256 ethAmount, uint256 tokenId);
+    event TokenUnLocked(address indexed user, uint256[NUM_TOKENS] amounts, uint256 ethAmount, uint256 tokenId);
 
     constructor() {}
 
@@ -148,6 +155,43 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
 
         payable(msg.sender).transfer(ethAmount);
         emit TokenZappedOut(msg.sender, ethAmount);
+    }
+
+    function lockTokens() external payable {
+        UserInfo storage user = users[msg.sender];
+        require(user.zappedEthAmount > 0, "No available tokens");
+
+        _transferPerformanceFee();
+
+        // mint NFT
+        uint256 tokenId = IBrewlabsIndexesNft(address(nft)).mint();
+
+        // lock available tokens for NFT
+        NftInfo storage nftData = nfts[tokenId];
+        nftData.amounts = user.amounts;
+        nftData.zappedEthAmount = user.zappedEthAmount;
+
+        delete users[msg.sender];
+        emit TokenLocked(msg.sender, nftData.amounts, nftData.zappedEthAmount, tokenId);
+    }
+    
+    function unlockTokens(uint256 tokenId) external payable {
+        UserInfo storage user = users[msg.sender];
+
+        _transferPerformanceFee();
+
+        // burn NFT
+        nft.safeTransferFrom(msg.sender, address(this), tokenId);
+        IBrewlabsIndexesNft(address(nft)).burn(tokenId);
+
+        NftInfo memory nftData = nfts[tokenId];
+        for(uint8 i = 0; i < NUM_TOKENS; i++) {
+            user.amounts[i] += nftData.amounts[i];
+        }
+        user.zappedEthAmount = nftData.zappedEthAmount;
+
+        emit TokenUnLocked(msg.sender, nftData.amounts, nftData.zappedEthAmount, tokenId);
+        delete nfts[tokenId];
     }
 
     function userInfo(address _user) external view returns (UserInfo memory) {
