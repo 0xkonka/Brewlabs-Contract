@@ -185,7 +185,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         bool _withUpdate
     ) external onlyOwner {
         require(_depositFee <= PERCENT_PRECISION, "set: invalid deposit fee basis points");
-        require(_withdrawFee <= PERCENT_PRECISION, "set: invalid deposit fee basis points");
+        require(_withdrawFee <= PERCENT_PRECISION, "set: invalid withdraw fee basis points");
         if (poolInfo[_pid].bonusEndBlock > block.number) {
             require(
                 poolInfo[_pid].startBlock.add(_duration.mul(BLOCKS_PER_DAY)) > block.number, "set: invalid duration"
