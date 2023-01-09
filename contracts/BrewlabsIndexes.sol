@@ -58,6 +58,11 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     event SetFee(uint256 fee);
     event SetSettings(address router, address[NUM_TOKENS][] paths);
 
+    modifier onlyInitialized() {
+        require(isInitialized, "Not initialized");
+        _;
+    }
+
     constructor() {}
 
     function initialize(
@@ -68,7 +73,6 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     ) external onlyOwner {
         require(!isInitialized, "Already initialized");
 
-        // Make this contract initialized
         isInitialized = true;
 
         nft = _nft;
@@ -77,7 +81,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         ethToTokenPaths = _paths;
     }
 
-    function buyTokens(uint256[NUM_TOKENS] memory _percents) external payable {
+    function buyTokens(uint256[NUM_TOKENS] memory _percents) external payable onlyInitialized {
         _transferPerformanceFee();
 
         uint256 totalPercentage = 0;
@@ -112,7 +116,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         emit TokenZappedIn(msg.sender, amount, _percents, amountOuts);
     }
 
-    function claimTokens() external payable {
+    function claimTokens() external payable onlyInitialized {
         UserInfo memory user = users[msg.sender];
         require(user.zappedEthAmount > 0, "No available tokens");
 
@@ -135,7 +139,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         delete users[msg.sender];
     }
 
-    function saleTokens() external payable {
+    function saleTokens() external payable onlyInitialized {
         UserInfo memory user = users[msg.sender];
         require(user.zappedEthAmount > 0, "No available tokens");
 
@@ -159,7 +163,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         emit TokenZappedOut(msg.sender, ethAmount);
     }
 
-    function lockTokens() external payable {
+    function lockTokens() external payable onlyInitialized {
         UserInfo storage user = users[msg.sender];
         require(user.zappedEthAmount > 0, "No available tokens");
 
@@ -177,7 +181,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         emit TokenLocked(msg.sender, nftData.amounts, nftData.zappedEthAmount, tokenId);
     }
 
-    function unlockTokens(uint256 tokenId) external payable {
+    function unlockTokens(uint256 tokenId) external payable onlyInitialized {
         UserInfo storage user = users[msg.sender];
 
         _transferPerformanceFee();
@@ -216,6 +220,41 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         }
 
         return _path;
+    }
+
+    function setSwapSettings(address _router, address[NUM_TOKENS][] memory _paths) external onlyOwner onlyInitialized {
+        require(_router != address(0x0), "Invalid address");
+        require(IUniRouter02(_router).WETH() != address(0x0), "Invalid swap router");
+
+        swapRouter = _router;
+        ethToTokenPaths = _paths;
+        emit SetSettings(_router, _paths);
+    }
+
+    function setFee(uint256 _fee) external onlyOwner {
+        require(_fee <= PERCENTAGE_PRECISION, "Invalid percentage");
+        fee = _fee;
+        emit SetFee(_fee);
+    }
+
+    function setServiceInfo(address _addr, uint256 _fee) external {
+        require(msg.sender == treasury, "setServiceInfo: FORBIDDEN");
+        require(_addr != address(0x0), "Invalid address");
+
+        treasury = _addr;
+        performanceFee = _fee;
+
+        emit ServiceInfoUpadted(_addr, _fee);
+    }
+
+    function rescueTokens(address _token) external onlyOwner {
+        if (_token == address(0x0)) {
+            uint256 _ethAmount = address(this).balance;
+            payable(msg.sender).transfer(_ethAmount);
+        } else {
+            uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
+            IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
+        }
     }
 
     function _transferPerformanceFee() internal {
@@ -263,41 +302,6 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         );
 
         return address(this).balance - beforeAmt;
-    }
-
-    function setSwapSettings(address _router, address[NUM_TOKENS][] memory _paths) external onlyOwner {
-        require(_router != address(0x0), "Invalid address");
-        require(IUniRouter02(_router).WETH() != address(0x0), "Invalid swap router");
-
-        swapRouter = _router;
-        ethToTokenPaths = _paths;
-        emit SetSettings(_router, _paths);
-    }
-
-    function setFee(uint256 _fee) external onlyOwner {
-        require(_fee <= PERCENTAGE_PRECISION, "Invalid percentage");
-        fee = _fee;
-        emit SetFee(_fee);
-    }
-
-    function setServiceInfo(address _addr, uint256 _fee) external {
-        require(msg.sender == treasury, "setServiceInfo: FORBIDDEN");
-        require(_addr != address(0x0), "Invalid address");
-
-        treasury = _addr;
-        performanceFee = _fee;
-
-        emit ServiceInfoUpadted(_addr, _fee);
-    }
-
-    function rescueTokens(address _token) external onlyOwner {
-        if (_token == address(0x0)) {
-            uint256 _ethAmount = address(this).balance;
-            payable(msg.sender).transfer(_ethAmount);
-        } else {
-            uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
-            IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
-        }
     }
 
     receive() external payable {}
