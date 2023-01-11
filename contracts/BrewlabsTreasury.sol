@@ -40,6 +40,7 @@ contract BrewlabsTreasury is Ownable {
     uint256 public liquidityWithdrawalLimit = 2000; // 20% of LP supply
     uint256 public buybackRate = 9500; // 95%
     uint256 public addLiquidityRate = 9400; // 94%
+    uint256 public stakingRate = 2000;
 
     uint256 private startTime;
     uint256 private sumWithdrawals = 0;
@@ -85,6 +86,7 @@ contract BrewlabsTreasury is Ownable {
     event TransferBuyBackWallet(address staking, address wallet);
     event AddLiquidityRateUpdated(uint256 percent);
     event BuybackRateUpdated(uint256 percent);
+    event SetStakingRateUpdated(uint256 percent);
     event PeriodUpdated(uint256 duration);
     event LiquidityWithdrawLimitUpdated(uint256 percent);
     event WithdrawLimitUpdated(uint256 percent);
@@ -140,6 +142,24 @@ contract BrewlabsTreasury is Ownable {
             uint256 _tokenAmt = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
             emit TokenBuyBack(ethAmt, _tokenAmt);
         }
+    }
+
+    /**
+     * @notice Buy token from BNB and transfer token to staking pool
+     */
+    function buyBackAndTransfer(address _staking) external onlyOwner {
+        uint256 ethAmt = address(this).balance;
+        ethAmt = (ethAmt * buybackRate) / PERCENT_PRECISION;
+
+        uint256 tokenAmt = token.balanceOf(address(this));
+
+        uint256 amount = 0;
+        if (ethAmt > 0) {
+            amount = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
+            emit TokenBuyBack(ethAmt, amount);
+        }
+
+        token.safeTransfer(_staking, tokenAmt * stakingRate / PERCENT_PRECISION + amount);
     }
 
     /**
@@ -353,6 +373,17 @@ contract BrewlabsTreasury is Ownable {
 
         addLiquidityRate = _percent;
         emit AddLiquidityRateUpdated(_percent);
+    }
+
+    /**
+     * @notice Set percentage to transfer tokens
+     * @param _percent: percentage in point
+     */
+    function setStakingRate(uint256 _percent) external onlyOwner {
+        require(_percent < PERCENT_PRECISION, "Invalid percentage");
+
+        stakingRate = _percent;
+        emit SetStakingRateUpdated(_percent);
     }
 
     /**
