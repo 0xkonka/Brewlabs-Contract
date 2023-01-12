@@ -608,6 +608,8 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     function _updateRewardRate() internal {
+        if (bonusEndBlock <= block.number) return;
+
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
             remainRewards = remainRewards - shouldTotalPaid;
