@@ -12,6 +12,9 @@ import "./libs/IWETH.sol";
 contract BrewlabsStaking is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    uint256 private constant PERCENT_PRECISION = 10000;
+    uint256 private constant BLOCKS_PER_DAY = 28800;
+
     // Whether it is initialized
     bool public isInitialized;
     uint256 public duration = 365; // 365 days
@@ -221,7 +224,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         if (realAmount > _amount) realAmount = _amount;
 
         if (depositFee > 0) {
-            uint256 fee = realAmount * depositFee / 10000;
+            uint256 fee = realAmount * depositFee / PERCENT_PRECISION;
             stakingToken.safeTransfer(walletA, fee);
             realAmount = realAmount - fee;
         }
@@ -286,7 +289,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         totalStaked = totalStaked - realAmount;
 
         if (withdrawFee > 0) {
-            uint256 fee = realAmount * withdrawFee / 10000;
+            uint256 fee = realAmount * withdrawFee / PERCENT_PRECISION;
             stakingToken.safeTransfer(walletA, fee);
             realAmount = realAmount - fee;
         }
@@ -500,7 +503,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         uint256 remainRewards = availableRewardTokens() + paidRewards;
 
         if (startBlock == 0) {
-            adjustedShouldTotalPaid = adjustedShouldTotalPaid + rewardPerBlock * duration * 28800;
+            adjustedShouldTotalPaid = adjustedShouldTotalPaid + rewardPerBlock * duration * BLOCKS_PER_DAY;
         } else {
             uint256 remainBlocks = _getMultiplier(lastRewardBlock, bonusEndBlock);
             adjustedShouldTotalPaid = adjustedShouldTotalPaid + rewardPerBlock * remainBlocks;
@@ -667,7 +670,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         require(startBlock == 0, "Pool was already started");
 
         startBlock = block.number + 100;
-        bonusEndBlock = startBlock + duration * 28800;
+        bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
         lastRewardBlock = startBlock;
 
         emit NewStartAndEndBlocks(startBlock, bonusEndBlock);
@@ -752,7 +755,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         duration = _duration;
         if (startBlock > 0) {
-            bonusEndBlock = startBlock + duration * 28800;
+            bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
             require(bonusEndBlock > block.number, "invalid duration");
         }
         emit DurationUpdated(_duration);

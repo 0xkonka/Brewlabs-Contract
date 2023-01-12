@@ -17,6 +17,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 private constant PERCENT_PRECISION = 10000;
+    uint256 private constant BLOCKS_PER_DAY = 28800;
 
     // Whether it is initialized
     bool public isInitialized;
@@ -604,7 +605,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
 
         for (uint256 i = 0; i < lockups.length; i++) {
             if (startBlock == 0) {
-                adjustedShouldTotalPaid = adjustedShouldTotalPaid + lockups[i].rate * duration * 28800;
+                adjustedShouldTotalPaid = adjustedShouldTotalPaid + lockups[i].rate * duration * BLOCKS_PER_DAY;
             } else {
                 uint256 remainBlocks = _getMultiplier(lockups[i].lastRewardBlock, bonusEndBlock);
                 adjustedShouldTotalPaid = adjustedShouldTotalPaid + lockups[i].rate * remainBlocks;
@@ -751,7 +752,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
             if (i == _stakeType) continue;
 
             if (startBlock == 0) {
-                adjustedShouldTotalPaid = adjustedShouldTotalPaid + lockups[i].rate * duration * 28800;
+                adjustedShouldTotalPaid = adjustedShouldTotalPaid + lockups[i].rate * duration * BLOCKS_PER_DAY;
             } else {
                 uint256 remainBlocks = _getMultiplier(lockups[i].lastRewardBlock, bonusEndBlock);
                 adjustedShouldTotalPaid = adjustedShouldTotalPaid + lockups[i].rate * remainBlocks;
@@ -818,7 +819,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         require(startBlock == 0, "Pool was already started");
 
         startBlock = block.number + 100;
-        bonusEndBlock = startBlock + duration * 28800;
+        bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
         for (uint256 i = 0; i < lockups.length; i++) {
             lockups[i].lastRewardBlock = startBlock;
         }

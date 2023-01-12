@@ -308,7 +308,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         if (hasDividend) {
             uint256 reflectionAmt = availableDividendTokens();
             if (reflectionAmt > totalReflections) {
-                reflectionAmt -= (totalReflections);
+                reflectionAmt -= totalReflections;
             } else {
                 reflectionAmt = 0;
             }
