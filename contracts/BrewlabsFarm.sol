@@ -387,22 +387,8 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             pool.allocPoint = 0;
             rewardPerBlock = 0;
             emit UpdateEmissionRate(msg.sender, rewardPerBlock);
-        } else if (rewardFee > 0 && _amount > 0) {
-            uint256 bonusEndBlock = 0;
-            for (uint256 i = 0; i < poolInfo.length; i++) {
-                if (bonusEndBlock < poolInfo[i].bonusEndBlock) {
-                    bonusEndBlock = poolInfo[i].bonusEndBlock;
-                }
-            }
-
-            uint256 remainRewards = availableRewardTokens() + paidRewards;
-            if (remainRewards > shouldTotalPaid) {
-                remainRewards = remainRewards - shouldTotalPaid;
-
-                uint256 remainBlocks = bonusEndBlock - block.number;
-                rewardPerBlock = remainRewards / remainBlocks;
-                emit UpdateEmissionRate(msg.sender, rewardPerBlock);
-            }
+        } else if ((rewardFee > 0 && _amount > 0) || autoAdjustableForRewardRate) {
+            _updateRewardRate();
         }
     }
 
@@ -467,6 +453,8 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         user.reflectionDebt = user.amount * pool.accReflectionPerShare / 1e12;
 
         emit Withdraw(msg.sender, _pid, _amount);
+
+        if (autoAdjustableForRewardRate) _updateRewardRate();
     }
 
     function claimReward(uint256 _pid) external payable nonReentrant {
@@ -645,7 +633,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
     function _calculateTotalStaked(uint256 _pid, IERC20 _lpToken, uint256 _amount, bool _deposit) internal {
         if (_deposit) {
-            totalStaked[_pid] = totalStaked[_pid].add(_amount);
+            totalStaked[_pid] = totalStaked[_pid] + _amount;
             if (address(_lpToken) == address(brews)) {
                 totalRewardStaked = totalRewardStaked + _amount;
             }
@@ -757,6 +745,11 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         emit SetBuyBackWallet(msg.sender, _addr);
     }
 
+    function setAutoAdjustableForRewardRate(bool _status) external onlyOwner {
+        autoAdjustableForRewardRate = _status;
+        emit SetAutoAdjustableForRewardRate(_status);
+    }
+
     //Brews has to add hidden dummy pools inorder to alter the emission, here we make it simple and transparent to all.
     function updateEmissionRate(uint256 _rewardPerBlock) external onlyOwner {
         massUpdatePools();
@@ -809,6 +802,17 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         uint256 afterAmt = brews.balanceOf(address(this));
 
         totalEarned = totalEarned + afterAmt - beforeAmt;
+        _updateRewardRate();
+    }
+
+    function _updateRewardRate() internal {
+        uint256 bonusEndBlock = 0;
+        for (uint256 i = 0; i < poolInfo.length; i++) {
+            if (bonusEndBlock < poolInfo[i].bonusEndBlock) {
+                bonusEndBlock = poolInfo[i].bonusEndBlock;
+            }
+        }
+        if (bonusEndBlock <= block.number) return;
 
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
