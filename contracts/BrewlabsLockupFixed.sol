@@ -864,14 +864,9 @@ contract BrewlabsLockupFixed is Ownable, ReentrancyGuard {
         emit WalletAUpdated(_walletA);
     }
 
-    /**
-     *
-     * Internal Methods
-     *
-     */
     /*
-     * @notice Update reward variables of the given pool to be up-to-date.
-     */
+    * @notice Update reward variables of the given pool to be up-to-date.
+    */
     function _updatePool() internal {
         // calc reflection rate
         if (totalStaked > 0) {

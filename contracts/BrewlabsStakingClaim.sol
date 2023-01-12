@@ -794,11 +794,6 @@ contract BrewlabsStakingClaim is Ownable, ReentrancyGuard {
             );
     }
 
-    /**
-     *
-     * Internal Methods
-     *
-     */
     /*
      * @notice Update reward variables of the given pool to be up-to-date.
      */

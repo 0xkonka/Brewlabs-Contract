@@ -772,11 +772,6 @@ contract BrewlabsStakingMulti is Ownable, ReentrancyGuard {
         emit SetSettings(_depositFee, _withdrawFee, _slippageFactor, _uniRouter, _earnedToStakedPath);
     }
 
-    /**
-     *
-     * Internal Methods
-     *
-     */
     /*
      * @notice Update reward variables of the given pool to be up-to-date.
      */

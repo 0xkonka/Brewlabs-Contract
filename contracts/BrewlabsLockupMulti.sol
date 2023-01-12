@@ -836,11 +836,6 @@ contract BrewlabsLockupMulti is Ownable, ReentrancyGuard {
         emit WalletAUpdated(_walletA);
     }
 
-    /**
-     *
-     * Internal Methods
-     *
-     */
     /*
      * @notice Update reward variables of the given pool to be up-to-date.
      */
