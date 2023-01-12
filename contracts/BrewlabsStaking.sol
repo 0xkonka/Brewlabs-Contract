@@ -34,8 +34,8 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     uint256 public lastRewardBlock;
 
     // swap router and path, slipPage
-    uint256 public slippageFactor = 800; // 20% default slippage tolerance
-    uint256 public constant slippageFactorUL = 995;
+    uint256 public slippageFactor = 8000; // 20% default slippage tolerance
+    uint256 public constant slippageFactorUL = 9950;
 
     address public uniRouterAddress;
     address[] public reflectionToStakedPath;
@@ -864,7 +864,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         IERC20(_path[0]).safeApprove(uniRouterAddress, _amountIn);
         IUniRouter02(uniRouterAddress).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            _amountIn, amountOut * slippageFactor / 1000, _path, _to, block.timestamp + 600
+            _amountIn, amountOut * slippageFactor / PERCENT_PRECISION, _path, _to, block.timestamp + 600
         );
     }
 
