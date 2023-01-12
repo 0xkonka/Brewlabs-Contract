@@ -133,6 +133,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
      * @param _uniRouter: uniswap router address for swap tokens
      * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
      * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
+     * @param _whiteList: whitelist contract address
      */
     function initialize(
         IERC20 _stakingToken,
@@ -174,6 +175,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
     /*
      * @notice Deposit staked tokens and collect reward tokens (if any)
      * @param _amount: amount to withdraw (in earnedToken)
+     * @param _stakeType: lockup index
      */
     function deposit(uint256 _amount, uint8 _stakeType) external payable nonReentrant {
         require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
@@ -285,6 +287,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
     /*
      * @notice Withdraw staked tokens and collect reward tokens
      * @param _amount: amount to withdraw (in earnedToken)
+     * @param _stakeType: lockup index
      */
     function withdraw(uint256 _amount, uint8 _stakeType) external payable nonReentrant {
         require(_amount > 0, "Amount should be greator than 0");
@@ -641,7 +644,8 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
 
     /*
      * @notice View function to see pending reward on frontend.
-     * @param _user: user address
+     * @param _account: user address
+     * @param _stakeType: lockup index
      * @return Pending reward for a given user
      */
     function pendingReward(address _account, uint8 _stakeType) external view returns (uint256) {
