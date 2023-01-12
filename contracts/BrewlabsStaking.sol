@@ -1,34 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "./libs/IUniRouter02.sol";
 import "./libs/IWETH.sol";
-
-interface IToken {
-    /**
-     * @dev Returns the amount of tokens in existence.
-     */
-    function totalSupply() external view returns (uint256);
-
-    /**
-     * @dev Returns the token decimals.
-     */
-    function decimals() external view returns (uint8);
-
-    /**
-     * @dev Returns the token symbol.
-     */
-    function symbol() external view returns (string memory);
-
-    /**
-     * @dev Returns the token name.
-     */
-    function name() external view returns (string memory);
-}
 
 contract BrewlabsStaking is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -175,13 +154,13 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         walletA = msg.sender;
 
-        uint256 decimalsRewardToken = uint256(IToken(address(earnedToken)).decimals());
+        uint256 decimalsRewardToken = uint256(IERC20Metadata(address(earnedToken)).decimals());
         require(decimalsRewardToken < 30, "Must be inferior to 30");
         PRECISION_FACTOR = uint256(10 ** (40 - decimalsRewardToken));
 
         uint256 decimalsdividendToken = 18;
         if (address(dividendToken) != address(0x0)) {
-            decimalsdividendToken = uint256(IToken(address(dividendToken)).decimals());
+            decimalsdividendToken = uint256(IERC20Metadata(address(dividendToken)).decimals());
             require(decimalsdividendToken < 30, "Must be inferior to 30");
         }
         PRECISION_FACTOR_REFLECTION = uint256(10 ** (40 - decimalsdividendToken));
