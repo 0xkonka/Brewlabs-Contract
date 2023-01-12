@@ -66,7 +66,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     uint256 public withdrawFee;
 
     address public walletA;
-    address public buyBackWallet = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
+    address public treasury = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
     uint256 public performanceFee = 0.0035 ether;
 
     // The precision factor
@@ -80,6 +80,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     // The dividend token of staking token
     address public dividendToken;
     bool public hasDividend;
+    bool public autoAdjustableForRewardRate = false;
 
     // Accrued token per share
     uint256 public accTokenPerShare;
@@ -117,6 +118,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     event ServiceInfoUpadted(address _addr, uint256 _fee);
     event WalletAUpdated(address _addr);
     event DurationUpdated(uint256 _duration);
+    event SetAutoAdjustableForRewardRate(bool status);
 
     event SetSettings(
         uint256 _depositFee,
@@ -252,6 +254,8 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         totalStaked = totalStaked + realAmount;
 
         emit Deposit(msg.sender, realAmount);
+
+        if (autoAdjustableForRewardRate) _updateRewardRate();
     }
 
     /*
@@ -314,6 +318,8 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         user.reflectionDebt = user.amount * accDividendPerShare / PRECISION_FACTOR_REFLECTION;
 
         emit Withdraw(msg.sender, _amount);
+
+        if (autoAdjustableForRewardRate) _updateRewardRate();
     }
 
     function claimReward() external payable nonReentrant {
@@ -447,7 +453,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     function _transferPerformanceFee() internal {
         require(msg.value >= performanceFee, "should pay small gas to compound or harvest");
 
-        payable(buyBackWallet).transfer(performanceFee);
+        payable(treasury).transfer(performanceFee);
         if (msg.value > performanceFee) {
             payable(msg.sender).transfer(msg.value - performanceFee);
         }
@@ -551,8 +557,10 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         UserInfo memory user = userInfo[_user];
 
         uint256 reflectionAmount = availableDividendTokens();
-        if (reflectionAmount < totalReflections) {
-            reflectionAmount = totalReflections;
+        if (reflectionAmount > totalReflections) {
+            reflectionAmount -= totalReflections;
+        } else {
+            reflectionAmount = 0;
         }
 
         uint256 sTokenBal = totalStaked;
@@ -562,7 +570,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         }
 
         uint256 adjustedReflectionPerShare =
-            accDividendPerShare + ((reflectionAmount - totalReflections) * PRECISION_FACTOR_REFLECTION / sTokenBal);
+            accDividendPerShare + (reflectionAmount * PRECISION_FACTOR_REFLECTION / sTokenBal);
 
         uint256 pendingReflection =
             user.amount * adjustedReflectionPerShare / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
@@ -617,7 +625,10 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         uint256 afterAmt = earnedToken.balanceOf(address(this));
 
         totalEarned = totalEarned + afterAmt - beforeAmt;
+        _updateRewardRate();
+    }
 
+    function _updateRewardRate() internal {
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
             remainRewards = remainRewards - shouldTotalPaid;
@@ -738,14 +749,14 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         emit NewRewardPerBlock(_rewardPerBlock);
     }
 
-    function setServiceInfo(address _buyBackWallet, uint256 _fee) external {
-        require(msg.sender == buyBackWallet, "setServiceInfo: FORBIDDEN");
-        require(_buyBackWallet != address(0x0), "Invalid address");
+    function setServiceInfo(address _treasury, uint256 _fee) external {
+        require(msg.sender == treasury, "setServiceInfo: FORBIDDEN");
+        require(_treasury != address(0x0), "Invalid address");
 
-        buyBackWallet = _buyBackWallet;
+        treasury = _treasury;
         performanceFee = _fee;
 
-        emit ServiceInfoUpadted(_buyBackWallet, _fee);
+        emit ServiceInfoUpadted(_treasury, _fee);
     }
 
     function updateWalletA(address _walletA) external onlyOwner {
@@ -764,6 +775,11 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             require(bonusEndBlock > block.number, "invalid duration");
         }
         emit DurationUpdated(_duration);
+    }
+
+    function setAutoAdjustableForRewardRate(bool _status) external onlyOwner {
+        autoAdjustableForRewardRate = _status;
+        emit SetAutoAdjustableForRewardRate(_status);
     }
 
     function setSettings(
@@ -792,9 +808,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /**
-     *
      * Internal Methods
-     *
      */
     /*
      * @notice Update reward variables of the given pool to be up-to-date.
@@ -803,8 +817,10 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         // calc reflection rate
         if (totalStaked > 0 && hasDividend) {
             uint256 reflectionAmount = availableDividendTokens();
-            if (reflectionAmount < totalReflections) {
-                reflectionAmount = totalReflections;
+            if (reflectionAmount > totalReflections) {
+                reflectionAmount -= totalReflections;
+            } else {
+                reflectionAmount = 0;
             }
 
             uint256 sTokenBal = totalStaked;
@@ -813,13 +829,10 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
                 sTokenBal = sTokenBal + eTokenBal;
             }
 
-            accDividendPerShare =
-                accDividendPerShare + ((reflectionAmount - totalReflections) * PRECISION_FACTOR_REFLECTION / sTokenBal);
+            accDividendPerShare += reflectionAmount * PRECISION_FACTOR_REFLECTION / sTokenBal;
 
-            if (address(stakingToken) == address(earnedToken)) {
-                reflections = reflections + (reflectionAmount - totalReflections) * eTokenBal / sTokenBal;
-            }
-            totalReflections = reflectionAmount;
+            reflections += reflectionAmount * eTokenBal / sTokenBal;
+            totalReflections += reflectionAmount;
         }
 
         if (block.number <= lastRewardBlock || lastRewardBlock == 0) {
@@ -833,7 +846,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
         uint256 _reward = multiplier * rewardPerBlock;
-        accTokenPerShare = accTokenPerShare + (_reward * PRECISION_FACTOR / totalStaked);
+        accTokenPerShare += _reward * PRECISION_FACTOR / totalStaked;
 
         lastRewardBlock = block.number;
         shouldTotalPaid = shouldTotalPaid + _reward;
