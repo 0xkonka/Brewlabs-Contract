@@ -151,10 +151,10 @@ contract BrewlabsTreasury is Ownable {
         uint256 ethAmt = address(this).balance;
         ethAmt = (ethAmt * buybackRate) / PERCENT_PRECISION;
         if (ethAmt > 0) {
-            uint256 tokenAmount = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
+            uint256 tokenAmt = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
             token.safeTransfer(_staking, tokenAmt * stakingRate / PERCENT_PRECISION);
 
-            emit TokenBuyBack(ethAmt, amount);
+            emit TokenBuyBack(ethAmt, tokenAmt);
         }
     }
 
