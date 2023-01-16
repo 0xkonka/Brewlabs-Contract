@@ -38,6 +38,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     // Accrued token per share
     uint256 public accTokenPerShare;
     uint256 public oneTimeLimit = 40;
+    bool public autoAdjustableForRewardRate = false;
 
     uint256 public totalStaked;
     uint256 private totalEarned;
@@ -66,6 +67,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
     event ServiceInfoUpadted(address _addr, uint256 _fee);
     event DurationUpdated(uint256 _duration);
+    event SetAutoAdjustableForRewardRate(bool status);
 
     constructor() {}
 
@@ -123,6 +125,8 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
         totalStaked = totalStaked + _tokenIds.length;
         emit Deposit(msg.sender, _tokenIds);
+
+        if (autoAdjustableForRewardRate) _updateRewardRate();
     }
 
     /*
@@ -162,6 +166,8 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
         totalStaked = totalStaked - _amount;
         emit Withdraw(msg.sender, _tokenIds);
+
+        if (autoAdjustableForRewardRate) _updateRewardRate();
     }
 
     function claimReward() external payable nonReentrant {
@@ -253,9 +259,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     }
 
     /**
-     *
      * Admin Methods
-     *
      */
     function increaseEmissionRate(uint256 _amount) external onlyOwner {
         require(startBlock > 0, "pool is not started");
@@ -264,6 +268,19 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
         _updatePool();
         earnedToken.safeTransferFrom(msg.sender, address(this), _amount);
+
+        uint256 remainRewards = availableRewardTokens() + paidRewards;
+        if (remainRewards > shouldTotalPaid) {
+            remainRewards = remainRewards - shouldTotalPaid;
+
+            uint256 remainBlocks = bonusEndBlock - block.number;
+            rewardPerBlock = remainRewards / remainBlocks;
+            emit NewRewardPerBlock(rewardPerBlock);
+        }
+    }
+
+    function _updateRewardRate() internal {
+        if (bonusEndBlock <= block.number) return;
 
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
@@ -338,6 +355,11 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             require(bonusEndBlock > block.number, "invalid duration");
         }
         emit DurationUpdated(_duration);
+    }
+
+    function setAutoAdjustableForRewardRate(bool _status) external onlyOwner {
+        autoAdjustableForRewardRate = _status;
+        emit SetAutoAdjustableForRewardRate(_status);
     }
 
     function setServiceInfo(address _treasury, uint256 _fee) external {
