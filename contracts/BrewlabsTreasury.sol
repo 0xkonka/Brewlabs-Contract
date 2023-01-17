@@ -5,16 +5,14 @@ pragma solidity ^0.8.0;
  * @author Brewlabs
  * This treasury contract has been developed by brewlabs.info
  */
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "./libs/IUniFactory.sol";
 import "./libs/IUniRouter02.sol";
 
 interface IStaking {
     function performanceFee() external view returns (uint256);
-
     function setServiceInfo(address _addr, uint256 _fee) external;
 }
 
@@ -40,7 +38,7 @@ contract BrewlabsTreasury is Ownable {
     uint256 public liquidityWithdrawalLimit = 2000; // 20% of LP supply
     uint256 public buybackRate = 9500; // 95%
     uint256 public addLiquidityRate = 9400; // 94%
-    uint256 public stakingRate = 2000;
+    uint256 public stakingRate = 1500; // 15%
 
     uint256 private startTime;
     uint256 private sumWithdrawals = 0;
@@ -147,14 +145,29 @@ contract BrewlabsTreasury is Ownable {
     /**
      * @notice Buy token from BNB and transfer token to staking pool
      */
-    function buyBackAndTransfer(address _staking) external onlyOwner {
+    function buyBackStakeBNB(address _staking) external onlyOwner {
         uint256 ethAmt = address(this).balance;
         ethAmt = (ethAmt * buybackRate) / PERCENT_PRECISION;
         if (ethAmt > 0) {
-            uint256 tokenAmt = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
-            token.safeTransfer(_staking, tokenAmt * stakingRate / PERCENT_PRECISION);
+            uint256 _tokenAmt = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
+            emit TokenBuyBack(ethAmt, _tokenAmt);
 
-            emit TokenBuyBack(ethAmt, tokenAmt);
+            token.safeTransfer(_staking, _tokenAmt * stakingRate / PERCENT_PRECISION);
+        }
+    }
+
+    /**
+     * @notice Buy token from reflections and transfer token to staking pool
+     */
+    function buyBackStakeDividend(address _staking) external onlyOwner {
+        if (dividendToken == address(0x0)) return;
+
+        uint256 reflections = IERC20(dividendToken).balanceOf(address(this));
+        if (reflections > 0) {
+            uint256 _tokenAmt = _safeSwap(reflections, dividendToTokenPath, address(this));
+            emit TokenBuyBackFromDividend(reflections, _tokenAmt);
+
+            token.safeTransfer(_staking, _tokenAmt * stakingRate / PERCENT_PRECISION);
         }
     }
 
