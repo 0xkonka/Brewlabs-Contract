@@ -93,8 +93,8 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     }
 
     /**
-     * @notice Deposit staked tokens and collect reward tokens (if any)
-     * @param _amount: amount to withdraw (in earnedToken)
+     * @notice Deposit NFTs and collect reward tokens (if any)
+     * @param _tokenIds: tokenIds to stake
      */
     function deposit(uint256[] memory _tokenIds) external payable nonReentrant {
         require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
