@@ -18,7 +18,7 @@ contract BrewlabsLiquidityManager is Ownable, ReentrancyGuard {
     address public uniRouterAddress;
 
     uint256 public fee = 100; // 1%
-    address public treasury = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
+    address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
     address public walletA = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
 
     address public wethAddress;

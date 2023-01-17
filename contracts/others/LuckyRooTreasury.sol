@@ -47,7 +47,7 @@ contract LuckyRooTreasury is Ownable {
 
     uint256 public performanceFee = 100; // 1%
     uint256 public performanceLpFee = 200; // 2%
-    address public feeWallet = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
+    address public feeWallet = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
 
     address public uniRouterAddress;
     address[] public bnbToTokenPath;

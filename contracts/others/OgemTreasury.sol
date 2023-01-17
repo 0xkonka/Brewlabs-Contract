@@ -16,6 +16,7 @@ import "../libs/IWETH.sol";
 
 interface IStaking {
     function performanceFee() external view returns (uint256);
+
     function setServiceInfo(address _addr, uint256 _fee) external;
 }
 
@@ -46,7 +47,7 @@ contract OgemTreasury is Ownable, ReentrancyGuard {
 
     uint256 public performanceFee = 100; // 1%
     uint256 public performanceLpFee = 200; // 2%
-    address public feeWallet = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
+    address public feeWallet = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
 
     // swap router and path, slipPage
     address public uniRouterAddress;
@@ -99,12 +100,12 @@ contract OgemTreasury is Ownable, ReentrancyGuard {
      */
     function buyBack() external onlyOwner nonReentrant {
         uint256 ethAmt = address(this).balance;
-        uint256 _fee = ethAmt * performanceFee / 10000;
+        uint256 _fee = (ethAmt * performanceFee) / 10000;
         if (_fee > 0) {
             payable(feeWallet).transfer(_fee);
             ethAmt = ethAmt - _fee;
         }
-        ethAmt = ethAmt * buybackRate / 10000;
+        ethAmt = (ethAmt * buybackRate) / 10000;
 
         if (ethAmt > 0) {
             uint256[] memory amounts = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
@@ -117,12 +118,12 @@ contract OgemTreasury is Ownable, ReentrancyGuard {
      */
     function addLiquidity() external onlyOwner nonReentrant {
         uint256 ethAmt = address(this).balance;
-        uint256 _fee = ethAmt * performanceLpFee / 10000;
+        uint256 _fee = (ethAmt * performanceLpFee) / 10000;
         if (_fee > 0) {
             payable(feeWallet).transfer(_fee);
             ethAmt = ethAmt - _fee;
         }
-        ethAmt = ethAmt * addLiquidityRate / 10000 / 2;
+        ethAmt = (ethAmt * addLiquidityRate) / 10000 / 2;
 
         if (ethAmt > 0) {
             uint256[] memory amounts = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
@@ -148,7 +149,7 @@ contract OgemTreasury is Ownable, ReentrancyGuard {
             sumWithdrawals = 0;
         }
 
-        uint256 limit = withdrawalLimit * (token.totalSupply()) / 10000;
+        uint256 limit = (withdrawalLimit * (token.totalSupply())) / 10000;
         require(sumWithdrawals + _amount <= limit, "exceed maximum withdrawal limit for 30 days");
 
         token.safeTransfer(msg.sender, _amount);
@@ -168,7 +169,7 @@ contract OgemTreasury is Ownable, ReentrancyGuard {
             sumLiquidityWithdrawals = 0;
         }
 
-        uint256 limit = liquidityWithdrawalLimit * (IERC20(pair).totalSupply()) / 10000;
+        uint256 limit = (liquidityWithdrawalLimit * (IERC20(pair).totalSupply())) / 10000;
         require(sumLiquidityWithdrawals + _amount <= limit, "exceed maximum LP withdrawal limit for 30 days");
 
         IERC20(pair).safeTransfer(msg.sender, _amount);
@@ -346,8 +347,8 @@ contract OgemTreasury is Ownable, ReentrancyGuard {
      *
      */
     /*
-     * @notice get token from ETH via swap.
-     */
+    * @notice get token from ETH via swap.
+    */
     function _safeSwapEth(uint256 _amountIn, address[] memory _path, address _to)
         internal
         returns (uint256[] memory amounts)
@@ -356,13 +357,13 @@ contract OgemTreasury is Ownable, ReentrancyGuard {
         uint256 amountOut = amounts[amounts.length - 1];
 
         IUniRouter02(uniRouterAddress).swapExactETHForTokensSupportingFeeOnTransferTokens{value: _amountIn}(
-            amountOut * slippageFactor / 1000, _path, _to, block.timestamp + 600
+            (amountOut * slippageFactor) / 1000, _path, _to, block.timestamp + 600
         );
     }
 
     /*
-     * @notice Add liquidity for Token-BNB pair.
-     */
+    * @notice Add liquidity for Token-BNB pair.
+    */
     function _addLiquidityEth(address _token, uint256 _ethAmt, uint256 _tokenAmt, address _to)
         internal
         returns (uint256 amountToken, uint256 amountETH, uint256 liquidity)

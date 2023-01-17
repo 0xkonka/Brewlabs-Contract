@@ -48,7 +48,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     uint256 public withdrawFee;
 
     address public walletA;
-    address public treasury = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
+    address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
     uint256 public performanceFee = 0.0035 ether;
 
     // The precision factor
@@ -114,17 +114,17 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     constructor() {}
 
     /*
-     * @notice Initialize the contract
-     * @param _stakingToken: staked token address
-     * @param _earnedToken: earned token address
-     * @param _dividendToken: reflection token address
-     * @param _rewardPerBlock: reward per block (in earnedToken)
-     * @param _depositFee: deposit fee
-     * @param _withdrawFee: withdraw fee
-     * @param _uniRouter: uniswap router address for swap tokens
-     * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
-     * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
-     */
+    * @notice Initialize the contract
+    * @param _stakingToken: staked token address
+    * @param _earnedToken: earned token address
+    * @param _dividendToken: reflection token address
+    * @param _rewardPerBlock: reward per block (in earnedToken)
+    * @param _depositFee: deposit fee
+    * @param _withdrawFee: withdraw fee
+    * @param _uniRouter: uniswap router address for swap tokens
+    * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
+    * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
+    */
     function initialize(
         IERC20 _stakingToken,
         IERC20 _earnedToken,
@@ -174,9 +174,9 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice Deposit staked tokens and collect reward tokens (if any)
-     * @param _amount: amount to withdraw (in earnedToken)
-     */
+    * @notice Deposit staked tokens and collect reward tokens (if any)
+    * @param _amount: amount to withdraw (in earnedToken)
+    */
     function deposit(uint256 _amount) external payable nonReentrant {
         require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
         require(_amount > 0, "Amount should be greator than 0");
@@ -191,7 +191,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         _updatePool();
 
         if (user.amount > 0) {
-            uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
+            uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
             if (pending > 0) {
                 require(availableRewardTokens() >= pending, "Insufficient reward tokens");
                 earnedToken.safeTransfer(address(msg.sender), pending);
@@ -205,8 +205,8 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             }
 
             uint256 pendingReflection =
-                user.amount * accDividendPerShare / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
-            
+                (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
+
             totalReflections = totalReflections - pendingReflection;
             pendingReflection = estimateDividendAmount(pendingReflection);
             if (pendingReflection > 0 && hasDividend) {
@@ -225,14 +225,14 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         if (realAmount > _amount) realAmount = _amount;
 
         if (depositFee > 0) {
-            uint256 fee = realAmount * depositFee / PERCENT_PRECISION;
+            uint256 fee = (realAmount * depositFee) / PERCENT_PRECISION;
             stakingToken.safeTransfer(walletA, fee);
             realAmount = realAmount - fee;
         }
 
         user.amount = user.amount + realAmount;
-        user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
-        user.reflectionDebt = user.amount * accDividendPerShare / PRECISION_FACTOR_REFLECTION;
+        user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
+        user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
 
         totalStaked = totalStaked + realAmount;
 
@@ -242,9 +242,9 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice Withdraw staked tokens and collect reward tokens
-     * @param _amount: amount to withdraw (in earnedToken)
-     */
+    * @notice Withdraw staked tokens and collect reward tokens
+    * @param _amount: amount to withdraw (in earnedToken)
+    */
     function withdraw(uint256 _amount) external payable nonReentrant {
         require(_amount > 0, "Amount should be greator than 0");
 
@@ -255,7 +255,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         _updatePool();
 
         if (user.amount > 0) {
-            uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
+            uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
             if (pending > 0) {
                 require(availableRewardTokens() >= pending, "Insufficient reward tokens");
                 earnedToken.safeTransfer(address(msg.sender), pending);
@@ -269,7 +269,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             }
 
             uint256 pendingReflection =
-                user.amount * accDividendPerShare / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
+                (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
             totalReflections = totalReflections - pendingReflection;
             pendingReflection = estimateDividendAmount(pendingReflection);
@@ -291,15 +291,15 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         totalStaked = totalStaked - realAmount;
 
         if (withdrawFee > 0) {
-            uint256 fee = realAmount * withdrawFee / PERCENT_PRECISION;
+            uint256 fee = (realAmount * withdrawFee) / PERCENT_PRECISION;
             stakingToken.safeTransfer(walletA, fee);
             realAmount = realAmount - fee;
         }
 
         stakingToken.safeTransfer(address(msg.sender), realAmount);
 
-        user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
-        user.reflectionDebt = user.amount * accDividendPerShare / PRECISION_FACTOR_REFLECTION;
+        user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
+        user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
 
         emit Withdraw(msg.sender, _amount);
 
@@ -314,7 +314,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         if (user.amount == 0) return;
 
-        uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
+        uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             earnedToken.safeTransfer(address(msg.sender), pending);
@@ -327,7 +327,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             paidRewards = paidRewards + pending;
         }
 
-        user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
+        user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
     }
 
     function claimDividend() external payable nonReentrant {
@@ -340,7 +340,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         if (user.amount == 0) return;
 
         uint256 pendingReflection =
-            user.amount * accDividendPerShare / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
+            (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
         totalReflections = totalReflections - pendingReflection;
         pendingReflection = estimateDividendAmount(pendingReflection);
@@ -352,7 +352,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             }
         }
 
-        user.reflectionDebt = user.amount * accDividendPerShare / PRECISION_FACTOR_REFLECTION;
+        user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
     }
 
     function compoundReward() external payable nonReentrant {
@@ -363,7 +363,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         if (user.amount == 0) return;
 
-        uint256 pending = user.amount * accTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
+        uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             if (totalEarned > pending) {
@@ -386,12 +386,12 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
             totalStaked = totalStaked + pending;
             user.amount = user.amount + pending;
-            user.reflectionDebt = user.reflectionDebt + pending * accDividendPerShare / PRECISION_FACTOR_REFLECTION;
+            user.reflectionDebt = user.reflectionDebt + (pending * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
 
             emit Deposit(msg.sender, pending);
         }
 
-        user.rewardDebt = user.amount * accTokenPerShare / PRECISION_FACTOR;
+        user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
     }
 
     function compoundDividend() external payable nonReentrant {
@@ -403,7 +403,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         if (user.amount == 0) return;
 
-        uint256 pending = user.amount * accDividendPerShare / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
+        uint256 pending = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
         totalReflections = totalReflections - pending;
         pending = estimateDividendAmount(pending);
@@ -427,12 +427,12 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
             totalStaked = totalStaked + pending;
             user.amount = user.amount + pending;
-            user.rewardDebt = user.rewardDebt + pending * accTokenPerShare / PRECISION_FACTOR;
+            user.rewardDebt = user.rewardDebt + (pending * accTokenPerShare) / PRECISION_FACTOR;
 
             emit Deposit(msg.sender, pending);
         }
 
-        user.reflectionDebt = user.amount * accDividendPerShare / PRECISION_FACTOR_REFLECTION;
+        user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
     }
 
     function _transferPerformanceFee() internal {
@@ -445,9 +445,9 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice Withdraw staked tokens without caring about rewards
-     * @dev Needs to be for emergency.
-     */
+    * @notice Withdraw staked tokens without caring about rewards
+    * @dev Needs to be for emergency.
+    */
     function emergencyWithdraw() external nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
         uint256 amountToTransfer = user.amount;
@@ -518,10 +518,10 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice View function to see pending reward on frontend.
-     * @param _user: user address
-     * @return Pending reward for a given user
-     */
+    * @notice View function to see pending reward on frontend.
+    * @param _user: user address
+    * @return Pending reward for a given user
+    */
     function pendingReward(address _user) external view returns (uint256) {
         UserInfo memory user = userInfo[_user];
 
@@ -530,10 +530,10 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
             uint256 rewards = multiplier * rewardPerBlock;
 
-            adjustedTokenPerShare = accTokenPerShare + (rewards * PRECISION_FACTOR / totalStaked);
+            adjustedTokenPerShare = accTokenPerShare + ((rewards * PRECISION_FACTOR) / totalStaked);
         }
 
-        return user.amount * adjustedTokenPerShare / PRECISION_FACTOR - user.rewardDebt;
+        return (user.amount * adjustedTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
     }
 
     function pendingDividends(address _user) external view returns (uint256) {
@@ -555,10 +555,10 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         }
 
         uint256 adjustedReflectionPerShare =
-            accDividendPerShare + (reflectionAmount * PRECISION_FACTOR_REFLECTION / sTokenBal);
+            accDividendPerShare + ((reflectionAmount * PRECISION_FACTOR_REFLECTION) / sTokenBal);
 
         uint256 pendingReflection =
-            user.amount * adjustedReflectionPerShare / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
+            (user.amount * adjustedReflectionPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
         return pendingReflection;
     }
@@ -583,9 +583,9 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice Deposit reward token
-     * @dev Only call by owner. Needs to be for deposit of reward token when reflection token is same with reward token.
-     */
+    * @notice Deposit reward token
+    * @dev Only call by owner. Needs to be for deposit of reward token when reflection token is same with reward token.
+    */
     function depositRewards(uint256 _amount) external onlyOwner nonReentrant {
         require(_amount > 0, "invalid amount");
 
@@ -625,9 +625,9 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice Withdraw reward token
-     * @dev Only callable by owner. Needs to be for emergency.
-     */
+    * @notice Withdraw reward token
+    * @dev Only callable by owner. Needs to be for emergency.
+    */
     function emergencyRewardWithdraw(uint256 _amount) external onlyOwner {
         require(block.number > bonusEndBlock, "Pool is running");
         require(availableRewardTokens() >= _amount, "Insufficient reward tokens");
@@ -705,11 +705,11 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice Update pool limit per user
-     * @dev Only callable by owner.
-     * @param _hasUserLimit: whether the limit remains forced
-     * @param _poolLimitPerUser: new pool limit per user
-     */
+    * @notice Update pool limit per user
+    * @dev Only callable by owner.
+    * @param _hasUserLimit: whether the limit remains forced
+    * @param _poolLimitPerUser: new pool limit per user
+    */
     function updatePoolLimitPerUser(bool _hasUserLimit, uint256 _poolLimitPerUser) external onlyOwner {
         if (_hasUserLimit) {
             require(_poolLimitPerUser > poolLimitPerUser, "New limit must be higher");
@@ -723,10 +723,10 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice Update reward per block
-     * @dev Only callable by owner.
-     * @param _rewardPerBlock: the reward per block
-     */
+    * @notice Update reward per block
+    * @dev Only callable by owner.
+    * @param _rewardPerBlock: the reward per block
+    */
     function updateRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
         // require(block.number < startBlock, "Pool was already started");
 
@@ -793,8 +793,8 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice Update reward variables of the given pool to be up-to-date.
-     */
+    * @notice Update reward variables of the given pool to be up-to-date.
+    */
     function _updatePool() internal {
         // calc reflection rate
         if (totalStaked > 0 && hasDividend) {
@@ -811,9 +811,9 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
                 sTokenBal = sTokenBal + eTokenBal;
             }
 
-            accDividendPerShare += reflectionAmount * PRECISION_FACTOR_REFLECTION / sTokenBal;
+            accDividendPerShare += (reflectionAmount * PRECISION_FACTOR_REFLECTION) / sTokenBal;
 
-            reflections += reflectionAmount * eTokenBal / sTokenBal;
+            reflections += (reflectionAmount * eTokenBal) / sTokenBal;
             totalReflections += reflectionAmount;
         }
 
@@ -825,7 +825,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
         uint256 _reward = multiplier * rewardPerBlock;
-        accTokenPerShare += _reward * PRECISION_FACTOR / totalStaked;
+        accTokenPerShare += (_reward * PRECISION_FACTOR) / totalStaked;
 
         lastRewardBlock = block.number;
         shouldTotalPaid = shouldTotalPaid + _reward;
@@ -839,10 +839,10 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice Return reward multiplier over the given _from to _to block.
-     * @param _from: block to start
-     * @param _to: block to finish
-     */
+    * @notice Return reward multiplier over the given _from to _to block.
+    * @param _from: block to start
+    * @param _to: block to finish
+    */
     function _getMultiplier(uint256 _from, uint256 _to) internal view returns (uint256) {
         if (_to <= bonusEndBlock) {
             return _to - _from;
@@ -859,7 +859,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         IERC20(_path[0]).safeApprove(uniRouterAddress, _amountIn);
         IUniRouter02(uniRouterAddress).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            _amountIn, amountOut * slippageFactor / PERCENT_PRECISION, _path, _to, block.timestamp + 600
+            _amountIn, (amountOut * slippageFactor) / PERCENT_PRECISION, _path, _to, block.timestamp + 600
         );
     }
 

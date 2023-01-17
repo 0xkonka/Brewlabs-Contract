@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract BrewlabsTokenConstructor is Ownable {
-    address public feeAddress = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
+    address public feeAddress = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
     uint256 public feeAmount = 0.0035 ether;
 
     constructor() {}

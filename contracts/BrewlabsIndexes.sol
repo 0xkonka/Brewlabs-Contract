@@ -11,6 +11,7 @@ import "./libs/IUniRouter02.sol";
 
 interface IBrewlabsIndexesNft is IERC721 {
     function mint() external returns (uint256);
+
     function burn(uint256 tokenId) external;
 }
 
@@ -53,7 +54,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     mapping(uint256 => NftInfo) private nfts;
 
     uint256 public fee = 25;
-    address public treasury = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
+    address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
     uint256 public performanceFee = 0.0035 ether;
 
     event TokenZappedIn(
@@ -115,7 +116,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         uint256 ethAmount = msg.value - performanceFee;
 
         // pay processing fee
-        uint256 buyingFee = ethAmount * fee / PERCENTAGE_PRECISION;
+        uint256 buyingFee = (ethAmount * fee) / PERCENTAGE_PRECISION;
         payable(treasury).transfer(buyingFee);
         ethAmount -= buyingFee;
 
@@ -125,7 +126,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         uint256 amount;
         uint256[NUM_TOKENS] memory amountOuts;
         for (uint8 i = 0; i < NUM_TOKENS; i++) {
-            uint256 amountIn = ethAmount * _percents[i] / PERCENTAGE_PRECISION;
+            uint256 amountIn = (ethAmount * _percents[i]) / PERCENTAGE_PRECISION;
             if (amountIn == 0) continue;
 
             amountOuts[i] = _safeSwapEth(amountIn, getSwapPath(0, i), address(this));
@@ -152,7 +153,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         uint256 expectedAmt = _expectedEth(user.amounts);
         if (expectedAmt > user.zappedEthAmount) {
             for (uint8 i = 0; i < NUM_TOKENS; i++) {
-                uint256 claimFee = user.amounts[i] * fee / PERCENTAGE_PRECISION;
+                uint256 claimFee = (user.amounts[i] * fee) / PERCENTAGE_PRECISION;
                 tokens[i].safeTransfer(treasury, claimFee);
                 tokens[i].safeTransfer(msg.sender, user.amounts[i] - claimFee);
             }
@@ -184,7 +185,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         }
 
         if (ethAmount > user.zappedEthAmount) {
-            uint256 swapFee = ethAmount * fee / PERCENTAGE_PRECISION;
+            uint256 swapFee = (ethAmount * fee) / PERCENTAGE_PRECISION;
             payable(treasury).transfer(swapFee);
 
             ethAmount -= swapFee;

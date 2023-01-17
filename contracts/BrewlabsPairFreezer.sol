@@ -25,7 +25,7 @@ contract BrewlabsPairFreezer is Ownable {
     address public implementation;
     mapping(address => address) public liquidityLockers;
 
-    address public treasury = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
+    address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
     address private devAddr;
     uint256 private devRate = 0;
 

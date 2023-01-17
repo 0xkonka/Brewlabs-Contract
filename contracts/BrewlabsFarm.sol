@@ -78,7 +78,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
     // Deposit Fee address
     address public feeAddress;
-    address public treasury = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
+    address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
     uint256 public performanceFee = 0.0035 ether;
     uint256 public rewardFee = 0;
 
@@ -250,10 +250,10 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
         if (block.number > pool.lastRewardBlock && lpSupply > 0 && totalAllocPoint > 0) {
             uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number, pool.bonusEndBlock);
-            uint256 brewsReward = multiplier * rewardPerBlock * pool.allocPoint / totalAllocPoint;
-            accTokenPerShare += brewsReward * 1e12 / lpSupply;
+            uint256 brewsReward = (multiplier * rewardPerBlock * pool.allocPoint) / totalAllocPoint;
+            accTokenPerShare += (brewsReward * 1e12) / lpSupply;
         }
-        return user.amount * accTokenPerShare / 1e12 - user.rewardDebt;
+        return (user.amount * accTokenPerShare) / 1e12 - user.rewardDebt;
     }
 
     function pendingReflections(uint256 _pid, address _user) external view returns (uint256) {
@@ -271,12 +271,12 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
                 reflectionAmt = 0;
             }
 
-            uint256 _accReflectionPerPoint = accReflectionPerPoint + reflectionAmt * 1e12 / totalAllocPoint;
+            uint256 _accReflectionPerPoint = accReflectionPerPoint + (reflectionAmt * 1e12) / totalAllocPoint;
 
             accReflectionPerShare = pool.accReflectionPerShare
-                + (pool.allocPoint * (_accReflectionPerPoint - pool.lastReflectionPerPoint) / lpSupply);
+                + ((pool.allocPoint * (_accReflectionPerPoint - pool.lastReflectionPerPoint)) / lpSupply);
         }
-        return user.amount * accReflectionPerShare / 1e12 - user.reflectionDebt;
+        return (user.amount * accReflectionPerShare) / 1e12 - user.reflectionDebt;
     }
 
     // Update reward variables for all pools. Be careful of gas spending!
@@ -302,8 +302,8 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         }
 
         uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number, pool.bonusEndBlock);
-        uint256 brewsReward = multiplier * rewardPerBlock * pool.allocPoint / totalAllocPoint;
-        pool.accTokenPerShare += brewsReward * 1e12 / lpSupply;
+        uint256 brewsReward = (multiplier * rewardPerBlock * pool.allocPoint) / totalAllocPoint;
+        pool.accTokenPerShare += (brewsReward * 1e12) / lpSupply;
 
         if (hasDividend) {
             uint256 reflectionAmt = availableDividendTokens();
@@ -313,9 +313,9 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
                 reflectionAmt = 0;
             }
 
-            accReflectionPerPoint += reflectionAmt * 1e12 / totalAllocPoint;
+            accReflectionPerPoint += (reflectionAmt * 1e12) / totalAllocPoint;
             pool.accReflectionPerShare +=
-                pool.allocPoint * (accReflectionPerPoint - pool.lastReflectionPerPoint) / (lpSupply);
+                (pool.allocPoint * (accReflectionPerPoint - pool.lastReflectionPerPoint)) / (lpSupply);
 
             pool.lastReflectionPerPoint = accReflectionPerPoint;
 
@@ -335,12 +335,12 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         massUpdatePools();
 
         if (user.amount > 0) {
-            uint256 pending = user.amount * pool.accTokenPerShare / 1e12 - user.rewardDebt;
+            uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
             if (pending > 0) {
                 require(availableRewardTokens() >= pending, "Insufficient reward tokens");
                 paidRewards = paidRewards + pending;
 
-                pending = pending * (PERCENT_PRECISION - rewardFee) / PERCENT_PRECISION;
+                pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
                 safeTokenTransfer(msg.sender, pending);
                 if (totalEarned > pending) {
                     totalEarned = totalEarned - pending;
@@ -349,7 +349,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
                 }
             }
 
-            uint256 pendingReflection = user.amount * pool.accReflectionPerShare / 1e12 - user.reflectionDebt;
+            uint256 pendingReflection = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
 
             totalReflections -= pendingReflection;
             pendingReflection = _estimateDividendAmount(pendingReflection);
@@ -368,7 +368,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             uint256 amount = afterAmt - beforeAmt;
 
             if (pool.depositFee > 0) {
-                uint256 depositFee = amount * pool.depositFee / PERCENT_PRECISION;
+                uint256 depositFee = (amount * pool.depositFee) / PERCENT_PRECISION;
                 pool.lpToken.safeTransfer(feeAddress, depositFee);
                 user.amount += amount - depositFee;
             } else {
@@ -378,8 +378,8 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             _calculateTotalStaked(_pid, pool.lpToken, amount, true);
         }
 
-        user.rewardDebt = user.amount * pool.accTokenPerShare / 1e12;
-        user.reflectionDebt = user.amount * pool.accReflectionPerShare / 1e12;
+        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
+        user.reflectionDebt = (user.amount * pool.accReflectionPerShare) / 1e12;
 
         emit Deposit(msg.sender, _pid, _amount);
 
@@ -413,12 +413,12 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             updatePool(_pid);
         }
 
-        uint256 pending = user.amount * pool.accTokenPerShare / 1e12 - user.rewardDebt;
+        uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             paidRewards = paidRewards + pending;
 
-            pending = pending * (PERCENT_PRECISION - rewardFee) / PERCENT_PRECISION;
+            pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
             safeTokenTransfer(msg.sender, pending);
             if (totalEarned > pending) {
                 totalEarned = totalEarned - pending;
@@ -427,7 +427,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             }
         }
 
-        uint256 pendingReflection = user.amount * pool.accReflectionPerShare / 1e12 - user.reflectionDebt;
+        uint256 pendingReflection = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
 
         totalReflections = totalReflections - pendingReflection;
         pendingReflection = _estimateDividendAmount(pendingReflection);
@@ -442,7 +442,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         if (_amount > 0) {
             user.amount = user.amount - _amount;
             if (pool.withdrawFee > 0) {
-                uint256 withdrawFee = _amount * pool.withdrawFee / PERCENT_PRECISION;
+                uint256 withdrawFee = (_amount * pool.withdrawFee) / PERCENT_PRECISION;
                 pool.lpToken.safeTransfer(feeAddress, withdrawFee);
                 pool.lpToken.safeTransfer(address(msg.sender), _amount - withdrawFee);
             } else {
@@ -451,8 +451,8 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
             _calculateTotalStaked(_pid, pool.lpToken, _amount, false);
         }
-        user.rewardDebt = user.amount * pool.accTokenPerShare / 1e12;
-        user.reflectionDebt = user.amount * pool.accReflectionPerShare / 1e12;
+        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
+        user.reflectionDebt = (user.amount * pool.accReflectionPerShare) / 1e12;
 
         emit Withdraw(msg.sender, _pid, _amount);
 
@@ -467,12 +467,12 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         _transferPerformanceFee();
         updatePool(_pid);
 
-        uint256 pending = user.amount * pool.accTokenPerShare / 1e12 - user.rewardDebt;
+        uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             paidRewards = paidRewards + pending;
 
-            pending = pending * (PERCENT_PRECISION - rewardFee) / PERCENT_PRECISION;
+            pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
             safeTokenTransfer(msg.sender, pending);
             if (totalEarned > pending) {
                 totalEarned = totalEarned - pending;
@@ -480,7 +480,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
                 totalEarned = 0;
             }
         }
-        user.rewardDebt = user.amount * pool.accTokenPerShare / 1e12;
+        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
     }
 
     function compoundReward(uint256 _pid) external payable nonReentrant {
@@ -493,12 +493,12 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         _transferPerformanceFee();
         updatePool(_pid);
 
-        uint256 pending = user.amount * pool.accTokenPerShare / 1e12 - user.rewardDebt;
+        uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             paidRewards = paidRewards + pending;
 
-            pending = pending * (PERCENT_PRECISION - rewardFee) / PERCENT_PRECISION;
+            pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
             if (totalEarned > pending) {
                 totalEarned = totalEarned - pending;
             } else {
@@ -529,7 +529,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         }
 
         user.amount = user.amount + pending;
-        user.rewardDebt = user.amount * pool.accTokenPerShare / 1e12;
+        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
         user.reflectionDebt = user.reflectionDebt + (pending * pool.accReflectionPerShare) / 1e12;
 
         _calculateTotalStaked(_pid, pool.lpToken, pending, true);
@@ -545,7 +545,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         _transferPerformanceFee();
         updatePool(_pid);
 
-        uint256 pendingReflection = user.amount * pool.accReflectionPerShare / 1e12 - user.reflectionDebt;
+        uint256 pendingReflection = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
 
         totalReflections = totalReflections - pendingReflection;
         pendingReflection = _estimateDividendAmount(pendingReflection);
@@ -557,7 +557,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             }
         }
 
-        user.reflectionDebt = user.amount * pool.accReflectionPerShare / 1e12;
+        user.reflectionDebt = (user.amount * pool.accReflectionPerShare) / 1e12;
     }
 
     function compoundDividend(uint256 _pid) external payable nonReentrant {
@@ -570,7 +570,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         _transferPerformanceFee();
         updatePool(_pid);
 
-        uint256 pending = user.amount * pool.accReflectionPerShare / 1e12 - user.reflectionDebt;
+        uint256 pending = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
         totalReflections = totalReflections - pending;
         pending = _estimateDividendAmount(pending);
 
@@ -602,8 +602,8 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         }
 
         user.amount = user.amount + pending;
-        user.rewardDebt = user.rewardDebt + pending * pool.accTokenPerShare / 1e12;
-        user.reflectionDebt = user.amount * pool.accReflectionPerShare / 1e12;
+        user.rewardDebt = user.rewardDebt + (pending * pool.accTokenPerShare) / 1e12;
+        user.reflectionDebt = (user.amount * pool.accReflectionPerShare) / 1e12;
 
         _calculateTotalStaked(_pid, pool.lpToken, pending, true);
         emit Deposit(msg.sender, _pid, pending);
