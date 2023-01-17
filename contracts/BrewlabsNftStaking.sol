@@ -71,12 +71,12 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
     constructor() {}
 
-    /*
-    * @notice Initialize the contract
-    * @param _stakingNft: nft address to stake
-    * @param _earnedToken: earned token address
-    * @param _rewardPerBlock: reward per block (in earnedToken)
-    */
+    /**
+     * @notice Initialize the contract
+     * @param _stakingNft: nft address to stake
+     * @param _earnedToken: earned token address
+     * @param _rewardPerBlock: reward per block (in earnedToken)
+     */
     function initialize(IERC721 _stakingNft, IERC20 _earnedToken, uint256 _rewardPerBlock) external onlyOwner {
         require(!isInitialized, "Already initialized");
 
@@ -92,10 +92,10 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         PRECISION_FACTOR = uint256(10 ** (40 - decimalsRewardToken));
     }
 
-    /*
-    * @notice Deposit staked tokens and collect reward tokens (if any)
-    * @param _amount: amount to withdraw (in earnedToken)
-    */
+    /**
+     * @notice Deposit staked tokens and collect reward tokens (if any)
+     * @param _amount: amount to withdraw (in earnedToken)
+     */
     function deposit(uint256[] memory _tokenIds) external payable nonReentrant {
         require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
         require(_tokenIds.length > 0, "must add at least one tokenId");
@@ -129,10 +129,10 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         if (autoAdjustableForRewardRate) _updateRewardRate();
     }
 
-    /*
-    * @notice Withdraw staked tokenIds and collect reward tokens
-    * @param _amount: number of tokenIds to unstake
-    */
+    /**
+     * @notice Withdraw staked tokenIds and collect reward tokens
+     * @param _amount: number of tokenIds to unstake
+     */
     function withdraw(uint256 _amount) external payable nonReentrant {
         require(_amount > 0, "Amount should be greator than 0");
         require(_amount <= oneTimeLimit, "cannot exceed one-time limit");
@@ -189,10 +189,10 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         emit Claim(msg.sender, pending);
     }
 
-    /*
-    * @notice Withdraw staked NFTs without caring about rewards
-    * @dev Needs to be for emergency.
-    */
+    /**
+     * @notice Withdraw staked NFTs without caring about rewards
+     * @dev Needs to be for emergency.
+     */
     function emergencyWithdraw() external nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
         uint256 _amount = user.amount;
@@ -239,11 +239,11 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         return adjustedShouldTotalPaid - remainRewards;
     }
 
-    /*
-    * @notice View function to see pending reward on frontend.
-    * @param _user: user address
-    * @return Pending reward for a given user
-    */
+    /**
+     * @notice View function to see pending reward on frontend.
+     * @param _user: user address
+     * @return Pending reward for a given user
+     */
     function pendingReward(address _user) external view returns (uint256) {
         UserInfo storage user = userInfo[_user];
 
@@ -292,10 +292,10 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         }
     }
 
-    /*
-    * @notice Withdraw reward token
-    * @dev Only callable by owner. Needs to be for emergency.
-    */
+    /**
+     * @notice Withdraw reward token
+     * @dev Only callable by owner. Needs to be for emergency.
+     */
     function emergencyRewardWithdraw(uint256 _amount) external onlyOwner {
         require(block.number > bonusEndBlock, "Pool is running");
         require(availableRewardTokens() >= _amount, "Insufficient reward tokens");
@@ -336,11 +336,11 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         emit EndBlockUpdated(_endBlock);
     }
 
-    /*
-    * @notice Update reward per block
-    * @dev Only callable by owner.
-    * @param _rewardPerBlock: the reward per block
-    */
+    /**
+     * @notice Update reward per block
+     * @dev Only callable by owner.
+     * @param _rewardPerBlock: the reward per block
+     */
     function updateRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
         rewardPerBlock = _rewardPerBlock;
         emit NewRewardPerBlock(_rewardPerBlock);
@@ -391,13 +391,8 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     }
 
     /**
-     *
-     * Internal Methods
-     *
+     * @notice Update reward variables of the given pool to be up-to-date.
      */
-    /*
-    * @notice Update reward variables of the given pool to be up-to-date.
-    */
     function _updatePool() internal {
         if (block.number <= lastRewardBlock || lastRewardBlock == 0) return;
         if (totalStaked == 0) {
@@ -413,11 +408,11 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         shouldTotalPaid += _reward;
     }
 
-    /*
-    * @notice Return reward multiplier over the given _from to _to block.
-    * @param _from: block to start
-    * @param _to: block to finish
-    */
+    /**
+     * @notice Return reward multiplier over the given _from to _to block.
+     * @param _from: block to start
+     * @param _to: block to finish
+     */
     function _getMultiplier(uint256 _from, uint256 _to) internal view returns (uint256) {
         if (_to <= bonusEndBlock) {
             return _to - _from;

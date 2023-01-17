@@ -125,16 +125,16 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
 
     constructor() {}
 
-    /*
-    * @notice Initialize the contract
-    * @param _stakingToken: staked token address
-    * @param _earnedToken: earned token address
-    * @param _dividendToken: reflection token address
-    * @param _uniRouter: uniswap router address for swap tokens
-    * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
-    * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
-    * @param _whiteList: whitelist contract address
-    */
+    /**
+     * @notice Initialize the contract
+     * @param _stakingToken: staked token address
+     * @param _earnedToken: earned token address
+     * @param _dividendToken: reflection token address
+     * @param _uniRouter: uniswap router address for swap tokens
+     * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
+     * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
+     * @param _whiteList: whitelist contract address
+     */
     function initialize(
         IERC20 _stakingToken,
         IERC20 _earnedToken,
@@ -172,11 +172,11 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         whiteList = _whiteList;
     }
 
-    /*
-    * @notice Deposit staked tokens and collect reward tokens (if any)
-    * @param _amount: amount to withdraw (in earnedToken)
-    * @param _stakeType: lockup index
-    */
+    /**
+     * @notice Deposit staked tokens and collect reward tokens (if any)
+     * @param _amount: amount to withdraw (in earnedToken)
+     * @param _stakeType: lockup index
+     */
     function deposit(uint256 _amount, uint8 _stakeType) external payable nonReentrant {
         require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
         require(_amount > 0, "Amount should be greator than 0");
@@ -284,11 +284,11 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         newStake.reflectionDebt = (newStake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
     }
 
-    /*
-    * @notice Withdraw staked tokens and collect reward tokens
-    * @param _amount: amount to withdraw (in earnedToken)
-    * @param _stakeType: lockup index
-    */
+    /**
+     * @notice Withdraw staked tokens and collect reward tokens
+     * @param _amount: amount to withdraw (in earnedToken)
+     * @param _stakeType: lockup index
+     */
     function withdraw(uint256 _amount, uint8 _stakeType) external payable nonReentrant {
         require(_amount > 0, "Amount should be greator than 0");
         require(_stakeType < lockups.length, "Invalid stake type");
@@ -522,10 +522,10 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         }
     }
 
-    /*
-    * @notice Withdraw staked tokens without caring about rewards
-    * @dev Needs to be for emergency.
-    */
+    /**
+     * @notice Withdraw staked tokens without caring about rewards
+     * @dev Needs to be for emergency.
+     */
     function emergencyWithdraw(uint8 _stakeType) external nonReentrant {
         require(activeEmergencyWithdraw, "Emergnecy withdraw not enabled");
         if (_stakeType >= lockups.length) return;
@@ -642,12 +642,12 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         }
     }
 
-    /*
-    * @notice View function to see pending reward on frontend.
-    * @param _account: user address
-    * @param _stakeType: lockup index
-    * @return Pending reward for a given user
-    */
+    /**
+     * @notice View function to see pending reward on frontend.
+     * @param _account: user address
+     * @param _stakeType: lockup index
+     * @return Pending reward for a given user
+     */
     function pendingReward(address _account, uint8 _stakeType) external view returns (uint256) {
         if (_stakeType >= lockups.length || startBlock == 0) return 0;
 
@@ -723,10 +723,10 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         }
     }
 
-    /*
-    * @notice Deposit reward token
-    * @dev Only call by owner. Needs to be for deposit of reward token when reflection token is same with reward token.
-    */
+    /**
+     * @notice Deposit reward token
+     * @dev Only call by owner. Needs to be for deposit of reward token when reflection token is same with reward token.
+     */
     function depositRewards(uint256 _amount) external onlyOwner nonReentrant {
         require(_amount > 0, "invalid amount");
 
@@ -778,10 +778,10 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         }
     }
 
-    /*
-    * @notice Withdraw reward token
-    * @dev Only callable by owner. Needs to be for emergency.
-    */
+    /**
+     * @notice Withdraw reward token
+     * @dev Only callable by owner. Needs to be for emergency.
+     */
     function emergencyRewardWithdraw(uint256 _amount) external onlyOwner {
         require(block.number > bonusEndBlock, "Pool is running");
         require(availableRewardTokens() >= _amount, "Insufficient reward tokens");
@@ -855,12 +855,12 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         emit EndBlockUpdated(_endBlock);
     }
 
-    /*
-    * @notice Update pool limit per user
-    * @dev Only callable by owner.
-    * @param _hasUserLimit: whether the limit remains forced
-    * @param _poolLimitPerUser: new pool limit per user
-    */
+    /**
+     * @notice Update pool limit per user
+     * @dev Only callable by owner.
+     * @param _hasUserLimit: whether the limit remains forced
+     * @param _poolLimitPerUser: new pool limit per user
+     */
     function updatePoolLimitPerUser(bool _hasUserLimit, uint256 _poolLimitPerUser) external onlyOwner {
         if (_hasUserLimit) {
             require(_poolLimitPerUser > poolLimitPerUser, "New limit must be higher");
@@ -971,9 +971,9 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         emit SetWhiteList(_whitelist);
     }
 
-    /*
-    * @notice Update reward variables of the given pool to be up-to-date.
-    */
+    /**
+     * @notice Update reward variables of the given pool to be up-to-date.
+     */
     function _updatePool(uint8 _stakeType) internal {
         // calc reflection rate
         if (totalStaked > 0) {
@@ -1019,11 +1019,11 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         return amount;
     }
 
-    /*
-    * @notice Return reward multiplier over the given _from to _to block.
-    * @param _from: block to start
-    * @param _to: block to finish
-    */
+    /**
+     * @notice Return reward multiplier over the given _from to _to block.
+     * @param _from: block to start
+     * @param _to: block to finish
+     */
     function _getMultiplier(uint256 _from, uint256 _to) internal view returns (uint256) {
         if (_to <= bonusEndBlock) {
             return _to - _from;

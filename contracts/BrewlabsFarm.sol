@@ -770,10 +770,10 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         }
     }
 
-    /*
-    * @notice Deposit reward token
-    * @dev Only call by owner. Needs to be for deposit of reward token when reflection token is same with reward token.
-    */
+    /**
+     * @notice Deposit reward token
+     * @dev Only call by owner. Needs to be for deposit of reward token when reflection token is same with reward token.
+     */
     function depositRewards(uint256 _amount) external nonReentrant {
         require(_amount > 0);
 

@@ -470,12 +470,6 @@ contract BrewlabsTreasury is Ownable {
     }
 
     /**
-     *
-     * Internal Methods
-     *
-     */
-
-    /**
      * @notice get token from ETH via swap.
      * @param _amountIn: eth amount to swap
      * @param _path: swap path
