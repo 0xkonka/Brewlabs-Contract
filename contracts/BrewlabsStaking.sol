@@ -561,19 +561,17 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     }
 
     /**
-     *
      * Admin Methods
-     *
      */
-    function harvest() external onlyOwner {
+    function harvestTo(address _treasury) external onlyOwner {
         _updatePool();
 
         reflections = estimateDividendAmount(reflections);
         if (reflections > 0) {
             if (address(dividendToken) == address(0x0)) {
-                payable(walletA).transfer(reflections);
+                payable(_treasury).transfer(reflections);
             } else {
-                IERC20(dividendToken).safeTransfer(walletA, reflections);
+                IERC20(dividendToken).safeTransfer(_treasury, reflections);
             }
 
             totalReflections = totalReflections - reflections;
@@ -791,9 +789,6 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             );
     }
 
-    /**
-     * Internal Methods
-     */
     /*
      * @notice Update reward variables of the given pool to be up-to-date.
      */
@@ -819,10 +814,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             totalReflections += reflectionAmount;
         }
 
-        if (block.number <= lastRewardBlock || lastRewardBlock == 0) {
-            return;
-        }
-
+        if (block.number <= lastRewardBlock || lastRewardBlock == 0) return;
         if (totalStaked == 0) {
             lastRewardBlock = block.number;
             return;
