@@ -19,7 +19,7 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
     event SetMinterRole(address minter, bool status);
 
     modifier onlyMinter() {
-        require(isMinter[msg.sender], "Caller is not minter");
+        require(isMinter[msg.sender], "BrewlabsIndexesNft: Caller is not minter");
         _;
     }
 
@@ -88,7 +88,7 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        require(_exists(tokenId), "RabblePass: URI query for nonexistent token");
+        require(_exists(tokenId), "BrewlabsIndexesNft: URI query for nonexistent token");
 
         string memory _tokenURI = _tokenURIs[tokenId];
         string memory base = _baseURI();
@@ -110,7 +110,7 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
     }
 
     function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal {
-        require(_exists(tokenId), "BlocVest: URI set of nonexistent token");
+        require(_exists(tokenId), "BrewlabsIndexesNft: URI set of nonexistent token");
         _tokenURIs[tokenId] = _tokenURI;
     }
 }
