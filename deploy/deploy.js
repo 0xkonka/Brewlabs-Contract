@@ -414,21 +414,20 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             // initialize
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsStaking", deployedAddress)
-            const _hasDividend = true;
-            const _rewardPerBlock = ethers.utils.parseUnits('0.951293759', 9) 
+            const _hasDividend = false;
+            const _rewardPerBlock = ethers.utils.parseUnits('0.001424942922374429', 18) 
             const res = await contractInstance.initialize(
-                "0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7", // _stakingToken (BTIv2)
-                "0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7", // _earnedToken (BTIv2)
-                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", // _reflectionToken (BTCB)
+                "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // _stakingToken
+                "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // _earnedToken
+                "0x0000000000000000000000000000000000000000", // _reflectionToken
                 _rewardPerBlock,                              // _rewardPerBlock
-                30,                                          // _depositFee (0.3%)
+                20,                                          // _depositFee (0.3%)
                 100,                                          // _withdrawFee (1%)
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
                 [
-                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
                     "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7",
+                    "0x1eF68f4507374960cF186c8999aadADB86736Ca4",
                 ], 
                 _hasDividend,
                 )
