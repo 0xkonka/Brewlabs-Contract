@@ -6,6 +6,12 @@ import {ERC721, ERC721Enumerable, IERC721} from "@openzeppelin/contracts/token/E
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 
+interface IBrewlabsIndexes {
+    function NUM_TOKENS() external returns(uint256);
+    function tokens(uint256 index) external returns(address);
+    function nftInfo(uint256 _tokenId) external view returns(uint256[] memory, uint256);
+}
+
 contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable {
     using Strings for uint256;
 
@@ -14,6 +20,7 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
 
     mapping(address => bool) private isMinter;
     mapping(uint256 => string) private _tokenURIs;
+    mapping(uint256 => address) private indexes;
 
     event BaseURIUpdated(string uri);
     event SetMinterRole(address minter, bool status);

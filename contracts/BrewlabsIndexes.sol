@@ -11,7 +11,6 @@ import "./libs/IUniRouter02.sol";
 
 interface IBrewlabsIndexesNft is IERC721 {
     function mint() external returns (uint256);
-
     function burn(uint256 tokenId) external;
 }
 
@@ -52,6 +51,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     }
 
     mapping(uint256 => NftInfo) private nfts;
+    uint256[NUM_TOKENS] totalStaked;
 
     uint256 public fee = 25;
     address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
@@ -133,6 +133,8 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
 
             user.amounts[i] += amountOuts[i];
             amount += amountIn;
+
+            totalStaked[i] += amountOuts[i];
         }
         user.zappedEthAmount += amount;
 
@@ -159,6 +161,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
             }
         } else {
             for (uint8 i = 0; i < NUM_TOKENS; i++) {
+                totalStaked[i] -= user.amounts[i];
                 tokens[i].safeTransfer(msg.sender, user.amounts[i]);
             }
         }
@@ -180,6 +183,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
 
         uint256 ethAmount;
         for (uint8 i = 0; i < NUM_TOKENS; i++) {
+            totalStaked[i] -= user.amounts[i];
             uint256 amountOut = _safeSwapForETH(user.amounts[i], getSwapPath(1, i));
             ethAmount += amountOut;
         }
@@ -319,7 +323,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
 
     /**
      * @notice Emergency withdraw tokens.
-     * @param _token: new treasury address
+     * @param _token: token address
      */
     function rescueTokens(address _token) external onlyOwner {
         if (_token == address(0x0)) {
