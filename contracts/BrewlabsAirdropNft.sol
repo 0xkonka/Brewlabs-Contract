@@ -5,7 +5,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 contract BrewlabsAirdropNft is Ownable {
-
     uint256 public commission = 0.00066 ether;
     uint256 public commissionLimit = 3 ether;
     uint256 public maxTxLimit = 200;
@@ -34,27 +33,13 @@ contract BrewlabsAirdropNft is Ownable {
     constructor() {}
 
     /* Airdrop Begins */
-    function multiTransfer(
-        address token,
-        address[] calldata addresses,
-        uint256[] calldata tokenIds
-    ) external payable {
+    function multiTransfer(address token, address[] calldata addresses, uint256[] calldata tokenIds) external payable {
         require(token != address(0x0), "Invalid token");
-        require(
-            addresses.length <= maxTxLimit,
-            "GAS Error: max airdrop limit is 200 addresses"
-        );
-        require(
-            addresses.length == tokenIds.length,
-            "Mismatch between address and tokenId"
-        );
+        require(addresses.length <= maxTxLimit, "GAS Error: max airdrop limit is 200 addresses");
+        require(addresses.length == tokenIds.length, "Mismatch between address and tokenId");
 
         for (uint256 i = 0; i < addresses.length; i++) {
-            IERC721(token).safeTransferFrom(
-                msg.sender,
-                addresses[i],
-                tokenIds[i]
-            );
+            IERC721(token).safeTransferFrom(msg.sender, addresses[i], tokenIds[i]);
         }
 
         uint256 fee = estimateServiceFee(token, addresses.length);
@@ -65,11 +50,7 @@ contract BrewlabsAirdropNft is Ownable {
         }
     }
 
-    function estimateServiceFee(address token, uint256 count)
-        public
-        view
-        returns (uint256)
-    {
+    function estimateServiceFee(address token, uint256 count) public view returns (uint256) {
         if (isInWhitelist(msg.sender)) return 0;
 
         uint256 fee = commission * count;
@@ -82,10 +63,7 @@ contract BrewlabsAirdropNft is Ownable {
 
     function addToDiscount(address token) external onlyOwner {
         require(token != address(0x0), "Invalid address");
-        require(
-            isInDiscountList(token) == false,
-            "Already added to token list for discount"
-        );
+        require(isInDiscountList(token) == false, "Already added to token list for discount");
 
         tokensForDiscount.push(token);
 
@@ -94,16 +72,11 @@ contract BrewlabsAirdropNft is Ownable {
 
     function removeFromDiscount(address token) external onlyOwner {
         require(token != address(0x0), "Invalid address");
-        require(
-            isInDiscountList(token) == true,
-            "Not exist in token list for discount"
-        );
+        require(isInDiscountList(token) == true, "Not exist in token list for discount");
 
         for (uint256 i = 0; i < tokensForDiscount.length; i++) {
             if (tokensForDiscount[i] == token) {
-                tokensForDiscount[i] = tokensForDiscount[
-                    tokensForDiscount.length - 1
-                ];
+                tokensForDiscount[i] = tokensForDiscount[tokensForDiscount.length - 1];
                 tokensForDiscount[tokensForDiscount.length - 1] = address(0x0);
                 tokensForDiscount.pop();
                 break;

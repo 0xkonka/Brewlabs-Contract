@@ -60,7 +60,7 @@ contract BrewlabsFarmTest is BrewlabsFarmBase {
         tryDeposit(address(0x1), 0, 1 ether);
 
         (uint256 amount, uint256 rewardDebt, uint256 reflectionDebt) = farm.userInfo(0, address(0x1));
-        
+
         uint256 _depositFee = 1 ether * DEPOSIT_FEE / 10000;
         assertEq(amount, 1 ether - _depositFee);
         assertEq(lpToken.balanceOf(farm.feeAddress()), _depositFee);

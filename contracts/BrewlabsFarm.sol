@@ -106,7 +106,16 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
-    event SetPool(uint256 pid, address indexed lpToken, uint256 allocPoint, uint256 duration, uint256 depositFee, uint256 withdrawFee, uint256 startBlock, uint256 endBlock);
+    event SetPool(
+        uint256 pid,
+        address indexed lpToken,
+        uint256 allocPoint,
+        uint256 duration,
+        uint256 depositFee,
+        uint256 withdrawFee,
+        uint256 startBlock,
+        uint256 endBlock
+    );
     event SetFeeAddress(address indexed user, address indexed newAddress);
     event SetBuyBackWallet(address indexed user, address newAddress);
     event SetPerformanceFee(uint256 fee);
@@ -174,7 +183,16 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         swapSettings[swapSettings.length - 1].lpToken = _lpToken;
 
         totalStaked.push(0);
-        emit SetPool(poolInfo.length - 1, address(_lpToken), _allocPoint, _duration, _depositFee, _withdrawFee, lastRewardBlock, lastRewardBlock + _duration * BLOCKS_PER_DAY);
+        emit SetPool(
+            poolInfo.length - 1,
+            address(_lpToken),
+            _allocPoint,
+            _duration,
+            _depositFee,
+            _withdrawFee,
+            lastRewardBlock,
+            lastRewardBlock + _duration * BLOCKS_PER_DAY
+            );
     }
 
     // Update the given pool's brews allocation point and deposit fee. Can only be called by the owner.
@@ -211,7 +229,16 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         } else {
             poolInfo[_pid].bonusEndBlock = poolInfo[_pid].startBlock + _duration * BLOCKS_PER_DAY;
         }
-        emit SetPool(_pid, address(poolInfo[_pid].lpToken), _allocPoint, _duration, _depositFee, _withdrawFee, poolInfo[_pid].startBlock, poolInfo[_pid].bonusEndBlock);
+        emit SetPool(
+            _pid,
+            address(poolInfo[_pid].lpToken),
+            _allocPoint,
+            _duration,
+            _depositFee,
+            _withdrawFee,
+            poolInfo[_pid].startBlock,
+            poolInfo[_pid].bonusEndBlock
+            );
     }
 
     // Update the given pool's compound parameters. Can only be called by the owner.
@@ -439,7 +466,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
                 IERC20(reflectionToken).safeTransfer(msg.sender, _estimateDividendAmount(pendingReflection));
             }
             totalReflections -= pendingReflection;
-        }        
+        }
 
         if (_amount > 0) {
             user.amount = user.amount - _amount;

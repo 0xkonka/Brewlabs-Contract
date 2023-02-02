@@ -30,38 +30,21 @@ contract BrewlabsAirdrop is Ownable {
     event CommissionLimitUpdated(uint256 amount);
     event CommissionTxLimitUpdated(uint256 amount);
 
-    constructor() {
-    }
+    constructor() {}
 
     /* Airdrop Begins */
-    function multiTransfer(
-        address token,
-        address[] calldata addresses,
-        uint256[] calldata amounts
-    ) external payable {
+    function multiTransfer(address token, address[] calldata addresses, uint256[] calldata amounts) external payable {
         require(token != address(0x0), "Invalid token");
-        require(
-            addresses.length <= maxTxLimit,
-            "GAS Error: max airdrop limit is 200 addresses"
-        );
-        require(
-            addresses.length == amounts.length,
-            "Mismatch between Address and token count"
-        );
+        require(addresses.length <= maxTxLimit, "GAS Error: max airdrop limit is 200 addresses");
+        require(addresses.length == amounts.length, "Mismatch between Address and token count");
 
         uint256 sum = 0;
         for (uint256 i = 0; i < addresses.length; i++) {
-            require(
-                amounts[i] > 0,
-                "Airdrop token amount must be greater than zero."
-            );
+            require(amounts[i] > 0, "Airdrop token amount must be greater than zero.");
             sum += amounts[i];
         }
 
-        require(
-            IERC20(token).balanceOf(msg.sender) >= sum,
-            "Not enough tokens in wallet"
-        );
+        require(IERC20(token).balanceOf(msg.sender) >= sum, "Not enough tokens in wallet");
 
         for (uint256 i = 0; i < addresses.length; i++) {
             IERC20(token).transferFrom(msg.sender, addresses[i], amounts[i]);
@@ -75,23 +58,13 @@ contract BrewlabsAirdrop is Ownable {
         }
     }
 
-    function multiTransfer_fixed(
-        address token,
-        address[] calldata addresses,
-        uint256 amount
-    ) external payable {
+    function multiTransfer_fixed(address token, address[] calldata addresses, uint256 amount) external payable {
         require(token != address(0x0), "Invalid token");
-        require(
-            addresses.length <= maxTxLimit,
-            "GAS Error: max airdrop limit is 200 addresses"
-        );
+        require(addresses.length <= maxTxLimit, "GAS Error: max airdrop limit is 200 addresses");
         require(amount > 0, "Airdrop token amount must be greater than zero.");
 
         uint256 sum = amount * addresses.length;
-        require(
-            IERC20(token).balanceOf(msg.sender) >= sum,
-            "Not enough tokens in wallet"
-        );
+        require(IERC20(token).balanceOf(msg.sender) >= sum, "Not enough tokens in wallet");
 
         for (uint256 i = 0; i < addresses.length; i++) {
             IERC20(token).transferFrom(msg.sender, addresses[i], amount);
@@ -105,11 +78,7 @@ contract BrewlabsAirdrop is Ownable {
         }
     }
 
-    function estimateServiceFee(address token, uint256 count)
-        public
-        view
-        returns (uint256)
-    {
+    function estimateServiceFee(address token, uint256 count) public view returns (uint256) {
         if (isInWhitelist(msg.sender)) return 0;
 
         uint256 fee = commission * count;
@@ -122,10 +91,7 @@ contract BrewlabsAirdrop is Ownable {
 
     function addToDiscount(address token) external onlyOwner {
         require(token != address(0x0), "Invalid address");
-        require(
-            isInDiscountList(token) == false,
-            "Already added to token list for discount"
-        );
+        require(isInDiscountList(token) == false, "Already added to token list for discount");
 
         tokensForDiscount.push(token);
 
@@ -134,10 +100,7 @@ contract BrewlabsAirdrop is Ownable {
 
     function removeFromDiscount(address token) external onlyOwner {
         require(token != address(0x0), "Invalid address");
-        require(
-            isInDiscountList(token) == true,
-            "Not exist in token list for discount"
-        );
+        require(isInDiscountList(token) == true, "Not exist in token list for discount");
 
         for (uint256 i = 0; i < tokensForDiscount.length; i++) {
             if (tokensForDiscount[i] == token) {
