@@ -16,6 +16,8 @@ contract BrewlabsFarmBase is Test {
     BrewlabsFarm internal farm;
 
     uint256 internal BLOCKS_PER_DAY = 28800;
+    uint16 internal DEPOSIT_FEE = 10;
+    uint16 internal WITHDRAW_FEE = 20;
 
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
@@ -37,7 +39,7 @@ contract BrewlabsFarmTest is BrewlabsFarmBase {
         utils = new Utils();
 
         farm = new BrewlabsFarm(IERC20(token), address(reflectionToken), 1e18, true);
-        farm.add(1000, IERC20(lpToken), 10, 20, 365, false);
+        farm.add(1000, IERC20(lpToken), DEPOSIT_FEE, WITHDRAW_FEE, 365, false);
     }
 
     function tryDeposit(address _user, uint256 _pid, uint256 _amount) internal {
@@ -47,8 +49,9 @@ contract BrewlabsFarmTest is BrewlabsFarmBase {
         vm.startPrank(_user);
         lpToken.approve(address(farm), _amount);
 
+        uint256 _depositFee = _amount * DEPOSIT_FEE / 10000;
         vm.expectEmit(true, true, false, true);
-        emit Deposit(_user, _pid, _amount);
+        emit Deposit(_user, _pid, _amount - _depositFee);
         farm.deposit{value: farm.performanceFee()}(_pid, _amount);
         vm.stopPrank();
     }
@@ -57,8 +60,10 @@ contract BrewlabsFarmTest is BrewlabsFarmBase {
         tryDeposit(address(0x1), 0, 1 ether);
 
         (uint256 amount, uint256 rewardDebt, uint256 reflectionDebt) = farm.userInfo(0, address(0x1));
-        assertEq(amount, (1 ether * 9990) / 10000);
-        assertEq(lpToken.balanceOf(farm.feeAddress()), (1 ether * 10) / 10000);
+        
+        uint256 _depositFee = 1 ether * DEPOSIT_FEE / 10000;
+        assertEq(amount, 1 ether - _depositFee);
+        assertEq(lpToken.balanceOf(farm.feeAddress()), _depositFee);
         assertEq(rewardDebt, 0);
         assertEq(reflectionDebt, 0);
         assertEq(address(farm.treasury()).balance, farm.performanceFee());
@@ -134,8 +139,9 @@ contract BrewlabsFarmTest is BrewlabsFarmBase {
         _expectedRewards += (pending * rewardFee) / 10000;
         _expectedRewards /= (bonusEndBlock - block.number);
 
+        uint256 _depositFee = 0.1 ether * DEPOSIT_FEE / 10000;
         vm.expectEmit(true, true, false, true);
-        emit Deposit(address(0x1), 0, 0.1 ether);
+        emit Deposit(address(0x1), 0, 0.1 ether - _depositFee);
         vm.expectEmit(true, false, false, true);
         emit UpdateEmissionRate(address(0x1), _expectedRewards);
         farm.deposit{value: farm.performanceFee()}(0, 0.1 ether);
@@ -220,9 +226,10 @@ contract BrewlabsFarmTest is BrewlabsFarmBase {
 
         vm.startPrank(address(0x1));
 
+        uint256 _withdrawFee = 0.1 ether * WITHDRAW_FEE / 10000;
         vm.deal(address(0x1), ethFee);
         farm.withdraw{value: ethFee}(0, 0.1 ether);
-        assertEq(lpToken.balanceOf(address(0x1)), (0.1 ether * (10000 - 20)) / 10000);
+        assertEq(lpToken.balanceOf(address(0x1)), 0.1 ether - _withdrawFee);
         assertEq(token.balanceOf(address(0x1)), 0);
 
         vm.roll(farm.startBlock() + 100);
@@ -714,7 +721,7 @@ contract BrewlabsFarmWithSameTest is BrewlabsFarmBase {
         utils = new Utils();
 
         farm = new BrewlabsFarm(IERC20(token), address(token), 1e18, true);
-        farm.add(1000, IERC20(lpToken), 10, 20, 365, false);
+        farm.add(1000, IERC20(lpToken), DEPOSIT_FEE, WITHDRAW_FEE, 365, false);
     }
 
     function test_availableRewardTokens() public {
@@ -741,7 +748,7 @@ contract BrewlabsFarmWithETHReflectionTest is BrewlabsFarmBase {
         utils = new Utils();
 
         farm = new BrewlabsFarm(IERC20(token), address(0x0), 1e18, true);
-        farm.add(1000, IERC20(lpToken), 10, 20, 365, false);
+        farm.add(1000, IERC20(lpToken), DEPOSIT_FEE, WITHDRAW_FEE, 365, false);
     }
 
     function tryDeposit(address _user, uint256 _pid, uint256 _amount) internal {
@@ -751,8 +758,9 @@ contract BrewlabsFarmWithETHReflectionTest is BrewlabsFarmBase {
         vm.startPrank(_user);
         lpToken.approve(address(farm), _amount);
 
+        uint256 _depositFee = _amount * DEPOSIT_FEE / 10000;
         vm.expectEmit(true, true, false, true);
-        emit Deposit(_user, _pid, _amount);
+        emit Deposit(_user, _pid, _amount - _depositFee);
         farm.deposit{value: farm.performanceFee()}(_pid, _amount);
         vm.stopPrank();
     }

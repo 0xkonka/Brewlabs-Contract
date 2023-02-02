@@ -207,14 +207,13 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             uint256 pendingReflection =
                 (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
-            totalReflections = totalReflections - pendingReflection;
-            pendingReflection = estimateDividendAmount(pendingReflection);
             if (pendingReflection > 0 && hasDividend) {
                 if (address(dividendToken) == address(0x0)) {
-                    payable(msg.sender).transfer(pendingReflection);
+                    payable(msg.sender).transfer(estimateDividendAmount(pendingReflection));
                 } else {
-                    IERC20(dividendToken).safeTransfer(address(msg.sender), pendingReflection);
+                    IERC20(dividendToken).safeTransfer(address(msg.sender), estimateDividendAmount(pendingReflection));
                 }
+                totalReflections = totalReflections - pendingReflection;
             }
         }
 
@@ -271,14 +270,13 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             uint256 pendingReflection =
                 (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
-            totalReflections = totalReflections - pendingReflection;
-            pendingReflection = estimateDividendAmount(pendingReflection);
             if (pendingReflection > 0 && hasDividend) {
                 if (address(dividendToken) == address(0x0)) {
-                    payable(msg.sender).transfer(pendingReflection);
+                    payable(msg.sender).transfer(estimateDividendAmount(pendingReflection));
                 } else {
-                    IERC20(dividendToken).safeTransfer(address(msg.sender), pendingReflection);
+                    IERC20(dividendToken).safeTransfer(address(msg.sender), estimateDividendAmount(pendingReflection));
                 }
+                totalReflections = totalReflections - pendingReflection;
             }
         }
 
@@ -342,14 +340,13 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         uint256 pendingReflection =
             (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
-        totalReflections = totalReflections - pendingReflection;
-        pendingReflection = estimateDividendAmount(pendingReflection);
         if (pendingReflection > 0) {
             if (address(dividendToken) == address(0x0)) {
-                payable(msg.sender).transfer(pendingReflection);
+                payable(msg.sender).transfer(estimateDividendAmount(pendingReflection));
             } else {
-                IERC20(dividendToken).safeTransfer(address(msg.sender), pendingReflection);
+                IERC20(dividendToken).safeTransfer(address(msg.sender), estimateDividendAmount(pendingReflection));
             }
+            totalReflections = totalReflections - pendingReflection;
         }
 
         user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
@@ -403,10 +400,9 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         if (user.amount == 0) return;
 
-        uint256 pending = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
-
-        totalReflections = totalReflections - pending;
-        pending = estimateDividendAmount(pending);
+        uint256 _pending = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
+        uint256 pending = estimateDividendAmount(_pending);
+        totalReflections = totalReflections - _pending;
         if (pending > 0) {
             if (address(stakingToken) != address(dividendToken)) {
                 if (address(dividendToken) == address(0x0)) {
@@ -569,15 +565,14 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     function harvestTo(address _treasury) external onlyOwner {
         _updatePool();
 
-        totalReflections = totalReflections - reflections;
-        reflections = estimateDividendAmount(reflections);
         if (reflections > 0) {
             if (address(dividendToken) == address(0x0)) {
-                payable(_treasury).transfer(reflections);
+                payable(_treasury).transfer(estimateDividendAmount(reflections));
             } else {
-                IERC20(dividendToken).safeTransfer(_treasury, reflections);
+                IERC20(dividendToken).safeTransfer(_treasury, estimateDividendAmount(reflections));
             }
 
+            totalReflections = totalReflections - reflections;
             reflections = 0;
         }
     }

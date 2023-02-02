@@ -224,10 +224,9 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
             paidRewards = paidRewards + pending;
         }
 
-        totalReflections = totalReflections - pendingReflection;
-        pendingReflection = estimateDividendAmount(pendingReflection);
         if (pendingReflection > 0) {
-            _transferToken(dividendToken, msg.sender, pendingReflection);
+            _transferToken(dividendToken, msg.sender, estimateDividendAmount(pendingReflection));
+            totalReflections = totalReflections - pendingReflection;
         }
 
         uint256 beforeAmount = stakingToken.balanceOf(address(this));
@@ -335,10 +334,9 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
             paidRewards = paidRewards + pending;
         }
 
-        totalReflections = totalReflections - pendingReflection;
-        pendingReflection = estimateDividendAmount(pendingReflection);
         if (pendingReflection > 0) {
-            _transferToken(dividendToken, msg.sender, pendingReflection);
+            _transferToken(dividendToken, msg.sender, estimateDividendAmount(pendingReflection));
+            totalReflections = totalReflections - pendingReflection;
         }
 
         uint256 realAmount = _amount - remained;
@@ -410,10 +408,9 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
             stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
         }
 
-        totalReflections = totalReflections - pendingReflection;
-        pendingReflection = estimateDividendAmount(pendingReflection);
         if (pendingReflection > 0) {
-            _transferToken(dividendToken, msg.sender, pendingReflection);
+            _transferToken(dividendToken, msg.sender, estimateDividendAmount(pendingReflection));
+            totalReflections = totalReflections - pendingReflection;
         }
     }
 
@@ -481,10 +478,9 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
 
-            uint256 _pending = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt;
-
-            totalReflections = totalReflections - _pending;
-            _pending = estimateDividendAmount(_pending);
+            uint256 pending = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt;
+            uint256 _pending = estimateDividendAmount(pending);
+            totalReflections = totalReflections - pending;
             if (address(stakingToken) != address(dividendToken) && _pending > 0) {
                 if (address(dividendToken) == address(0x0)) {
                     address wethAddress = IUniRouter02(uniRouterAddress).WETH();
@@ -715,10 +711,9 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
     function harvest() external onlyOwner {
         _updatePool(0);
 
-        totalReflections = totalReflections - reflections;
-        reflections = estimateDividendAmount(reflections);
         if (reflections > 0) {
-            _transferToken(dividendToken, walletA, reflections);
+            _transferToken(dividendToken, walletA, estimateDividendAmount(reflections));
+            totalReflections = totalReflections - reflections;
             reflections = 0;
         }
     }

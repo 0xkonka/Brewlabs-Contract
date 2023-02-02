@@ -106,6 +106,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
+    event SetPool(uint256 pid, address indexed lpToken, uint256 allocPoint, uint256 duration, uint256 depositFee, uint256 withdrawFee, uint256 startBlock, uint256 endBlock);
     event SetFeeAddress(address indexed user, address indexed newAddress);
     event SetBuyBackWallet(address indexed user, address newAddress);
     event SetPerformanceFee(uint256 fee);
@@ -173,6 +174,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         swapSettings[swapSettings.length - 1].lpToken = _lpToken;
 
         totalStaked.push(0);
+        emit SetPool(poolInfo.length - 1, address(_lpToken), _allocPoint, _duration, _depositFee, _withdrawFee, lastRewardBlock, lastRewardBlock + _duration * BLOCKS_PER_DAY);
     }
 
     // Update the given pool's brews allocation point and deposit fee. Can only be called by the owner.
@@ -209,6 +211,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         } else {
             poolInfo[_pid].bonusEndBlock = poolInfo[_pid].startBlock + _duration * BLOCKS_PER_DAY;
         }
+        emit SetPool(_pid, address(poolInfo[_pid].lpToken), _allocPoint, _duration, _depositFee, _withdrawFee, poolInfo[_pid].startBlock, poolInfo[_pid].bonusEndBlock);
     }
 
     // Update the given pool's compound parameters. Can only be called by the owner.
@@ -350,17 +353,17 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             }
 
             uint256 pendingReflection = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
-
-            totalReflections -= pendingReflection;
-            pendingReflection = _estimateDividendAmount(pendingReflection);
             if (pendingReflection > 0 && hasDividend) {
                 if (address(reflectionToken) == address(0x0)) {
-                    payable(msg.sender).transfer(pendingReflection);
+                    payable(msg.sender).transfer(_estimateDividendAmount(pendingReflection));
                 } else {
-                    IERC20(reflectionToken).safeTransfer(msg.sender, pendingReflection);
+                    IERC20(reflectionToken).safeTransfer(msg.sender, _estimateDividendAmount(pendingReflection));
                 }
+                totalReflections -= pendingReflection;
             }
         }
+
+        uint256 realAmount = _amount;
         if (_amount > 0) {
             uint256 beforeAmt = pool.lpToken.balanceOf(address(this));
             pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
@@ -371,6 +374,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
                 uint256 depositFee = (amount * pool.depositFee) / PERCENT_PRECISION;
                 pool.lpToken.safeTransfer(feeAddress, depositFee);
                 user.amount += amount - depositFee;
+                realAmount -= depositFee;
             } else {
                 user.amount = user.amount + amount;
             }
@@ -381,7 +385,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
         user.reflectionDebt = (user.amount * pool.accReflectionPerShare) / 1e12;
 
-        emit Deposit(msg.sender, _pid, _amount);
+        emit Deposit(msg.sender, _pid, realAmount);
 
         if (pool.bonusEndBlock <= block.number) {
             totalAllocPoint = totalAllocPoint - pool.allocPoint;
@@ -428,16 +432,14 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         }
 
         uint256 pendingReflection = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
-
-        totalReflections = totalReflections - pendingReflection;
-        pendingReflection = _estimateDividendAmount(pendingReflection);
         if (pendingReflection > 0 && hasDividend) {
             if (address(reflectionToken) == address(0x0)) {
-                payable(msg.sender).transfer(pendingReflection);
+                payable(msg.sender).transfer(_estimateDividendAmount(pendingReflection));
             } else {
-                IERC20(reflectionToken).safeTransfer(msg.sender, pendingReflection);
+                IERC20(reflectionToken).safeTransfer(msg.sender, _estimateDividendAmount(pendingReflection));
             }
-        }
+            totalReflections -= pendingReflection;
+        }        
 
         if (_amount > 0) {
             user.amount = user.amount - _amount;
@@ -546,15 +548,13 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         updatePool(_pid);
 
         uint256 pendingReflection = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
-
-        totalReflections = totalReflections - pendingReflection;
-        pendingReflection = _estimateDividendAmount(pendingReflection);
         if (pendingReflection > 0) {
             if (address(reflectionToken) == address(0x0)) {
-                payable(msg.sender).transfer(pendingReflection);
+                payable(msg.sender).transfer(_estimateDividendAmount(pendingReflection));
             } else {
-                IERC20(reflectionToken).safeTransfer(msg.sender, pendingReflection);
+                IERC20(reflectionToken).safeTransfer(msg.sender, _estimateDividendAmount(pendingReflection));
             }
+            totalReflections = totalReflections - pendingReflection;
         }
 
         user.reflectionDebt = (user.amount * pool.accReflectionPerShare) / 1e12;
@@ -570,9 +570,9 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         _transferPerformanceFee();
         updatePool(_pid);
 
-        uint256 pending = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
-        totalReflections = totalReflections - pending;
-        pending = _estimateDividendAmount(pending);
+        uint256 _pending = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
+        uint256 pending = _estimateDividendAmount(_pending);
+        totalReflections = totalReflections - _pending;
 
         if (reflectionToken != address(pool.lpToken)) {
             if (reflectionToken == address(0x0)) {
