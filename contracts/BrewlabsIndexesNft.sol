@@ -7,9 +7,9 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 
 interface IBrewlabsIndexes {
-    function NUM_TOKENS() external returns(uint256);
-    function tokens(uint256 index) external returns(address);
-    function nftInfo(uint256 _tokenId) external view returns(uint256[] memory, uint256);
+    function NUM_TOKENS() external returns (uint256);
+    function tokens(uint256 index) external returns (address);
+    function nftInfo(uint256 _tokenId) external view returns (uint256[] memory, uint256);
 }
 
 contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable {
@@ -37,7 +37,12 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
         _safeMint(msg.sender, tokenIndex);
         _setTokenURI(tokenIndex, tokenIndex.toString());
 
+        indexes[tokenIndex] = msg.sender;
         return tokenIndex;
+    }
+
+    function getItemInfo(uint256 tokenId) external view returns (uint256[] memory, uint256) {
+        return IBrewlabsIndexes(indexes[tokenId]).nftInfo(tokenId);
     }
 
     function burn(uint256 tokenId) external {
