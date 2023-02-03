@@ -156,6 +156,9 @@ contract BrewlabsIndexesTest is Test {
         uint256 tokenId = indexes.lockTokens{value: indexes.performanceFee()}();
         assertEq(nft.ownerOf(tokenId), user);
 
+        // string memory _tokenUri = nft.tokenURI(tokenId);
+        // emit log_named_string('URI: ', _tokenUri);
+
         (uint256[] memory _amounts, uint256 _ethAmount) = indexes.nftInfo(tokenId);
         assertEq(_amounts[0], amounts[0]);
         assertEq(_amounts[1], amounts[1]);
