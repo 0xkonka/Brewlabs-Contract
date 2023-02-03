@@ -23,9 +23,9 @@ contract BrewlabsIndexesTest is Test {
         _paths[0] = new address[](2);
         _paths[1] = new address[](2);
         _paths[0][0] = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-        _paths[0][1] = 0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7;
+        _paths[0][1] = 0x2170Ed0880ac9A755fd29B2688956BD959F933F8;
         _paths[1][0] = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-        _paths[1][1] = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+        _paths[1][1] = 0x3EE2200Efb3400fAbB9AacF31297cBdD1d435D47;
 
         mainnetFork = vm.createFork(MAINNET_RPC_URL);
         vm.selectFork(mainnetFork);
@@ -33,20 +33,26 @@ contract BrewlabsIndexesTest is Test {
         utils = new Utils();
         nft = new BrewlabsIndexesNft();
         indexes = new BrewlabsIndexes();
+
         indexes.initialize(
-            [IERC20(0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7), IERC20(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56)],
+            [IERC20(0x2170Ed0880ac9A755fd29B2688956BD959F933F8), IERC20(0x3EE2200Efb3400fAbB9AacF31297cBdD1d435D47)],
             IERC721(nft),
             _router,
             _paths
         );
-
         nft.setMinterRole(address(indexes), true);
     }
 
     function test_buyTokens() public {
-        vm.startPrank(address(0x1));
-        uint256 amount = 0.5 ether;
         vm.deal(address(0x1), 10 ether);
+        vm.startPrank(address(0x1));
+        
+        IERC20 token0 = indexes.tokens(0);
+        IERC20 token1 = indexes.tokens(1);
+        uint256 amount = 0.5 ether;
+        indexes.buyTokens{value: amount}([uint256(5000), 5000]);
+        emit log_named_uint('balance of token0', token0.balanceOf(address(indexes)));
+        emit log_named_uint('balance of token1', token1.balanceOf(address(indexes)));
         vm.stopPrank();
     }
 }
