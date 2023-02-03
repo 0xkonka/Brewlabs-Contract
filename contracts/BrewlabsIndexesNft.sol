@@ -32,17 +32,13 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
 
     constructor() ERC721("Brewlabs Indexes Nft", "BINDEX") {}
 
-    function mint() external onlyMinter returns (uint256) {
+    function mint(address to) external onlyMinter returns (uint256) {
         tokenIndex++;
-        _safeMint(msg.sender, tokenIndex);
+        _safeMint(to, tokenIndex);
         _setTokenURI(tokenIndex, tokenIndex.toString());
 
         indexes[tokenIndex] = msg.sender;
         return tokenIndex;
-    }
-
-    function getItemInfo(uint256 tokenId) external view returns (uint256[] memory, uint256) {
-        return IBrewlabsIndexes(indexes[tokenId]).nftInfo(tokenId);
     }
 
     function burn(uint256 tokenId) external {
@@ -115,6 +111,10 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
         }
 
         return super.tokenURI(tokenId);
+    }
+
+    function _getNftInfo(uint256 tokenId) internal view returns (uint256[] memory, uint256) {
+        return IBrewlabsIndexes(indexes[tokenId]).nftInfo(tokenId);
     }
 
     function _baseURI() internal view override returns (string memory) {

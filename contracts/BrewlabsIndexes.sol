@@ -10,7 +10,7 @@ import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Hol
 import "./libs/IUniRouter02.sol";
 
 interface IBrewlabsIndexesNft is IERC721 {
-    function mint() external returns (uint256);
+    function mint(address to) external returns (uint256);
     function burn(uint256 tokenId) external;
 }
 
@@ -51,7 +51,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     }
 
     mapping(uint256 => NftInfo) private nfts;
-    uint256[NUM_TOKENS] totalStaked;
+    uint256[NUM_TOKENS] public totalStaked;
 
     uint256 public fee = 25;
     address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
@@ -60,7 +60,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     event TokenZappedIn(
         address indexed user, uint256 ethAmount, uint256[NUM_TOKENS] percents, uint256[NUM_TOKENS] amountOuts
     );
-    event TokenZappedOut(address indexed user, uint256 ethAmount);
+    event TokenZappedOut(address indexed user, uint256 ethAmount, uint256[NUM_TOKENS] amounts);
     event TokenClaimed(address indexed user, uint256[NUM_TOKENS] amounts);
     event TokenLocked(address indexed user, uint256[NUM_TOKENS] amounts, uint256 ethAmount, uint256 tokenId);
     event TokenUnLocked(address indexed user, uint256[NUM_TOKENS] amounts, uint256 ethAmount, uint256 tokenId);
@@ -194,10 +194,10 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
 
             ethAmount -= swapFee;
         }
-        delete users[msg.sender];
 
         payable(msg.sender).transfer(ethAmount);
-        emit TokenZappedOut(msg.sender, ethAmount);
+        emit TokenZappedOut(msg.sender, ethAmount, user.amounts);
+        delete users[msg.sender];
     }
 
     /**
@@ -206,14 +206,14 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
      * The purpose of this is to allow users to mint an NFT that represents their value in the index and at their discretion,
      *  transfer or sell that NFT to another wallet.
      */
-    function lockTokens() external payable onlyInitialized {
+    function lockTokens() external payable onlyInitialized returns (uint256) {
         UserInfo storage user = users[msg.sender];
         require(user.zappedEthAmount > 0, "No available tokens");
 
         _transferPerformanceFee();
 
         // mint NFT
-        uint256 tokenId = IBrewlabsIndexesNft(address(nft)).mint();
+        uint256 tokenId = IBrewlabsIndexesNft(address(nft)).mint(msg.sender);
 
         // lock available tokens for NFT
         NftInfo storage nftData = nfts[tokenId];
@@ -222,6 +222,8 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
 
         delete users[msg.sender];
         emit TokenLocked(msg.sender, nftData.amounts, nftData.zappedEthAmount, tokenId);
+
+        return tokenId;
     }
 
     /**
@@ -250,16 +252,26 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
      * @notice Returns purchased tokens and ETH amount at the time when bought tokens.
      * @param _user: user address
      */
-    function userInfo(address _user) external view returns (UserInfo memory) {
-        return users[_user];
+    function userInfo(address _user) external view returns (uint256[] memory amounts, uint256 ethAmount) {
+        UserInfo memory _userData = users[_user];
+        ethAmount = _userData.zappedEthAmount;
+        amounts = new uint256[](NUM_TOKENS);
+        for (uint256 i = 0; i < NUM_TOKENS; i++) {
+            amounts[i] = _userData.amounts[i];
+        }
     }
 
     /**
      * @notice Returns tokens locked in NFT and ETH amount at the time when bought tokens.
      * @param _tokenId: owned tokenId
      */
-    function nftInfo(uint256 _tokenId) external view returns (NftInfo memory) {
-        return nfts[_tokenId];
+    function nftInfo(uint256 _tokenId) external view returns (uint256[] memory amounts, uint256 ethAmount) {
+        NftInfo memory _nftData = nfts[_tokenId];
+        ethAmount = _nftData.zappedEthAmount;
+        amounts = new uint256[](NUM_TOKENS);
+        for (uint256 i = 0; i < NUM_TOKENS; i++) {
+            amounts[i] = _nftData.amounts[i];
+        }
     }
 
     /**
@@ -339,7 +351,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
      * @notice Process performance fee.
      */
     function _transferPerformanceFee() internal {
-        require(msg.value > performanceFee, "Should pay small gas to call method");
+        require(msg.value >= performanceFee, "Should pay small gas to call method");
         payable(treasury).transfer(performanceFee);
     }
 
