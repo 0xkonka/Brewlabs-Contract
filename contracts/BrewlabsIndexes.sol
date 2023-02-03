@@ -35,7 +35,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
     IERC20[NUM_TOKENS] public tokens;
 
     address public swapRouter;
-    address[NUM_TOKENS][] public ethToTokenPaths;
+    address[][NUM_TOKENS] public ethToTokenPaths;
 
     // Info of each user.
     struct UserInfo {
@@ -67,7 +67,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
 
     event ServiceInfoUpadted(address addr, uint256 fee);
     event SetFee(uint256 fee);
-    event SetSettings(address router, address[NUM_TOKENS][] paths);
+    event SetSettings(address router, address[][NUM_TOKENS] paths);
 
     modifier onlyInitialized() {
         require(isInitialized, "Not initialized");
@@ -87,7 +87,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
         IERC20[NUM_TOKENS] memory _tokens,
         IERC721 _nft,
         address _router,
-        address[NUM_TOKENS][] memory _paths
+        address[][NUM_TOKENS] memory _paths
     ) external onlyOwner {
         require(!isInitialized, "Already initialized");
 
@@ -286,7 +286,7 @@ contract BrewlabsIndexes is Ownable, ERC721Holder, ReentrancyGuard {
      * @param _router: swap router address
      * @param _paths: list of swap path for each tokens
      */
-    function setSwapSettings(address _router, address[NUM_TOKENS][] memory _paths) external onlyOwner onlyInitialized {
+    function setSwapSettings(address _router, address[][NUM_TOKENS] memory _paths) external onlyOwner onlyInitialized {
         require(_router != address(0x0), "Invalid address");
         require(IUniRouter02(_router).WETH() != address(0x0), "Invalid swap router");
 
