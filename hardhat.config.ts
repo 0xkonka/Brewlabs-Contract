@@ -11,7 +11,7 @@ const {
   accountPrivateKey,
   etherscanApiKey,
   alchemyApi,
-  testMnemonics
+  testMnemonics,
 } = require("./.secrets.js");
 
 /**
@@ -103,26 +103,36 @@ module.exports = {
     },
     frenchain: {
       chainId: 44444,
-      url: 'https://rpc-02.frenscan.io/',
+      url: "https://rpc-02.frenscan.io/",
       accounts: [accountPrivateKey["bsc"]],
-      gasPrice: 3000000000
-    }
+      gasPrice: 3000000000,
+    },
   },
 
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
     apiKey: etherscanApiKey,
-    customChains: [  // custom config for blockscout explorer
+    customChains: [
+      // additional etherscan config
+      {
+        network: "cronos",
+        chainId: 25,
+        urls: {
+          apiURL: "https://api.cronoscan.com/api",
+          browserURL: "https://cronoscan.com/",
+        },
+      },
+      // custom config for blockscout explorer
       {
         network: "frenchain",
         chainId: 44444,
         urls: {
           apiURL: "https://frenscan.io/api",
-          browserURL: "https://frenscan.io/"
-        }
-      }
-    ]
+          browserURL: "https://frenscan.io/",
+        },
+      },
+    ],
   },
 
   solidity: {
