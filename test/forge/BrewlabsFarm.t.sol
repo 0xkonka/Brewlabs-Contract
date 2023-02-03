@@ -57,6 +57,7 @@ contract BrewlabsFarmTest is BrewlabsFarmBase {
     }
 
     function test_firstDeposit() public {
+        uint256 treasuryVal = address(farm.treasury()).balance;
         tryDeposit(address(0x1), 0, 1 ether);
 
         (uint256 amount, uint256 rewardDebt, uint256 reflectionDebt) = farm.userInfo(0, address(0x1));
@@ -66,7 +67,7 @@ contract BrewlabsFarmTest is BrewlabsFarmBase {
         assertEq(lpToken.balanceOf(farm.feeAddress()), _depositFee);
         assertEq(rewardDebt, 0);
         assertEq(reflectionDebt, 0);
-        assertEq(address(farm.treasury()).balance, farm.performanceFee());
+        assertEq(address(farm.treasury()).balance - treasuryVal, farm.performanceFee());
 
         vm.expectRevert(abi.encodePacked("should pay small gas"));
         farm.deposit(0, 0);
@@ -613,12 +614,12 @@ contract BrewlabsFarmTest is BrewlabsFarmBase {
     }
 
     function test_updateStartBlock() public {
-        farm.updateStartBlock(1000);
-        assertEq(farm.startBlock(), 1000);
+        farm.updateStartBlock(block.number + 1000);
+        assertEq(farm.startBlock(), block.number + 1000);
 
         (,, uint256 duration, uint256 startBlock, uint256 bonusEndBlock,,,,,,) = farm.poolInfo(0);
-        assertEq(startBlock, 1000);
-        assertEq(bonusEndBlock, 1000 + BLOCKS_PER_DAY * duration);
+        assertEq(startBlock, block.number + 1000);
+        assertEq(bonusEndBlock, block.number + 1000 + BLOCKS_PER_DAY * duration);
 
         vm.roll(farm.startBlock() + 10);
         vm.expectRevert(abi.encodePacked("farm is running now"));
