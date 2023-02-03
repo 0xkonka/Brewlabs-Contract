@@ -14,6 +14,7 @@ module.exports = {
     avalanche: "xxxxx",
     arbitrumOne: "xxxxx",
     cronos: "xxxxx",
+
     frenchain: "abc", // custom config for blockscout explorer
   },
 
