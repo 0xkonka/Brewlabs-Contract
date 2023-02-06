@@ -20,6 +20,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             tokenFreezer: false,
             pairFreezer: false,
 
+            configure: false,
+
             farm: false,
             staking: false,
             lockupStaking: false,
@@ -70,6 +72,35 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                     "0xb7F2bca9b034f8cc143339Dd12bb31D3D50Cf27a",
                     "0x251e88310e67FE13E4eeD4Cc766A91Eb832Dd19b",
                 ],
+            }) 
+        }
+
+        if(config.configure) {           
+            Utils.infoMsg("Deploying BrewlabsConfig contract");
+            
+            let deployed = await deploy("BrewlabsConfig", {
+                from: account,
+                args: [],
+                log: true,
+                proxy: {
+                    proxyContract: "OpenZeppelinTransparentProxy",        
+                    execute: {
+                        init: {
+                            methodName: "initialize",
+                            args: [],
+                        }
+                    },
+                },
+            });
+            let deployedAddress = deployed.address;
+            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+
+            // verify
+            await sleep(60);
+            await hre.run("verify:verify", {
+                address: deployedAddress,
+                contract: "contracts/others/BrewlabsConfig.sol:BrewlabsConfig",
+                constructorArguments: [],
             }) 
         }
 
