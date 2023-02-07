@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract BrewlabsConfig is OwnableUpgradeable {    
+contract BrewlabsConfig is OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
     event RegisterFarm(address farm);
@@ -12,9 +12,9 @@ contract BrewlabsConfig is OwnableUpgradeable {
     event RegisterMultiPool(address pool);
 
     constructor() {}
-    
-	function initialize() public initializer {
-		__Ownable_init();
+
+    function initialize() public initializer {
+        __Ownable_init();
     }
 
     function regFarm(address farm) external onlyOwner {

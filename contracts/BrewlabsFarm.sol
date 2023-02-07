@@ -643,6 +643,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         uint256 amount = user.amount;
         user.amount = 0;
         user.rewardDebt = 0;
+        user.reflectionDebt = 0;
         pool.lpToken.safeTransfer(address(msg.sender), amount);
 
         _calculateTotalStaked(_pid, pool.lpToken, amount, false);
