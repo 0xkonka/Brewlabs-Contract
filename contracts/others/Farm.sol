@@ -43,6 +43,7 @@ contract Farm is Ownable, ReentrancyGuard {
 
     // Info of each pool.
     PoolInfo[] public poolInfo;
+    mapping(IERC20 => bool) public poolExistence;
 
     // Info of each user that stakes LP tokens.
     mapping(uint256 => mapping(address => UserInfo)) public userInfo;
@@ -64,8 +65,6 @@ contract Farm is Ownable, ReentrancyGuard {
         rewardPerBlock = _rewardPerBlock;
         startBlock = block.number + 30 * 28800; // after 30 days
     }
-
-    mapping(IERC20 => bool) public poolExistence;
 
     modifier nonDuplicated(IERC20 _lpToken) {
         require(poolExistence[_lpToken] == false, "nonDuplicated: duplicated");

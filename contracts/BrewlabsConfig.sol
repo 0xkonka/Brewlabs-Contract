@@ -7,9 +7,9 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 contract BrewlabsConfig is OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
-    event RegisterFarm(address farm);
-    event RegisterPool(address pool, bool isLockup);
-    event RegisterMultiPool(address pool);
+    event RegisterFarm(address indexed farm);
+    event RegisterPool(address indexed pool, bool isLockup);
+    event RegisterMultiPool(address indexed pool);
 
     constructor() {}
 
