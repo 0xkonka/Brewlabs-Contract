@@ -345,6 +345,8 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         totalStaked = totalStaked - realAmount;
 
         if (realAmount > 0) {
+            emit Withdraw(msg.sender, _stakeType, realAmount);
+
             if (lockup.withdrawFee > 0) {
                 uint256 fee = (realAmount * lockup.withdrawFee) / PERCENT_PRECISION;
                 stakingToken.safeTransfer(walletA, fee);
@@ -354,7 +356,6 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
             stakingToken.safeTransfer(address(msg.sender), realAmount);
         }
 
-        emit Withdraw(msg.sender, _stakeType, realAmount);
     }
 
     function claimReward(uint8 _stakeType) external payable nonReentrant {
