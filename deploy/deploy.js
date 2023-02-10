@@ -667,10 +667,6 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
             await sleep(60)
-            // add farm contract to config
-            let configInstance = await ethers.getContractAt("BrewlabsConfig", "0x60309cDed48575278f77d1Cb6b45e15693700b75")
-            let tx = await configInstance.regMultiPool(deployedAddress)
-            await tx.wait();
 
             // initialize
             let contractInstance = await ethers.getContractAt("BrewlabsStakingMulti", deployedAddress)
@@ -712,9 +708,14 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployedAddress = deployed.address;
     
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
-    
-            // initialize
+
             await sleep(60)
+            // add farm contract to config
+            let configInstance = await ethers.getContractAt("BrewlabsConfig", "0x60309cDed48575278f77d1Cb6b45e15693700b75")
+            let tx = await configInstance.regMultiPool(deployedAddress)
+            await tx.wait();
+
+            // initialize
             let contractInstance = await ethers.getContractAt("BrewlabsLockupMulti", deployedAddress)
             const _rewardPerBlock = ethers.utils.parseUnits('237.823439878234398782', 18)
             const res = await contractInstance.initialize(
