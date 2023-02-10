@@ -99,7 +99,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/BrewlabsConfig.sol:BrewlabsConfig",
+                contract: "contracts/BrewlabsConfig.sol:BrewlabsConfig",
                 constructorArguments: [],
             }) 
         }
