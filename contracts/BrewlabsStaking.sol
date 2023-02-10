@@ -287,6 +287,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         user.amount = user.amount - realAmount;
         totalStaked = totalStaked - realAmount;
+        emit Withdraw(msg.sender, realAmount);
 
         if (withdrawFee > 0) {
             uint256 fee = (realAmount * withdrawFee) / PERCENT_PRECISION;
@@ -298,8 +299,6 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
         user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
-
-        emit Withdraw(msg.sender, _amount);
 
         if (autoAdjustableForRewardRate) _updateRewardRate();
     }
@@ -456,7 +455,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
             totalStaked = totalStaked - amountToTransfer;
         }
 
-        emit EmergencyWithdraw(msg.sender, user.amount);
+        emit EmergencyWithdraw(msg.sender, amountToTransfer);
     }
 
     /**
