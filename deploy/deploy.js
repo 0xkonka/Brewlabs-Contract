@@ -404,8 +404,13 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
     
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            // initialize
             await sleep(60)
+            // add farm contract to config
+            let configInstance = await ethers.getContractAt("BrewlabsConfig", "0x60309cDed48575278f77d1Cb6b45e15693700b75")
+            let tx = await configInstance.regFarm(deployedAddress)
+            await tx.wait();
+
+            // initialize
             let contractInstance = await ethers.getContractAt("BrewlabsFarm", deployedAddress)
             await contractInstance.add(
                 1000,                                                   // allocPoint
@@ -442,8 +447,13 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
     
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            // initialize
             await sleep(60)
+            // add farm contract to config
+            let configInstance = await ethers.getContractAt("BrewlabsConfig", "0x60309cDed48575278f77d1Cb6b45e15693700b75")
+            let tx = await configInstance.regPool(deployedAddress, false)
+            await tx.wait();
+
+            // initialize
             let contractInstance = await ethers.getContractAt("BrewlabsStaking", deployedAddress)
             const _hasDividend = false;
             const _rewardPerBlock = ethers.utils.parseUnits('0.001424942922374429', 18) 
@@ -485,9 +495,14 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployedAddress = deployed.address;
     
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
+
+            await sleep(60)
+            // add farm contract to config
+            let configInstance = await ethers.getContractAt("BrewlabsConfig", "0x60309cDed48575278f77d1Cb6b45e15693700b75")
+            let tx = await configInstance.regPool(deployedAddress, true)
+            await tx.wait();
     
             // initialize
-            await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsLockup", deployedAddress)
             let res = await contractInstance.initialize(
                 "0x606379220AB266bBE4b0FeF8469e6E602f295a84", // _stakingToken 
@@ -651,8 +666,13 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
     
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            // initialize
             await sleep(60)
+            // add farm contract to config
+            let configInstance = await ethers.getContractAt("BrewlabsConfig", "0x60309cDed48575278f77d1Cb6b45e15693700b75")
+            let tx = await configInstance.regMultiPool(deployedAddress)
+            await tx.wait();
+
+            // initialize
             let contractInstance = await ethers.getContractAt("BrewlabsStakingMulti", deployedAddress)
             const _rewardPerBlock = ethers.utils.parseUnits("5.787037037", 18)
             const res = await contractInstance.initialize(
