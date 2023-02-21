@@ -48,30 +48,45 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {           
-            Utils.infoMsg("Deploying ZenaMigration contract");
+            Utils.infoMsg("Deploying DarkTavernTreasury contract");
 
-            let deployed = await deploy('ZenaMigration', {
+            let deployed = await deploy('DarkTavernTreasury', {
                 from: account,
-                args: [     
-                    "0xb7F2bca9b034f8cc143339Dd12bb31D3D50Cf27a",
-                    "0x251e88310e67FE13E4eeD4Cc766A91Eb832Dd19b",
-                ],
+                args: [],
                 log: true,
-                skipIfAlreadyDeployed: true,
             });
     
             let deployedAddress = deployed.address;    
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
+            
+            await sleep(60)
+            let contractInstance = await ethers.getContractAt("DarkTavernTreasury", deployedAddress)
+            const res = await contractInstance.initialize(
+                "0x4aeB2D0B318e5e8ac62D5A39EB3495974951f477", // _token
+                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", // _dividendToken
+                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
+                [
+                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+                    "0x4aeB2D0B318e5e8ac62D5A39EB3495974951f477",
+                ],
+                [
+                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+                ],
+                [
+                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+                    "0x4aeB2D0B318e5e8ac62D5A39EB3495974951f477",
+                ],
+              )
+              console.log('initialize BrewlabsTreasury', res)
 
             // verify
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/ZenaMigration.sol:ZenaMigration",
-                constructorArguments: [                    
-                    "0xb7F2bca9b034f8cc143339Dd12bb31D3D50Cf27a",
-                    "0x251e88310e67FE13E4eeD4Cc766A91Eb832Dd19b",
-                ],
+                contract: "contracts/others/DarkTavernTreasury.sol:DarkTavernTreasury",
+                constructorArguments: [],
             }) 
         }
 
@@ -505,25 +520,22 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             // initialize
             let contractInstance = await ethers.getContractAt("BrewlabsLockup", deployedAddress)
             let res = await contractInstance.initialize(
-                "0x606379220AB266bBE4b0FeF8469e6E602f295a84", // _stakingToken 
-                "0x606379220AB266bBE4b0FeF8469e6E602f295a84", // _earnedToken 
+                "0x4aeB2D0B318e5e8ac62D5A39EB3495974951f477", // _stakingToken 
+                "0x4aeB2D0B318e5e8ac62D5A39EB3495974951f477", // _earnedToken 
                 "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", // _reflectionToken 
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
                 [
                     "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
                     "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x606379220AB266bBE4b0FeF8469e6E602f295a84"
+                    "0x4aeB2D0B318e5e8ac62D5A39EB3495974951f477"
                 ],
                 "0x0000000000000000000000000000000000000000", // whitelist contract                                                 
             )
             console.log('initialize BrewlabsLockup', res)
             
-            let _rate = ethers.utils.parseUnits('142.694063926940639269', 18)
-            res = await contractInstance.addLockup(90, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate
-            await res.wait()
-            _rate = ethers.utils.parseUnits('237.823439878234398782', 18)
-            res = await contractInstance.addLockup(180, 0, 10, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate
+            let _rate = ethers.utils.parseUnits('0.001426940639269406', 18)
+            res = await contractInstance.addLockup(7, 10, 30, _rate, 0) // _duration, _depositFee, _withdrawFee, _rate
             await res.wait()
 
             // verify
