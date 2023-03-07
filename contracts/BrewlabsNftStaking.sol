@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/**
+ * @author Brewlabs
+ * This contract has been developed by brewlabs.info
+ */
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20, IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -187,6 +191,8 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
         user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
         emit Claim(msg.sender, pending);
+
+        if (autoAdjustableForRewardRate) _updateRewardRate();
     }
 
     /**
@@ -248,7 +254,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         UserInfo storage user = userInfo[_user];
 
         uint256 adjustedTokenPerShare = accTokenPerShare;
-        if (block.number > lastRewardBlock && totalStaked != 0 && lastRewardBlock > 0) {
+        if (block.number > lastRewardBlock && totalStaked > 0 && lastRewardBlock > 0) {
             uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
             uint256 rewards = multiplier * rewardPerBlock;
 
@@ -342,6 +348,8 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
      * @param _rewardPerBlock: the reward per block
      */
     function updateRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
+        _updatePool();
+
         rewardPerBlock = _rewardPerBlock;
         emit NewRewardPerBlock(_rewardPerBlock);
     }
