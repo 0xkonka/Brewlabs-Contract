@@ -117,7 +117,7 @@ contract BrewlabsIndexesImpl is Ownable, ERC721Holder, ReentrancyGuard {
      *         When buy tokens, should pay performance fee and processing fee.
      * @param _percents: list of ETH allocation points to buy tokens
      */
-    function buyTokens(uint256[] memory _percents) external payable onlyInitialized {
+    function buyTokens(uint256[] memory _percents) external payable onlyInitialized nonReentrant {
         _transferPerformanceFee();
 
         uint256 totalPercentage = 0;
@@ -159,7 +159,7 @@ contract BrewlabsIndexesImpl is Ownable, ERC721Holder, ReentrancyGuard {
      *         If the user exits the index in a loss then there is no fee.
      *         If the user exists the index in a profit, processing fee will be applied.
      */
-    function claimTokens() external payable onlyInitialized {
+    function claimTokens() external payable onlyInitialized nonReentrant {
         UserInfo memory user = users[msg.sender];
         require(user.zappedEthAmount > 0, "No available tokens");
 
@@ -188,7 +188,7 @@ contract BrewlabsIndexesImpl is Ownable, ERC721Holder, ReentrancyGuard {
      *         If the user exits the index in a loss then there is no fee.
      *         If the user exists the index in a profit, processing fee will be applied.
      */
-    function saleTokens() external payable onlyInitialized {
+    function saleTokens() external payable onlyInitialized nonReentrant {
         UserInfo memory user = users[msg.sender];
         require(user.zappedEthAmount > 0, "No available tokens");
 
@@ -219,7 +219,7 @@ contract BrewlabsIndexesImpl is Ownable, ERC721Holder, ReentrancyGuard {
      * The purpose of this is to allow users to mint an NFT that represents their value in the index and at their discretion,
      *  transfer or sell that NFT to another wallet.
      */
-    function lockTokens() external payable onlyInitialized returns (uint256) {
+    function lockTokens() external payable onlyInitialized nonReentrant returns (uint256) {
         UserInfo storage user = users[msg.sender];
         require(user.zappedEthAmount > 0, "No available tokens");
 
@@ -242,7 +242,7 @@ contract BrewlabsIndexesImpl is Ownable, ERC721Holder, ReentrancyGuard {
     /**
      * @notice Stake the NFT back into the index to claim/zap out their tokens.
      */
-    function unlockTokens(uint256 tokenId) external payable onlyInitialized {
+    function unlockTokens(uint256 tokenId) external payable onlyInitialized nonReentrant {
         UserInfo storage user = users[msg.sender];
 
         _transferPerformanceFee();
