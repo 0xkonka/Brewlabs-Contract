@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 import "forge-std/Test.sol";
 // import "forge-std/console.sol";       // use like hardhat console.log
 import {MockErc20} from "../../contracts/mocks/MockErc20.sol";
-import {BrewlabsIndexes, IBrewlabsIndexesNft, IERC20} from "../../contracts/BrewlabsIndexes.sol";
-import {BrewlabsIndexesNft, IERC721} from "../../contracts/BrewlabsIndexesNft.sol";
+import {BrewlabsIndexes, IBrewlabsIndexesNft, IERC20} from "../../contracts/indexes/BrewlabsIndexes.sol";
+import {BrewlabsIndexesNft, IERC721} from "../../contracts/indexes/BrewlabsIndexesNft.sol";
 import {Utils} from "./utils/Utils.sol";
 
 contract BrewlabsIndexesTest is Test {
