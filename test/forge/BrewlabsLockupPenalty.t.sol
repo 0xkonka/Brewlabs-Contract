@@ -47,7 +47,9 @@ contract BrewlabsLockupPenaltyTest is BrewlabsLockupPenaltyBase {
 
         pool = new BrewlabsLockupPenalty();
         address[] memory path;
-        pool.initialize(IERC20(token), IERC20(token), address(reflectionToken), address(0x14444), path, path, address(0x0));
+        pool.initialize(
+            IERC20(token), IERC20(token), address(reflectionToken), address(0x14444), path, path, address(0x0)
+        );
         pool.addLockup(DURATION, DEPOSIT_FEE, WITHDRAW_FEE, 1 ether, 0);
         pool.setPenaltyStatus(true, 1000);
 
@@ -78,7 +80,7 @@ contract BrewlabsLockupPenaltyTest is BrewlabsLockupPenaltyBase {
         vm.startPrank(address(0x1));
         uint256 _withdrawFee = 0.1 ether * WITHDRAW_FEE / 10000;
         uint256 pendingRewards = pool.pendingReward(address(0x1), 0);
-        
+
         vm.deal(address(0x1), ethFee);
         vm.expectEmit(true, true, false, true);
         emit Withdraw(address(0x1), 0, 0.1 ether);
@@ -105,7 +107,7 @@ contract BrewlabsLockupPenaltyTest is BrewlabsLockupPenaltyBase {
 
         uint256 available = 1 ether - 1 ether * DEPOSIT_FEE / 10000;
         uint256 penaltyFee = (1.2 ether - available) * 1000 / 10000;
-        
+
         vm.deal(address(0x1), ethFee);
         vm.expectEmit(true, true, false, true);
         emit Withdraw(address(0x1), 0, 1.2 ether);
@@ -113,5 +115,4 @@ contract BrewlabsLockupPenaltyTest is BrewlabsLockupPenaltyBase {
         assertEq(token.balanceOf(address(0x1)), 1.2 ether + pendingRewards - _withdrawFee - penaltyFee);
         vm.stopPrank();
     }
-
 }

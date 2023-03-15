@@ -355,7 +355,6 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
 
             stakingToken.safeTransfer(address(msg.sender), realAmount);
         }
-
     }
 
     function claimReward(uint8 _stakeType) external payable nonReentrant {

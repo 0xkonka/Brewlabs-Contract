@@ -58,9 +58,7 @@ contract BrewlabsIndexesImpl is Ownable, ERC721Holder, ReentrancyGuard {
     uint256 public performanceFee;
     address public treasury;
 
-    event TokenZappedIn(
-        address indexed user, uint256 ethAmount, uint256[] percents, uint256[] amountOuts
-    );
+    event TokenZappedIn(address indexed user, uint256 ethAmount, uint256[] percents, uint256[] amountOuts);
     event TokenZappedOut(address indexed user, uint256 ethAmount, uint256[] amounts);
     event TokenClaimed(address indexed user, uint256[] amounts);
     event TokenLocked(address indexed user, uint256[] amounts, uint256 ethAmount, uint256 tokenId);
@@ -103,7 +101,7 @@ contract BrewlabsIndexesImpl is Ownable, ERC721Holder, ReentrancyGuard {
         fee = 25;
         performanceFee = 0.0035 ether;
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
-        
+
         nft = _nft;
         tokens = _tokens;
         swapRouter = _router;

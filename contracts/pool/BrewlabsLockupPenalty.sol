@@ -323,7 +323,7 @@ contract BrewlabsLockupPenalty is Ownable, ReentrancyGuard {
 
                 stake.amount -= _wAmount;
                 remained -= _wAmount;
-                if(stake.end >= block.timestamp && bonusEndBlock >= block.number) {
+                if (stake.end >= block.timestamp && bonusEndBlock >= block.number) {
                     forceWithdrawalAmount += _wAmount;
                 }
             }
@@ -357,7 +357,7 @@ contract BrewlabsLockupPenalty is Ownable, ReentrancyGuard {
                 realAmount = realAmount - fee;
             }
             // process penalty fee
-            if(enablePenalty && forceWithdrawalAmount > 0) {
+            if (enablePenalty && forceWithdrawalAmount > 0) {
                 uint256 fee = (forceWithdrawalAmount * penaltyFee) / PERCENT_PRECISION;
                 stakingToken.safeTransfer(walletA, fee / 2);
                 realAmount = realAmount - fee;
@@ -951,7 +951,7 @@ contract BrewlabsLockupPenalty is Ownable, ReentrancyGuard {
         penaltyFee = _fee;
         emit SetPenaltyStatus(_status, _fee);
 
-        if(_status && !activeEmergencyWithdraw) {
+        if (_status && !activeEmergencyWithdraw) {
             activeEmergencyWithdraw = true;
             emit SetEmergencyWithdrawStatus(_status);
         }
