@@ -16,14 +16,16 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
     using Strings for uint256;
     using Strings for address;
 
-    string private _tokenBaseURI = "";
     uint256 private tokenIndex;
-
-    mapping(address => bool) private isMinter;
+    string private _tokenBaseURI = "";
     mapping(uint256 => string) private _tokenURIs;
+
+    address public admin;
+    mapping(address => bool) public isMinter;
     mapping(uint256 => address) private indexes;
 
     event BaseURIUpdated(string uri);
+    event SetAdminRole(address newAdmin);
     event SetMinterRole(address minter, bool status);
 
     modifier onlyMinter() {
@@ -31,7 +33,14 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
         _;
     }
 
-    constructor() ERC721("Brewlabs Indexes Nft", "BINDEX") {}
+    modifier onlyAdmin() {
+        require(msg.sender == owner() || msg.sender == admin, "BrewlabsIndexesNft: Caller is not admin or owner");
+        _;
+    }
+
+    constructor() ERC721("Brewlabs Indexes Nft", "BINDEX") {
+        admin = msg.sender;
+    }
 
     function mint(address to) external onlyMinter returns (uint256) {
         tokenIndex++;
@@ -86,7 +95,14 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
         super.safeTransferFrom(from, to, tokenId, data);
     }
 
-    function setMinterRole(address minter, bool status) external onlyOwner {
+    function setAdmin(address newAdmin) external onlyOwner {
+        require(newAdmin != address(0x0), "invalid address");
+        admin = newAdmin;
+        emit SetAdminRole(newAdmin);
+    }
+
+    function setMinterRole(address minter, bool status) external onlyAdmin {
+        require(minter != address(0x0), "invalid address");
         isMinter[minter] = status;
         emit SetMinterRole(minter, status);
     }
@@ -145,7 +161,7 @@ contract BrewlabsIndexesNft is ERC721Enumerable, DefaultOperatorFilterer, Ownabl
         return string(abi.encodePacked("data:application/json;base64,", _base64(bytes(metadata))));
     }
 
-    function _getNftInfo(uint256 tokenId) internal view returns (uint256[] memory, uint256) {
+    function getNftInfo(uint256 tokenId) external view returns (uint256[] memory, uint256) {
         return IBrewlabsIndexes(indexes[tokenId]).nftInfo(tokenId);
     }
 
