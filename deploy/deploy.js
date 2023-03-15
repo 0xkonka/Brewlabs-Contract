@@ -440,7 +440,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             // await sleep(60)
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/BrewlabsFarm.sol:BrewlabsFarm",
+                contract: "contracts/farm/BrewlabsFarm.sol:BrewlabsFarm",
                 constructorArguments: [
                     "0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7",
                     "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
@@ -494,7 +494,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             // await sleep(60)
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/BrewlabsStaking.sol:BrewlabsStaking",
+                contract: "contracts/pool/BrewlabsStaking.sol:BrewlabsStaking",
                 constructorArguments: [],
             })
         } 
@@ -542,7 +542,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             // await sleep(60)
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/BrewlabsLockup.sol:BrewlabsLockup",
+                contract: "contracts/pool/BrewlabsLockup.sol:BrewlabsLockup",
                 constructorArguments: [],
             })
         }
@@ -581,7 +581,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/BrewlabsLockupV2.sol:BrewlabsLockupV2",
+                contract: "contracts/pool/BrewlabsLockupV2.sol:BrewlabsLockupV2",
                 constructorArguments: [],
             })
         }
@@ -619,7 +619,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             // verify
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/BrewlabsLockupFixed.sol:BrewlabsLockupFixed",
+                contract: "contracts/pool/BrewlabsLockupFixed.sol:BrewlabsLockupFixed",
                 constructorArguments: [],
             })
             
@@ -661,7 +661,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/BrewlabsStakingClaim.sol:BrewlabsStakingClaim",
+                contract: "contracts/pool/BrewlabsStakingClaim.sol:BrewlabsStakingClaim",
                 constructorArguments: [],
             })
         } 
@@ -704,7 +704,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/BrewlabsStakingMulti.sol:BrewlabsStakingMulti",
+                contract: "contracts/pool/BrewlabsStakingMulti.sol:BrewlabsStakingMulti",
                 constructorArguments: [],
             })
         }
@@ -751,7 +751,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60)
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/BrewlabsLockupMulti.sol:BrewlabsLockupMulti",
+                contract: "contracts/pool/BrewlabsLockupMulti.sol:BrewlabsLockupMulti",
                 constructorArguments: [],
             })
         }
