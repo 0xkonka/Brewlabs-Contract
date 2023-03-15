@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "./libs/IUniRouter02.sol";
-import "./libs/IWETH.sol";
+import "../libs/IUniRouter02.sol";
+import "../libs/IWETH.sol";
 
 interface IToken {
     function decimals() external view returns (uint8);

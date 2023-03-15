@@ -6,8 +6,8 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "./libs/IUniRouter02.sol";
-import "./libs/IWETH.sol";
+import "../libs/IUniRouter02.sol";
+import "../libs/IWETH.sol";
 
 contract BrewlabsStaking is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
