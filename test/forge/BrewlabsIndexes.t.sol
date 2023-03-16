@@ -47,11 +47,11 @@ contract BrewlabsIndexesTest is Test {
         nft = new BrewlabsIndexesNft();
         indexes = new BrewlabsIndexes();
 
-        indexes.initialize([token0, token1], IERC721(nft), _router, _paths);
+        indexes.initialize([token0, token1], IERC721(nft), _router, _paths, indexes.owner());
         nft.setMinterRole(address(indexes), true);
     }
 
-    function test_buyTokens() public {
+    function test_zapIn() public {
         address user = address(0x1234);
         vm.deal(user, 10 ether);
         vm.startPrank(user);
@@ -59,9 +59,8 @@ contract BrewlabsIndexesTest is Test {
         uint256 amount = 0.5 ether;
         vm.expectEmit(true, false, false, false);
         emit TokenZappedIn(user, 0, [uint256(0), 0], [uint256(0), 0]);
-        indexes.buyTokens{value: amount}([uint256(5000), 5000]);
+        indexes.zapIn{value: amount}([uint256(5000), 5000]);
 
-        amount = amount - indexes.performanceFee();
         (uint256[] memory amounts, uint256 zappedEthAmount) = indexes.userInfo(user);
         assertEq(zappedEthAmount, amount - amount * indexes.fee() / 10000);
         assertEq(token0.balanceOf(address(indexes)), amounts[0]);
@@ -83,7 +82,7 @@ contract BrewlabsIndexesTest is Test {
         vm.startPrank(user);
 
         uint256 amount = 0.5 ether;
-        indexes.buyTokens{value: amount}([uint256(5000), 5000]);
+        indexes.zapIn{value: amount}([uint256(5000), 5000]);
         (uint256[] memory amounts, uint256 zappedEthAmount) = indexes.userInfo(user);
 
         uint256 prevBalanceForToken0 = token0.balanceOf(user);
@@ -92,7 +91,7 @@ contract BrewlabsIndexesTest is Test {
         utils.mineBlocks(10);
         vm.expectEmit(true, true, false, true);
         emit TokenClaimed(user, [amounts[0], amounts[1]]);
-        indexes.claimTokens{value: indexes.performanceFee()}();
+        indexes.claimTokens();
 
         assertEq(amounts[0], token0.balanceOf(user) - prevBalanceForToken0);
         assertEq(amounts[1], token1.balanceOf(user) - prevBalanceForToken1);
@@ -110,13 +109,13 @@ contract BrewlabsIndexesTest is Test {
         vm.stopPrank();
     }
 
-    function test_saleTokens() public {
+    function test_zapOut() public {
         address user = address(0x1234);
         vm.deal(user, 10 ether);
         vm.startPrank(user);
 
         uint256 amount = 0.5 ether;
-        indexes.buyTokens{value: amount}([uint256(5000), 5000]);
+        indexes.zapIn{value: amount}([uint256(5000), 5000]);
 
         (uint256[] memory amounts, uint256 zappedEthAmount) = indexes.userInfo(user);
         emit log_named_uint("zapped ETH", zappedEthAmount);
@@ -126,7 +125,7 @@ contract BrewlabsIndexesTest is Test {
         utils.mineBlocks(10);
         vm.expectEmit(true, false, false, false);
         emit TokenZappedOut(user, 0, [uint256(0), 0]);
-        indexes.saleTokens{value: indexes.performanceFee()}();
+        indexes.zapOut();
 
         assertEq(token0.balanceOf(address(indexes)), 0);
         assertEq(token1.balanceOf(address(indexes)), 0);
@@ -141,19 +140,19 @@ contract BrewlabsIndexesTest is Test {
         vm.stopPrank();
     }
 
-    function test_lockTokens() public {
+    function test_mintNft() public {
         address user = address(0x1234);
         vm.deal(user, 10 ether);
         vm.startPrank(user);
 
         uint256 amount = 0.5 ether;
-        indexes.buyTokens{value: amount}([uint256(5000), 5000]);
+        indexes.zapIn{value: amount}([uint256(5000), 5000]);
         (uint256[] memory amounts, uint256 zappedEthAmount) = indexes.userInfo(user);
 
         utils.mineBlocks(10);
         vm.expectEmit(true, false, false, false);
         emit TokenLocked(user, [uint256(0), 0], 0, 0);
-        uint256 tokenId = indexes.lockTokens{value: indexes.performanceFee()}();
+        uint256 tokenId = indexes.mintNft{value: indexes.performanceFee()}();
         assertEq(nft.ownerOf(tokenId), user);
 
         // string memory _tokenUri = nft.tokenURI(tokenId);
@@ -174,16 +173,16 @@ contract BrewlabsIndexesTest is Test {
         vm.stopPrank();
     }
 
-    function test_unlockTokens() public {
+    function test_stakeNft() public {
         address user = address(0x1234);
         vm.deal(user, 10 ether);
         vm.startPrank(user);
 
         uint256 amount = 0.5 ether;
-        indexes.buyTokens{value: amount}([uint256(5000), 5000]);
+        indexes.zapIn{value: amount}([uint256(5000), 5000]);
 
         utils.mineBlocks(10);
-        uint256 tokenId = indexes.lockTokens{value: indexes.performanceFee()}();
+        uint256 tokenId = indexes.mintNft{value: indexes.performanceFee()}();
 
         utils.mineBlocks(10);
         (uint256[] memory _amounts, uint256 _ethAmount) = indexes.nftInfo(tokenId);
@@ -192,7 +191,7 @@ contract BrewlabsIndexesTest is Test {
 
         vm.expectEmit(true, false, false, true);
         emit TokenUnLocked(user, [_amounts[0], _amounts[1]], _ethAmount, tokenId);
-        indexes.unlockTokens{value: indexes.performanceFee()}(tokenId);
+        indexes.stakeNft{value: indexes.performanceFee()}(tokenId);
 
         assertEq(indexes.totalStaked(0), _amounts[0]);
         assertEq(indexes.totalStaked(1), _amounts[1]);

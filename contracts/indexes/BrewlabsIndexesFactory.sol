@@ -6,7 +6,15 @@ import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-import {IBrewlabsIndexesImpl} from "./IBrewlabsIndexesImpl.sol";
+interface IBrewlabsIndexes {
+    function initialize(
+        IERC20[] memory _tokens,
+        IERC721 _nft,
+        address _router,
+        address[][] memory _paths,
+        address _owner
+    ) external;
+}
 
 contract BrewlabsIndexesFactory is OwnableUpgradeable {
     using SafeERC20 for IERC20;
@@ -19,7 +27,7 @@ contract BrewlabsIndexesFactory is OwnableUpgradeable {
 
     address public payingToken;
     uint256 public serviceFee;
-    uint256 public performanceFee = 0;
+    uint256 public performanceFee;
     address public treasury;
 
     struct IndexesInfo {
@@ -32,7 +40,7 @@ contract BrewlabsIndexesFactory is OwnableUpgradeable {
 
     IndexesInfo[] public indexesList;
 
-    event IndexesCreated(address indexed indexes, address[] tokens, address nftAddr, address swapRouter);
+    event IndexesCreated(address indexed indexes, uint256 tokenCnt, address[] tokens, address nftAddr, address swapRouter);
     event SetIndexesNft(address newNftAddr);
     event SetIndexesOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
@@ -41,8 +49,15 @@ contract BrewlabsIndexesFactory is OwnableUpgradeable {
 
     constructor() {}
 
-    function initialize(address impl, IERC721 nft) public initializer {
+    function initialize(address impl, IERC721 nft, address token, uint256 price, address indexOwner, address adminAddr) public initializer {
         __Ownable_init();
+
+        require(token != address(0x0) && adminAddr != address(0x0), "Invalid address");
+
+        payingToken = token;
+        serviceFee = price;
+        treasury = adminAddr;
+        indexesOwner = indexOwner;
 
         indexesNft = nft;
         implementation = impl;
@@ -65,7 +80,7 @@ contract BrewlabsIndexesFactory is OwnableUpgradeable {
         bytes32 salt = keccak256(abi.encodePacked(msg.sender, tokens.length, tokens[0], block.timestamp));
 
         indexes = Clones.cloneDeterministic(implementation, salt);
-        IBrewlabsIndexesImpl(indexes).initialize(tokens, indexesNft, swapRouter, swapPaths, indexesOwner);
+        IBrewlabsIndexes(indexes).initialize(tokens, indexesNft, swapRouter, swapPaths, indexesOwner);
 
         indexesList.push(IndexesInfo(indexes, indexesNft, tokens, swapRouter, block.timestamp));
 
@@ -73,7 +88,7 @@ contract BrewlabsIndexesFactory is OwnableUpgradeable {
         for (uint256 i = 0; i < tokens.length; i++) {
             _tokens[i] = address(tokens[i]);
         }
-        emit IndexesCreated(indexes, _tokens, address(indexesNft), swapRouter);
+        emit IndexesCreated(indexes, tokens.length, _tokens, address(indexesNft), swapRouter);
 
         return indexes;
     }
@@ -109,7 +124,7 @@ contract BrewlabsIndexesFactory is OwnableUpgradeable {
 
     /**
      * This method can be called by treasury.
-     * @notice Update treasury wallet and performance fee.
+     * @notice Update treasury wallet.
      * @param newTreasury: new treasury address
      */
     function setServiceInfo(address newTreasury, uint256 /* fee */ ) external {
