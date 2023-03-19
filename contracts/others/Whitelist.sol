@@ -36,6 +36,13 @@ contract Whitelist is Ownable, Pausable {
         emit Whitelisted(_address, false);
     }
 
+    function removeAddresses(address[] memory _addresses) external onlyOwner {
+        for (uint256 i = 0; i < _addresses.length; i++) {
+            whitelistedMap[_addresses[i]] = false;
+            emit Whitelisted(_addresses[i], false);
+        }
+    }
+
     function pause() external onlyOwner {
         _pause();
     }
