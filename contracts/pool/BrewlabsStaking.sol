@@ -9,6 +9,10 @@ import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import "../libs/IUniRouter02.sol";
 import "../libs/IWETH.sol";
 
+interface WhiteList {
+    function whitelisted(address _address) external view returns (bool);
+}
+
 contract BrewlabsStaking is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -23,6 +27,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     bool public hasUserLimit;
     // The pool limit (0 if none)
     uint256 public poolLimitPerUser;
+    address public whiteList;
 
     // The block number when staking starts.
     uint256 public startBlock;
@@ -101,6 +106,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     event WalletAUpdated(address _addr);
     event DurationUpdated(uint256 _duration);
     event SetAutoAdjustableForRewardRate(bool status);
+    event SetWhiteList(address _whitelist);
 
     event SetSettings(
         uint256 _depositFee,
@@ -124,6 +130,8 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
      * @param _uniRouter: uniswap router address for swap tokens
      * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
      * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
+     * @param _whiteList: whitelist contract address
+     * @param _hasDividend: reflection available flag
      */
     function initialize(
         IERC20 _stakingToken,
@@ -135,6 +143,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         address _uniRouter,
         address[] memory _earnedToStakedPath,
         address[] memory _reflectionToStakedPath,
+        address _whiteList,
         bool _hasDividend
     ) external onlyOwner {
         require(!isInitialized, "Already initialized");
@@ -171,6 +180,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         uniRouterAddress = _uniRouter;
         earnedToStakedPath = _earnedToStakedPath;
         reflectionToStakedPath = _reflectionToStakedPath;
+        whiteList = _whiteList;
     }
 
     /**
@@ -180,6 +190,9 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     function deposit(uint256 _amount) external payable nonReentrant {
         require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
         require(_amount > 0, "Amount should be greator than 0");
+        if (whiteList != address(0x0)) {
+            require(WhiteList(whiteList).whitelisted(msg.sender), "not whitelisted");
+        }
 
         UserInfo storage user = userInfo[msg.sender];
 
@@ -784,6 +797,11 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
         emit SetSettings(
             _depositFee, _withdrawFee, _slippageFactor, _uniRouter, _earnedToStakedPath, _reflectionToStakedPath
             );
+    }
+
+    function setWhitelist(address _whitelist) external onlyOwner {
+        whiteList = _whitelist;
+        emit SetWhiteList(_whitelist);
     }
 
     /**
