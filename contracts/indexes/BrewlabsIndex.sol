@@ -60,6 +60,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     uint256 public fee;
     uint256 public performanceFee;
     address public treasury;
+    address public feeWallet;
 
     event TokenZappedIn(address indexed user, uint256 ethAmount, uint256[] percents, uint256[] amountOuts);
     event TokenZappedOut(address indexed user, uint256 ethAmount, uint256[] amounts);
@@ -69,6 +70,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
     event ServiceInfoUpadted(address addr, uint256 fee);
     event SetFee(uint256 fee);
+    event SetFeeWallet(address addr);
     event SetSettings(address router, address[][] paths);
 
     modifier onlyInitialized() {
@@ -105,6 +107,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         fee = 25;
         performanceFee = 0.01 ether;
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
+        feeWallet = _owner;
 
         nft = _nft;
         tokens = _tokens;
@@ -131,7 +134,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
         // pay processing fee
         uint256 buyingFee = (ethAmount * fee) / PERCENTAGE_PRECISION;
-        payable(treasury).transfer(buyingFee);
+        payable(feeWallet).transfer(buyingFee);
         ethAmount -= buyingFee;
 
         UserInfo storage user = users[msg.sender];
@@ -171,7 +174,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         if (expectedAmt > user.zappedEthAmount) {
             for (uint8 i = 0; i < NUM_TOKENS; i++) {
                 uint256 claimFee = (user.amounts[i] * fee) / PERCENTAGE_PRECISION;
-                tokens[i].safeTransfer(treasury, claimFee);
+                tokens[i].safeTransfer(feeWallet, claimFee);
                 tokens[i].safeTransfer(msg.sender, user.amounts[i] - claimFee);
             }
         } else {
@@ -203,7 +206,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
         if (ethAmount > user.zappedEthAmount) {
             uint256 swapFee = (ethAmount * fee) / PERCENTAGE_PRECISION;
-            payable(treasury).transfer(swapFee);
+            payable(feeWallet).transfer(swapFee);
 
             ethAmount -= swapFee;
         }
@@ -360,6 +363,15 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         emit SetFee(_fee);
     }
 
+    /**
+     * @notice Update processing fee wallet.
+     * @param _addr: wallet address
+     */
+    function setFeeWallet(address _addr) external onlyOwner {
+        require(_addr != address(0x0), "Invalid address");
+        feeWallet = _addr;
+        emit SetFeeWallet(_addr);
+    }
     /**
      * This method can be called by treasury.
      * @notice Update treasury wallet and performance fee.
