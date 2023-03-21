@@ -99,7 +99,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
         // initialize default variables
         PERCENTAGE_PRECISION = 10000;
-        PRICE_FEED = 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE; // BNB-USD
+        PRICE_FEED = 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE; // BNB-USD FEED
         NUM_TOKENS = _tokens.length;
 
         fee = 25;
