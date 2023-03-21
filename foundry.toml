@@ -1,5 +1,5 @@
 [profile.default]
-src = 'src'
+src = 'contracts_forge'
 out = 'artifacts_forge'
 libs = [
     'lib',
