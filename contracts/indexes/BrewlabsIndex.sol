@@ -8,10 +8,10 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 import "../libs/IUniRouter02.sol";
+import "../libs/AggregatorV3Interface.sol";
 
 interface IBrewlabsIndexNft is IERC721 {
     function mint(address to) external returns (uint256);
-
     function burn(uint256 tokenId) external;
 }
 
@@ -31,6 +31,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     bool public isInitialized;
 
     uint256 private PERCENTAGE_PRECISION;
+    address private PRICE_FEED;
 
     IERC721 public nft;
     IERC20[] public tokens;
@@ -48,6 +49,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     mapping(address => UserInfo) private users;
 
     struct NftInfo {
+        uint256 level;
         uint256[] amounts; // locked token amounts in NFT
         uint256 zappedEthAmount; // ETH amount that sold for above tokens
     }
@@ -97,6 +99,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
         // initialize default variables
         PERCENTAGE_PRECISION = 10000;
+        PRICE_FEED = 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE; // BNB-USD
         NUM_TOKENS = _tokens.length;
 
         fee = 25;
@@ -230,6 +233,12 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         nftData.amounts = user.amounts;
         nftData.zappedEthAmount = user.zappedEthAmount;
 
+        uint256 price = _getPriceFromChainlink();
+        uint256 usdAmount = nftData.zappedEthAmount * price / 10 ** 18;
+        nftData.level = 2;
+        if (usdAmount < 1000) nftData.level = 1;
+        if (usdAmount > 5000) nftData.level = 3;
+
         delete users[msg.sender];
         emit TokenLocked(msg.sender, nftData.amounts, nftData.zappedEthAmount, tokenId);
 
@@ -278,11 +287,16 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      * @notice Returns tokens locked in NFT and ETH amount at the time when bought tokens.
      * @param _tokenId: owned tokenId
      */
-    function nftInfo(uint256 _tokenId) external view returns (uint256[] memory amounts, uint256 ethAmount) {
+    function nftInfo(uint256 _tokenId)
+        external
+        view
+        returns (uint256 level, uint256[] memory amounts, uint256 ethAmount)
+    {
         NftInfo memory _nftData = nfts[_tokenId];
+        level = _nftData.level;
         ethAmount = _nftData.zappedEthAmount;
         amounts = new uint256[](NUM_TOKENS);
-        if (ethAmount == 0) return (amounts, ethAmount);
+        if (ethAmount == 0) return (1, amounts, ethAmount);
 
         for (uint256 i = 0; i < NUM_TOKENS; i++) {
             amounts[i] = _nftData.amounts[i];
@@ -395,6 +409,22 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             uint256[] memory _amounts = IUniRouter02(swapRouter).getAmountsOut(amounts[i], getSwapPath(i, false));
             amountOut += _amounts[_amounts.length - 1];
         }
+    }
+
+    function _getPriceFromChainlink() internal view returns (uint256) {
+        if (PRICE_FEED == address(0x0)) return 0;
+
+        (, int256 answer,,,) = AggregatorV3Interface(PRICE_FEED).latestRoundData();
+        // It's fine for price to be 0. We have two price feeds.
+        if (answer == 0) {
+            return 0;
+        }
+
+        // Extend the decimals to 1e18.
+        uint256 retVal = uint256(answer);
+        uint256 price = retVal * (10 ** (18 - uint256(AggregatorV3Interface(PRICE_FEED).decimals())));
+
+        return price;
     }
 
     /**

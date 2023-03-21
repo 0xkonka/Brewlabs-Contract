@@ -11,7 +11,7 @@ interface IBrewlabsIndex {
 
     function tokens(uint256 index) external view returns (address);
 
-    function nftInfo(uint256 _tokenId) external view returns (uint256[] memory, uint256);
+    function nftInfo(uint256 _tokenId) external view returns (uint256, uint256[] memory, uint256);
 }
 
 contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable {
@@ -40,7 +40,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         _;
     }
 
-    constructor() ERC721("Brewlabs Index Nft", "BINDEX") {
+    constructor() ERC721("Brewlabs Indexes Nft", "BINDEX") {
         admin = msg.sender;
     }
 
@@ -124,9 +124,11 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
 
         IBrewlabsIndex _indexes = IBrewlabsIndex(indexes[tokenId]);
         uint8 numTokens = _indexes.NUM_TOKENS();
-        (uint256[] memory amounts, uint256 ethAmount) = _indexes.nftInfo(tokenId);
+        (uint256 level, uint256[] memory amounts, uint256 ethAmount) = _indexes.nftInfo(tokenId);
 
+        string[3] memory levels = ["Yellow", "Blue", "Black"];
         string memory attributes = '"attributes":[';
+        attributes = string(abi.encodePacked(attributes, '{"trait_type":"type", "value":"', levels[level], '"},'));
         for (uint8 i = 0; i < numTokens; i++) {
             address _token = _indexes.tokens(i);
             if (i > 0) {
@@ -155,13 +157,26 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
 
         // If both are set, concatenate the baseURI (via abi.encodePacked).
         string memory metadata = string(
-            abi.encodePacked('{"name": "', name(), '", ', description, ', "image": "', base, '", ', attributes, "}")
+            abi.encodePacked(
+                '{"name": "',
+                name(),
+                '", ',
+                description,
+                ', "image": "',
+                base,
+                "/",
+                levels[level],
+                ".png",
+                '", ',
+                attributes,
+                "}"
+            )
         );
 
         return string(abi.encodePacked("data:application/json;base64,", _base64(bytes(metadata))));
     }
 
-    function getNftInfo(uint256 tokenId) external view returns (uint256[] memory, uint256) {
+    function getNftInfo(uint256 tokenId) external view returns (uint256, uint256[] memory, uint256) {
         return IBrewlabsIndex(indexes[tokenId]).nftInfo(tokenId);
     }
 
