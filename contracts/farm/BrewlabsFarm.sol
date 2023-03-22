@@ -100,7 +100,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     uint256 private totalReflections;
     uint256 private reflectionDebt;
 
-    uint256 private paidRewards;
+    uint256 public paidRewards;
     uint256 private shouldTotalPaid;
 
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);

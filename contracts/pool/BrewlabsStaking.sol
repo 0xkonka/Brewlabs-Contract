@@ -79,7 +79,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
     uint256 private totalReflections;
     uint256 private reflections;
 
-    uint256 private paidRewards;
+    uint256 public paidRewards;
     uint256 private shouldTotalPaid;
 
     // Info of each user that stakes tokens (stakingToken)
