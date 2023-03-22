@@ -188,6 +188,8 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         earnedToStakedPath = _earnedToStakedPath;
         reflectionToStakedPath = _reflectionToStakedPath;
         whiteList = _whiteList;
+
+        _transferOwnership(_owner);
     }
 
     /**
