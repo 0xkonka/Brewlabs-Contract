@@ -240,13 +240,13 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
                 (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
             if (pendingReflection > 0 && hasDividend) {
+                totalReflections = totalReflections - pendingReflection;
                 pendingReflection = estimateDividendAmount(pendingReflection);
                 if (address(dividendToken) == address(0x0)) {
                     payable(msg.sender).transfer(pendingReflection);
                 } else {
                     IERC20(dividendToken).safeTransfer(address(msg.sender), pendingReflection);
                 }
-                totalReflections = totalReflections - pendingReflection;
                 emit ClaimDividend(msg.sender, pendingReflection);
             }
         }
@@ -306,13 +306,13 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
                 (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
             if (pendingReflection > 0 && hasDividend) {
+                totalReflections = totalReflections - pendingReflection;
                 pendingReflection = estimateDividendAmount(pendingReflection);
                 if (address(dividendToken) == address(0x0)) {
                     payable(msg.sender).transfer(pendingReflection);
                 } else {
                     IERC20(dividendToken).safeTransfer(address(msg.sender), pendingReflection);
                 }
-                totalReflections = totalReflections - pendingReflection;
                 emit ClaimDividend(msg.sender, pendingReflection);
             }
         }
@@ -378,13 +378,13 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
             (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
         if (pendingReflection > 0) {
+            totalReflections = totalReflections - pendingReflection;
             pendingReflection = estimateDividendAmount(pendingReflection);
             if (address(dividendToken) == address(0x0)) {
                 payable(msg.sender).transfer(pendingReflection);
             } else {
                 IERC20(dividendToken).safeTransfer(address(msg.sender), pendingReflection);
             }
-            totalReflections = totalReflections - pendingReflection;
             emit ClaimDividend(msg.sender, pendingReflection);
         }
 
