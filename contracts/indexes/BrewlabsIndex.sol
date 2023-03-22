@@ -28,7 +28,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // Whether it is initialized
-    bool public isInitialized;
+    bool private isInitialized;
 
     uint256 private PERCENTAGE_PRECISION;
     address private PRICE_FEED;
