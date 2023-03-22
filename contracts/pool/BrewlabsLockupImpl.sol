@@ -13,15 +13,15 @@ interface WhiteList {
     function whitelisted(address _address) external view returns (bool);
 }
 
-contract BrewlabsLockup is Ownable, ReentrancyGuard {
+contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    uint256 private constant PERCENT_PRECISION = 10000;
-    uint256 private constant BLOCKS_PER_DAY = 28800;
+    uint256 private PERCENT_PRECISION;
+    uint256 private BLOCKS_PER_DAY;
 
     // Whether it is initialized
-    bool public isInitialized;
-    uint256 public duration = 365; // 365 days
+    bool private isInitialized;
+    uint256 public duration; // 365 days
 
     // Whether a limit is set for users
     bool public hasUserLimit;
@@ -34,19 +34,19 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
     // The block number when staking ends.
     uint256 public bonusEndBlock;
 
-    bool public activeEmergencyWithdraw = false;
+    bool public activeEmergencyWithdraw;
 
     // swap router and path, slipPage
-    uint256 public slippageFactor = 8000; // 20% default slippage tolerance
-    uint256 public constant slippageFactorUL = 9950;
+    uint256 public slippageFactor;
+    uint256 public slippageFactorUL;
 
     address public uniRouterAddress;
     address[] public reflectionToStakedPath;
     address[] public earnedToStakedPath;
 
     address public walletA;
-    address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
-    uint256 public performanceFee = 0.0035 ether;
+    address public treasury;
+    uint256 public performanceFee;
 
     // The precision factor
     uint256 public PRECISION_FACTOR;
@@ -97,7 +97,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         uint256 reflectionDebt; // Reflection debt
     }
 
-    uint256 constant MAX_STAKES = 256;
+    uint256 private MAX_STAKES;
 
     Lockup[] public lockups;
     mapping(address => Stake[]) public userStakes;
@@ -138,6 +138,7 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
      * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
      * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
      * @param _whiteList: whitelist contract address
+     * @param _owner: owner address
      */
     function initialize(
         IERC20 _stakingToken,
@@ -146,18 +147,31 @@ contract BrewlabsLockup is Ownable, ReentrancyGuard {
         address _uniRouter,
         address[] memory _earnedToStakedPath,
         address[] memory _reflectionToStakedPath,
-        address _whiteList
+        address _whiteList,
+        address _owner
     ) external onlyOwner {
         require(!isInitialized, "Already initialized");
+        require(owner() == address(0x0) || msg.sender == owner(), "Not allowed");
 
         // Make this contract initialized
         isInitialized = true;
+
+        PERCENT_PRECISION = 10000;
+        BLOCKS_PER_DAY = 28800;
+        MAX_STAKES = 256;
+
+        duration = 365; // 365 days
+        slippageFactor = 8000; // 20% default slippage tolerance
+        slippageFactorUL = 9950;
+
+        treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
+        performanceFee = 0.0035 ether;
 
         stakingToken = _stakingToken;
         earnedToken = _earnedToken;
         dividendToken = _dividendToken;
 
-        walletA = msg.sender;
+        walletA = _owner;
 
         uint256 decimalsRewardToken = uint256(IERC20Metadata(address(earnedToken)).decimals());
         require(decimalsRewardToken < 30, "Must be inferior to 30");

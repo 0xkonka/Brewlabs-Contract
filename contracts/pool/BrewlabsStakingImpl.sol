@@ -153,6 +153,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         address _owner
     ) external onlyOwner {
         require(!isInitialized, "Already initialized");
+        require(owner() == address(0x0) || msg.sender == owner(), "Not allowed");
 
         // Make this contract initialized
         isInitialized = true;
