@@ -81,7 +81,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     constructor() {}
 
     /**
-     * @notice Initialize indexes contract.
+     * @notice Initialize index contract.
      * @param _tokens: token list that user can buy in a transaction
      * @param _nft: NFT contract address for locking tokens
      * @param _router: swap router address
@@ -372,6 +372,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         feeWallet = _addr;
         emit SetFeeWallet(_addr);
     }
+
     /**
      * This method can be called by treasury.
      * @notice Update treasury wallet and performance fee.

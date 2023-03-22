@@ -22,7 +22,7 @@ interface IBrewlabsIndex {
 
     function userInfo(address user) external view returns (uint256[] memory amounts, uint256 ethAmount);
 
-    function nftInfo(uint256 tokenId) external view returns (uint256[] memory, uint256);
+    function nftInfo(uint256 tokenId) external view returns (uint256, uint256[] memory, uint256);
 
     function totalStaked(uint256 index) external view returns (uint256);
 

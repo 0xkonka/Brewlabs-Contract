@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC721, ERC721Enumerable, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 
 interface IBrewlabsIndex {
     function NUM_TOKENS() external view returns (uint8);
-
     function tokens(uint256 index) external view returns (address);
-
     function nftInfo(uint256 _tokenId) external view returns (uint256, uint256[] memory, uint256);
 }
 
@@ -24,7 +22,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
 
     address public admin;
     mapping(address => bool) public isMinter;
-    mapping(uint256 => address) private indexes;
+    mapping(uint256 => address) private index;
 
     event BaseURIUpdated(string uri);
     event SetAdminRole(address newAdmin);
@@ -40,7 +38,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         _;
     }
 
-    constructor() ERC721("Brewlabs Indexes Nft", "BINDEX") {
+    constructor() ERC721("Brewlabs Index Nft", "BINDEX") {
         admin = msg.sender;
     }
 
@@ -49,7 +47,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         _safeMint(to, tokenIndex);
         _setTokenURI(tokenIndex, tokenIndex.toString());
 
-        indexes[tokenIndex] = msg.sender;
+        index[tokenIndex] = msg.sender;
         return tokenIndex;
     }
 
@@ -122,15 +120,15 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
             abi.encodePacked('"description": "', name(), " #", tokenId.toString(), ': Brewlabs Index NFT description"')
         );
 
-        IBrewlabsIndex _indexes = IBrewlabsIndex(indexes[tokenId]);
-        uint8 numTokens = _indexes.NUM_TOKENS();
-        (uint256 level, uint256[] memory amounts, uint256 ethAmount) = _indexes.nftInfo(tokenId);
+        IBrewlabsIndex _index = IBrewlabsIndex(index[tokenId]);
+        uint8 numTokens = _index.NUM_TOKENS();
+        (uint256 level, uint256[] memory amounts, uint256 ethAmount) = _index.nftInfo(tokenId);
 
         string[3] memory levels = ["Yellow", "Blue", "Black"];
         string memory attributes = '"attributes":[';
         attributes = string(abi.encodePacked(attributes, '{"trait_type":"type", "value":"', levels[level], '"},'));
         for (uint8 i = 0; i < numTokens; i++) {
-            address _token = _indexes.tokens(i);
+            address _token = _index.tokens(i);
             if (i > 0) {
                 attributes = string(abi.encodePacked(attributes, ","));
             }
@@ -177,7 +175,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
     }
 
     function getNftInfo(uint256 tokenId) external view returns (uint256, uint256[] memory, uint256) {
-        return IBrewlabsIndex(indexes[tokenId]).nftInfo(tokenId);
+        return IBrewlabsIndex(index[tokenId]).nftInfo(tokenId);
     }
 
     function _baseURI() internal view override returns (string memory) {

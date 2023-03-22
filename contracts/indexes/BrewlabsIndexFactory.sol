@@ -22,29 +22,27 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     address public implementation;
     uint256 public version;
 
-    IERC721 public indexesNft;
-    address public indexesOwner;
+    IERC721 public indexNft;
+    address public indexDefaultOwner;
 
     address public payingToken;
     uint256 public serviceFee;
     uint256 public performanceFee;
     address public treasury;
 
-    struct IndexesInfo {
-        address indexes;
+    struct IndexInfo {
+        address index;
         IERC721 nft;
         IERC20[] tokens;
         address swapRouter;
         uint256 createdAt;
     }
 
-    IndexesInfo[] public indexesList;
+    IndexInfo[] public indexList;
 
-    event IndexesCreated(
-        address indexed indexes, uint256 tokenCnt, address[] tokens, address nftAddr, address swapRouter
-    );
-    event SetIndexesNft(address newNftAddr);
-    event SetIndexesOwner(address newOwner);
+    event IndexCreated(address indexed index, uint256 tokenCnt, address[] tokens, address nftAddr, address swapRouter);
+    event SetIndexNft(address newNftAddr);
+    event SetIndexOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(address impl, uint256 version);
     event SetServiceInfo(address addr, uint256 fee);
@@ -62,9 +60,9 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         payingToken = token;
         serviceFee = price;
         treasury = adminAddr;
-        indexesOwner = indexOwner;
+        indexDefaultOwner = indexOwner;
 
-        indexesNft = nft;
+        indexNft = nft;
         implementation = impl;
         version++;
         emit SetImplementation(impl, version);
@@ -74,7 +72,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         external
         payable
         onlyOwner
-        returns (address indexes)
+        returns (address index)
     {
         require(tokens.length <= 5, "Exceed token limit");
         require(tokens.length == swapPaths.length, "Invalid config");
@@ -84,18 +82,18 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
         bytes32 salt = keccak256(abi.encodePacked(msg.sender, tokens.length, tokens[0], block.timestamp));
 
-        indexes = Clones.cloneDeterministic(implementation, salt);
-        IBrewlabsIndex(indexes).initialize(tokens, indexesNft, swapRouter, swapPaths, indexesOwner);
+        index = Clones.cloneDeterministic(implementation, salt);
+        IBrewlabsIndex(index).initialize(tokens, indexNft, swapRouter, swapPaths, indexDefaultOwner);
 
-        indexesList.push(IndexesInfo(indexes, indexesNft, tokens, swapRouter, block.timestamp));
+        indexList.push(IndexInfo(index, indexNft, tokens, swapRouter, block.timestamp));
 
         address[] memory _tokens = new address[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             _tokens[i] = address(tokens[i]);
         }
-        emit IndexesCreated(indexes, tokens.length, _tokens, address(indexesNft), swapRouter);
+        emit IndexCreated(index, tokens.length, _tokens, address(indexNft), swapRouter);
 
-        return indexes;
+        return index;
     }
 
     function setImplementation(address impl) external onlyOwner {
@@ -105,16 +103,16 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         emit SetImplementation(impl, version);
     }
 
-    function setIndexesNft(IERC721 newNftAddr) external onlyOwner {
-        require(address(indexesNft) == address(newNftAddr), "Same Nft address");
-        indexesNft = newNftAddr;
-        emit SetIndexesNft(address(newNftAddr));
+    function setIndexNft(IERC721 newNftAddr) external onlyOwner {
+        require(address(indexNft) == address(newNftAddr), "Same Nft address");
+        indexNft = newNftAddr;
+        emit SetIndexNft(address(newNftAddr));
     }
 
-    function setIndexesOwner(address newOwner) external onlyOwner {
-        require(address(indexesOwner) == address(newOwner), "Same owner address");
-        indexesOwner = newOwner;
-        emit SetIndexesOwner(newOwner);
+    function setIndexOwner(address newOwner) external onlyOwner {
+        require(address(indexDefaultOwner) == address(newOwner), "Same owner address");
+        indexDefaultOwner = newOwner;
+        emit SetIndexOwner(newOwner);
     }
 
     function setServiceFee(uint256 fee) external onlyOwner {
