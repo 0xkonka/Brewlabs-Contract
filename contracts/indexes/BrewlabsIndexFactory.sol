@@ -40,7 +40,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
     IndexInfo[] public indexList;
 
-    event IndexCreated(address indexed index, uint256 tokenCnt, address[] tokens, address nftAddr, address swapRouter);
+    event IndexCreated(address indexed index, address[] tokens, address nftAddr, address swapRouter);
     event SetIndexNft(address newNftAddr);
     event SetIndexOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
@@ -91,7 +91,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         for (uint256 i = 0; i < tokens.length; i++) {
             _tokens[i] = address(tokens[i]);
         }
-        emit IndexCreated(index, tokens.length, _tokens, address(indexNft), swapRouter);
+        emit IndexCreated(index, _tokens, address(indexNft), swapRouter);
 
         return index;
     }
