@@ -49,17 +49,17 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
     constructor() {}
 
-    function initialize(address impl, IERC721 nft, address token, uint256 price, address indexOwner, address adminAddr)
-        public
+    function initialize(address impl, IERC721 nft, address token, uint256 price, address indexOwner)
+        external
         initializer
     {
         __Ownable_init();
 
-        require(token != address(0x0) && adminAddr != address(0x0), "Invalid address");
+        require(token != address(0x0), "Invalid address");
 
         payingToken = token;
         serviceFee = price;
-        treasury = adminAddr;
+        treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         indexDefaultOwner = indexOwner;
 
         indexNft = nft;
