@@ -1,7 +1,12 @@
 module.exports = {
   infuraProjectId: "xxx", // your infura project id
 
-  accountPrivateKey: "xxxx", // you ethereum private key
+  accountPrivateKey: {
+    mainnet: "xxxx",
+    bsc: "xxxx",
+    polygon: "xxxx",
+    test: 'xxxx'
+  },
 
   etherscanApiKey: {
     // your etherscan api key
