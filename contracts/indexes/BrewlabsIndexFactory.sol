@@ -80,7 +80,9 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         require(tokens.length == swapPaths.length, "Invalid config");
         require(swapRouter != address(0x0), "Invalid address");
 
-        _transferServiceFee();
+        if(!whitelist[msg.sender]) {
+            _transferServiceFee();
+        }
 
         bytes32 salt = keccak256(abi.encodePacked(msg.sender, tokens.length, tokens[0], block.timestamp));
 
