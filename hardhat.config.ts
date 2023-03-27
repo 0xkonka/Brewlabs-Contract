@@ -53,7 +53,7 @@ module.exports = {
       url: `https://goerli.infura.io/v3/${infuraProjectId}`,
       chainId: 5,
       //gasPrice: 20000000000,
-      accounts: [accountPrivateKey["mainnet"]],
+      accounts: [accountPrivateKey["test"]],
     },
 
     eth_mainnet: {
@@ -74,7 +74,7 @@ module.exports = {
       url: `https://data-seed-prebsc-2-s1.binance.org:8545/`,
       chainId: 97,
       //gasPrice: 20000000000,
-      accounts: [accountPrivateKey["bsc"]],
+      accounts: [accountPrivateKey["test"]],
     },
 
     matic: {
