@@ -39,6 +39,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     }
 
     IndexInfo[] public indexList;
+    mapping(address => bool) public whitelist;
 
     event IndexCreated(address indexed index, address[] tokens, address nftAddr, address swapRouter);
     event SetIndexNft(address newNftAddr);
@@ -46,6 +47,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(address impl, uint256 version);
     event SetServiceInfo(address addr, uint256 fee);
+    event Whitelisted(address indexed account, bool isWhitelisted);
 
     constructor() {}
 
@@ -123,6 +125,16 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     function setPayingToken(address token) external onlyOwner {
         payingToken = token;
         emit SetPayingInfo(payingToken, serviceFee);
+    }
+    
+    function addToWhitelist(address _addr) external onlyOwner {
+        whitelist[_addr] = true;
+        emit Whitelisted(_addr, true);
+    }
+
+    function removeFromWhitelist(address _addr) external onlyOwner {
+        whitelist[_addr] = false;
+        emit Whitelisted(_addr, false);
     }
 
     /**

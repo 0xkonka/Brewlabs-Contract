@@ -22,6 +22,11 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
 
             configure: false,
 
+            index: false,
+            indexNft: false,
+            indexImpl: false,
+            indexFactory: false,
+
             farm: false,
             staking: false,
             lockupStaking: false,
@@ -88,6 +93,127 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 contract: "contracts/others/DarkTavernTreasury.sol:DarkTavernTreasury",
                 constructorArguments: [],
             }) 
+        }
+
+        if(config.index) {
+            let factory = ""
+            if(factory === "") {
+                Utils.successMsg(`factory was not set`);
+                return
+            }
+            Utils.infoMsg("Creating BrewlabsIndex contract via factory");
+            let contractInstance = await ethers.getContractAt("BrewlabsIndexFactory", factory)
+            let res = await contractInstance.createBrewlabsIndex(
+                [
+                    "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // token0
+                    "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // token1
+                ],
+                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
+                [
+                    [],
+                    []
+                ]
+            );
+            res = await res.wait()
+            console.log(res)            
+        }
+        
+        if(config.indexNft) {
+            Utils.infoMsg("Deploying BrewlabsIndexNft contract");
+            let deployed = await deploy('BrewlabsIndexNft', 
+                {
+                    from: account,
+                    args: [],
+                    log:  false
+                });
+    
+            let deployedAddress = deployed.address;
+            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+            
+
+            // verify
+            // await hre.run("verify:verify", {
+            //     address: deployedAddress,
+            //     contract: "contracts/BrewlabsIndexNft.sol:BrewlabsIndexNft",
+            //     constructorArguments: [],
+            // })
+        }
+        
+        if(config.indexImpl) {
+            Utils.infoMsg("Deploying BrewlabsIndex contract");
+            let deployed = await deploy('BrewlabsIndex', 
+                {
+                    from: account,
+                    args: [],
+                    log:  false
+                });
+    
+            let deployedAddress = deployed.address;
+            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+
+            await sleep(60)
+            let contractInstance = await ethers.getContractAt("BrewlabsIndex", deployedAddress)
+            await contractInstance.initialize(
+                [
+                    "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // token0
+                    "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // token1
+                ],
+                "0x0000000000000000000000000000000000000000", // nft
+                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
+                [
+                    [],
+                    []
+                ],
+                account,
+            )
+            Utils.successMsg(`BrewlabsIndex was initialized`);
+
+            // verify
+            // await hre.run("verify:verify", {
+            //     address: deployedAddress,
+            //     contract: "contracts/BrewlabsIndex.sol:BrewlabsIndex",
+            //     constructorArguments: [],
+            // })
+        }
+        
+        if(config.indexFactory) {
+            Utils.infoMsg("Deploying BrewlabsIndexFactory contract");
+            let implementation = ""
+            if(implementation === "") {
+                Utils.successMsg(`Implementation was not set`);
+                return
+            }
+
+            let deployed = await deploy('BrewlabsIndexFactory', 
+                {
+                    from: account,
+                    args: [],
+                    log:  false
+                });
+    
+            let deployedAddress = deployed.address;
+            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+
+            await sleep(60)
+            let contractInstance = await ethers.getContractAt("BrewlabsIndexFactory", deployedAddress)
+            let res = await contractInstance.initialize(
+                implementation,
+                "0x0000000000000000000000000000000000000000", // nft
+                "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // fee token
+                ethers.utils.parseUnits("1600", 6),           // price
+                account, // default owner of indexes
+            )
+            await res.wait()
+            Utils.successMsg(`BrewlabsIndexFactory was initialized`);
+
+            await contractInstance.addToWhitelist(account);
+
+            // verify
+            // await hre.run("verify:verify", {
+            //     address: deployedAddress,
+            //     contract: "contracts/BrewlabsIndexFactory.sol:BrewlabsIndexFactory",
+            //     constructorArguments: [],
+            // })
         }
 
         if(config.configure) {           
@@ -365,40 +491,6 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             })
         }
 
-        if(config.kodiTreasury) {
-            Utils.infoMsg("Deploying KODITreasury contract");
-            let deployed = await deploy('KODITreasury', 
-                {
-                    from: account,
-                    args: [],
-                    log:  false
-                });
-    
-            let deployedAddress = deployed.address;
-            Utils.successMsg(`Contract Address: ${deployedAddress}`);
-
-            await sleep(60)
-            let contractInstance = await ethers.getContractAt("KODITreasury", deployedAddress)
-            const res = await contractInstance.initialize(
-                "0xbA5eAB68a7203C9FF72E07b708991F07f55eF40E", // _token (BREWS)
-                "0x0000000000000000000000000000000000000000", // _dividendToken (BUSD)
-                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
-                [
-                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0xbA5eAB68a7203C9FF72E07b708991F07f55eF40E",
-                ]
-              )
-              console.log('initialize KODITreasury', res)
-    
-            // verify
-            await sleep(60)
-            await hre.run("verify:verify", {
-                address: deployedAddress,
-                contract: "contracts/KODITreasury.sol:KODITreasury",
-                constructorArguments: [],
-            })
-        }
-
         if(config.farm) {
             Utils.infoMsg("Deploying BrewlabsFarm contract");
             const _hasDividend = false;
@@ -624,48 +716,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             })
             
         }
-        
-        if(config.kodi) {
-            Utils.infoMsg("Deploying BrewlabsStaking(KODI) contract");
-
-            let deployed = await deploy('BrewlabsStakingClaim', {
-                from: account,
-                log:  false
-            });
-    
-            let deployedAddress = deployed.address;
-    
-            Utils.successMsg(`Contract Address: ${deployedAddress}`);
-
-            // initialize
-            await sleep(60)
-            let contractInstance = await ethers.getContractAt("BrewlabsStakingClaim", deployedAddress)
-            const _rewardPerBlock = ethers.utils.parseUnits("1157.407407407", 18) 
-            const res = await contractInstance.initialize(
-                "0x7f4f3bc4a5634454398580b9112b7e493e2129fa", // _stakingToken (KODI)
-                "0x7f4f3bc4a5634454398580b9112b7e493e2129fa", // _earnedToken (KODI)
-                "0x0000000000000000000000000000000000000000", // _earnedToken (BNB)
-                _rewardPerBlock,                              // _rewardPerBlock
-                0,                                          // _depositFee (0%)
-                0,                                          // _withdrawFee (0%)
-                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
-                [],
-                [
-                  "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                  "0x7f4f3bc4a5634454398580b9112b7e493e2129fa"
-                ],                                            // WBNB-KODI path           
-              )
-              console.log('initialize BrewlabsStaking(KODI)', res)
-    
-            // verify
-            await sleep(60)
-            await hre.run("verify:verify", {
-                address: deployedAddress,
-                contract: "contracts/pool/BrewlabsStakingClaim.sol:BrewlabsStakingClaim",
-                constructorArguments: [],
-            })
-        } 
-        
+                
         if(config.multi) {
             Utils.infoMsg("Deploying BrewlabsStakingMulti(SeTC) contract");
 
