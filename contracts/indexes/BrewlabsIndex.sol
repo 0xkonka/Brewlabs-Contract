@@ -159,7 +159,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         user.zappedEthAmount += amount;
         emit TokenZappedIn(msg.sender, amount, _percents, amountOuts);
 
-        if(totalPercentage < PERCENTAGE_PRECISION) {
+        if (totalPercentage < PERCENTAGE_PRECISION) {
             payable(msg.sender).transfer(ethAmount * (PERCENTAGE_PRECISION - totalPercentage) / PERCENTAGE_PRECISION);
         }
     }

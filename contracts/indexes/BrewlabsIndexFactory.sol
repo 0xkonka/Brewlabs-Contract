@@ -80,7 +80,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         require(tokens.length == swapPaths.length, "Invalid config");
         require(swapRouter != address(0x0), "Invalid address");
 
-        if(!whitelist[msg.sender]) {
+        if (!whitelist[msg.sender]) {
             _transferServiceFee();
         }
 
@@ -98,6 +98,15 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         emit IndexCreated(index, _tokens, address(indexNft), swapRouter);
 
         return index;
+    }
+
+    function indexCount() external view returns (uint256) {
+        return indexList.length;
+    }
+
+    function getIndexInfo(uint256 idx) external view returns (address, IERC721, IERC20[] memory, address, uint256) {
+        IndexInfo memory indexInfo = indexList[idx];
+        return (indexInfo.index, indexInfo.nft, indexInfo.tokens, indexInfo.swapRouter, indexInfo.createdAt);
     }
 
     function setImplementation(address impl) external onlyOwner {
@@ -128,7 +137,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         payingToken = token;
         emit SetPayingInfo(payingToken, serviceFee);
     }
-    
+
     function addToWhitelist(address _addr) external onlyOwner {
         whitelist[_addr] = true;
         emit Whitelisted(_addr, true);
