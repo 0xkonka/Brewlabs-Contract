@@ -130,6 +130,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployedAddress = deployed.address;
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
             
+            let contractInstance = await ethers.getContractAt("BrewlabsIndexNft", deployedAddress)
+            await contractInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmUaFYco7KfL9Yz3fWqhygAzw7A1RaSkh6nV75NBu5a7CV");
 
             // verify
             // await hre.run("verify:verify", {
