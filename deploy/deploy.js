@@ -188,7 +188,22 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 {
                     from: account,
                     args: [],
-                    log:  false
+                    log: true,
+                    proxy: {
+                        proxyContract: "OpenZeppelinTransparentProxy",        
+                        execute: {
+                            init: {
+                                methodName: "initialize",
+                                args: [
+                                    implementation,
+                                    "0x0000000000000000000000000000000000000000", // nft
+                                    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // fee token
+                                    ethers.utils.parseUnits("1600", 6),           // price
+                                    account, // default owner of indexes
+                                ],
+                            }
+                        },
+                    },
                 });
     
             let deployedAddress = deployed.address;
@@ -196,16 +211,6 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
 
             await sleep(60)
             let contractInstance = await ethers.getContractAt("BrewlabsIndexFactory", deployedAddress)
-            let res = await contractInstance.initialize(
-                implementation,
-                "0x0000000000000000000000000000000000000000", // nft
-                "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // fee token
-                ethers.utils.parseUnits("1600", 6),           // price
-                account, // default owner of indexes
-            )
-            await res.wait()
-            Utils.successMsg(`BrewlabsIndexFactory was initialized`);
-
             await contractInstance.addToWhitelist(account);
 
             // verify
