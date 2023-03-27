@@ -96,7 +96,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.index) {
-            let factory = ""
+            let factory = "0xC5Cd133E530bB6EA012ba402615017Eff4e0AE6d"
             if(factory === "") {
                 Utils.successMsg(`factory was not set`);
                 return
@@ -105,17 +105,24 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let contractInstance = await ethers.getContractAt("BrewlabsIndexFactory", factory)
             let res = await contractInstance.createBrewlabsIndex(
                 [
-                    "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // token0
-                    "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // token1
+                    "0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814", // token0
+                    "0xFa60D973F7642B748046464e165A65B7323b0DEE", // token1
                 ],
-                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
+                "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // pancake router v2
                 [
-                    [],
-                    []
+                    [
+                        "0xae13d989dac2f0debff460ac112a837c89baa7cd",
+                        "0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814"
+                    ],
+                    [
+                        "0xae13d989dac2f0debff460ac112a837c89baa7cd",
+                        "0xFa60D973F7642B748046464e165A65B7323b0DEE"
+                    ]
                 ]
             );
             res = await res.wait()
-            console.log(res)            
+            Utils.successMsg(`Contract Address: ${res.events[2].args[0]}`);
+            console.log(res.events[2].args)
         }
         
         if(config.indexNft) {
@@ -153,22 +160,28 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployedAddress = deployed.address;
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            await sleep(60)
-            let contractInstance = await ethers.getContractAt("BrewlabsIndex", deployedAddress)
-            await contractInstance.initialize(
-                [
-                    "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // token0
-                    "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // token1
-                ],
-                "0x0000000000000000000000000000000000000000", // nft
-                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
-                [
-                    [],
-                    []
-                ],
-                account,
-            )
-            Utils.successMsg(`BrewlabsIndex was initialized`);
+            // await sleep(60)
+            // let contractInstance = await ethers.getContractAt("BrewlabsIndex", deployedAddress)
+            // await contractInstance.initialize(
+            //     [
+            //         "0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814", // token0
+            //         "0xFa60D973F7642B748046464e165A65B7323b0DEE", // token1
+            //     ],
+            //     "0xEdfd78E667850C7B0C5bb759295b0878348fbA3C", // nft
+            //     "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // pancake router v2
+            //     [
+            //         [
+            //             "0xae13d989dac2f0debff460ac112a837c89baa7cd",
+            //             "0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814"
+            //         ],
+            //         [
+            //             "0xae13d989dac2f0debff460ac112a837c89baa7cd",
+            //             "0xFa60D973F7642B748046464e165A65B7323b0DEE"
+            //         ]
+            //     ],
+            //     account,
+            // )
+            // Utils.successMsg(`BrewlabsIndex was initialized`);
 
             // verify
             // await hre.run("verify:verify", {
@@ -180,7 +193,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         
         if(config.indexFactory) {
             Utils.infoMsg("Deploying BrewlabsIndexFactory contract");
-            let implementation = ""
+            let implementation = "0x95FFFB4c48E88AC2F33c7401e9fe050094C545a8"
             if(implementation === "") {
                 Utils.successMsg(`Implementation was not set`);
                 return
@@ -198,9 +211,9 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                                 methodName: "initialize",
                                 args: [
                                     implementation,
-                                    "0x0000000000000000000000000000000000000000", // nft
-                                    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // fee token
-                                    ethers.utils.parseUnits("1600", 6),           // price
+                                    "0xEdfd78E667850C7B0C5bb759295b0878348fbA3C", // nft
+                                    "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175", // fee token
+                                    ethers.utils.parseUnits("0.00005", 18),           // price
                                     account, // default owner of indexes
                                 ],
                             }

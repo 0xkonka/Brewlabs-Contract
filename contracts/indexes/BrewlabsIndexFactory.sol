@@ -15,6 +15,9 @@ interface IBrewlabsIndex {
         address _owner
     ) external;
 }
+interface IBrewlabsIndexNft {
+    function setMinterRole(address minter, bool status) external;
+}
 
 contract BrewlabsIndexFactory is OwnableUpgradeable {
     using SafeERC20 for IERC20;
@@ -88,6 +91,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
         index = Clones.cloneDeterministic(implementation, salt);
         IBrewlabsIndex(index).initialize(tokens, indexNft, swapRouter, swapPaths, indexDefaultOwner);
+        IBrewlabsIndexNft(address(indexNft)).setMinterRole(index, true);
 
         indexList.push(IndexInfo(index, indexNft, tokens, swapRouter, block.timestamp));
 
