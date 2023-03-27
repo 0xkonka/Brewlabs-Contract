@@ -157,8 +157,11 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             totalStaked[i] += amountOuts[i];
         }
         user.zappedEthAmount += amount;
-
         emit TokenZappedIn(msg.sender, amount, _percents, amountOuts);
+
+        if(totalPercentage < PERCENTAGE_PRECISION) {
+            payable(msg.sender).transfer(ethAmount * (PERCENTAGE_PRECISION - totalPercentage) / PERCENTAGE_PRECISION);
+        }
     }
 
     /**
@@ -238,9 +241,9 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
         uint256 price = _getPriceFromChainlink();
         uint256 usdAmount = nftData.zappedEthAmount * price / 10 ** 18;
-        nftData.level = 2;
-        if (usdAmount < 1000) nftData.level = 1;
-        if (usdAmount > 5000) nftData.level = 3;
+        nftData.level = 1;
+        if (usdAmount < 1000) nftData.level = 0;
+        if (usdAmount > 5000) nftData.level = 2;
 
         delete users[msg.sender];
         emit TokenLocked(msg.sender, nftData.amounts, nftData.zappedEthAmount, tokenId);
