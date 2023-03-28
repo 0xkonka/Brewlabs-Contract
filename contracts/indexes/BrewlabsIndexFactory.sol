@@ -121,13 +121,13 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     }
 
     function setIndexNft(IERC721 newNftAddr) external onlyOwner {
-        require(address(indexNft) == address(newNftAddr), "Same Nft address");
+        require(address(indexNft) != address(newNftAddr), "Same Nft address");
         indexNft = newNftAddr;
         emit SetIndexNft(address(newNftAddr));
     }
 
     function setIndexOwner(address newOwner) external onlyOwner {
-        require(address(indexDefaultOwner) == address(newOwner), "Same owner address");
+        require(address(indexDefaultOwner) != address(newOwner), "Same owner address");
         indexDefaultOwner = newOwner;
         emit SetIndexOwner(newOwner);
     }
