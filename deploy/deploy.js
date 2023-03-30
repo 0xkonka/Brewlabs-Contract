@@ -164,19 +164,19 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             // let contractInstance = await ethers.getContractAt("BrewlabsIndex", deployedAddress)
             // await contractInstance.initialize(
             //     [
-            //         "0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814", // token0
-            //         "0xFa60D973F7642B748046464e165A65B7323b0DEE", // token1
+            //         "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F", // token0
+            //         "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c", // token1
             //     ],
-            //     "0xEdfd78E667850C7B0C5bb759295b0878348fbA3C", // nft
-            //     "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // pancake router v2
+            //     "0xA00b4924a8966851DC979187aE425e5C2959cEE1", // nft
+            //     "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
             //     [
             //         [
-            //             "0xae13d989dac2f0debff460ac112a837c89baa7cd",
-            //             "0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814"
+            //             "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+            //             "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F"
             //         ],
             //         [
-            //             "0xae13d989dac2f0debff460ac112a837c89baa7cd",
-            //             "0xFa60D973F7642B748046464e165A65B7323b0DEE"
+            //             "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+            //             "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c"
             //         ]
             //     ],
             //     account,
