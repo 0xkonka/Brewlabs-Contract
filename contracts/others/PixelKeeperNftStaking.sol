@@ -77,6 +77,7 @@ contract PixelKeeperNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     event EndBlockUpdated(uint256 blockNumber);
 
     event ServiceInfoUpadted(address _addr, uint256 _fee);
+    event SetOneTimeLimit(uint256 limit);
     event DurationUpdated(uint256 _duration);
 
     constructor() {}
@@ -318,6 +319,12 @@ contract PixelKeeperNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             rewardsPerBlockOfRarity[i] = totalRewardsOfRarity[i] / duration / BLOCKS_PER_DAY;
         }
         emit NewRewards(_rewards);
+    }
+
+    function setOneTimeLimit(uint256 _limit) external onlyOwner {
+        require(_limit < 200, "too many");
+        oneTimeLimit = _limit;
+        emit SetOneTimeLimit(_limit);
     }
 
     function setServiceInfo(address _treasury, uint256 _fee) external {

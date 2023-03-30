@@ -72,6 +72,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     event ServiceInfoUpadted(address _addr, uint256 _fee);
     event DurationUpdated(uint256 _duration);
     event SetAutoAdjustableForRewardRate(bool status);
+    event SetOneTimeLimit(uint256 limit);
 
     constructor() {}
 
@@ -363,6 +364,12 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             require(bonusEndBlock > block.number, "invalid duration");
         }
         emit DurationUpdated(_duration);
+    }
+
+    function setOneTimeLimit(uint256 _limit) external onlyOwner {
+        require(_limit < 200, "too many");
+        oneTimeLimit = _limit;
+        emit SetOneTimeLimit(_limit);
     }
 
     function setAutoAdjustableForRewardRate(bool _status) external onlyOwner {
