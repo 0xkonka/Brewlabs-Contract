@@ -310,7 +310,7 @@ contract PixelKeeperNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
      * @dev Only callable by owner.
      * @param _rewards: the reward per block
      */
-    function setTotalRewards(uint256[3] memory _rewards) external onlyOwner {
+    function setTotalRewardsForRarities(uint256[3] memory _rewards) external onlyOwner {
         _updatePool();
 
         totalRewardsOfRarity = _rewards;
