@@ -15,6 +15,7 @@ interface IBrewlabsIndex {
         address _owner
     ) external;
 }
+
 interface IBrewlabsIndexNft {
     function setMinterRole(address minter, bool status) external;
 }

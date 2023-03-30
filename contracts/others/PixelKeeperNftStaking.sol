@@ -13,7 +13,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 interface IPixelKeeperNft {
-    function rarityOfItem(uint256 tokenId) external view returns(uint256);
+    function rarityOfItem(uint256 tokenId) external view returns (uint256);
 }
 
 contract PixelKeeperNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
@@ -35,7 +35,7 @@ contract PixelKeeperNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     uint256 public rewardPerBlock;
     // The block number of the last pool update
     uint256 public lastRewardBlock;
-    
+
     uint256[3] public totalRewardsOfRarity = [87.5 ether, 37.5 ether, 20 ether];
     uint256[3] private rewardsPerBlockOfRarity;
 
@@ -95,7 +95,7 @@ contract PixelKeeperNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         stakingNft = _stakingNft;
         earnedToken = _earnedToken;
 
-        for(uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             rewardsPerBlockOfRarity[i] = totalRewardsOfRarity[i] / duration / BLOCKS_PER_DAY;
         }
 
@@ -131,7 +131,7 @@ contract PixelKeeperNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             uint256 tokenId = _tokenIds[i];
             stakingNft.safeTransferFrom(msg.sender, address(this), tokenId);
             user.tokenIds.push(tokenId);
-            
+
             uint256 rarity = IPixelKeeperNft(address(stakingNft)).rarityOfItem(tokenId);
             user.amounts[rarity]++;
             totalStakedOfRarity[rarity]++;
@@ -233,8 +233,8 @@ contract PixelKeeperNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         emit EmergencyWithdraw(msg.sender, _tokenIds);
     }
 
-    function stakedInfo(address _user) external view returns (uint256, uint256[] memory) {
-        return (userInfo[_user].amount, userInfo[_user].tokenIds);
+    function stakedInfo(address _user) external view returns (uint256, uint256[] memory, uint256[3] memory) {
+        return (userInfo[_user].amount, userInfo[_user].tokenIds, userInfo[_user].amounts);
     }
 
     /**
@@ -251,11 +251,11 @@ contract PixelKeeperNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
      */
     function pendingReward(address _user) public view returns (uint256) {
         UserInfo storage user = userInfo[_user];
-        if(user.amount == 0) return 0;
+        if (user.amount == 0) return 0;
 
         uint256 multiplier = _getMultiplier(user.lastRewardBlock, block.number);
         uint256 pending;
-        for(uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             pending += multiplier * user.amounts[i] * rewardsPerBlockOfRarity[i];
         }
 
@@ -314,7 +314,7 @@ contract PixelKeeperNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         _updatePool();
 
         totalRewardsOfRarity = _rewards;
-        for(uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             rewardsPerBlockOfRarity[i] = totalRewardsOfRarity[i] / duration / BLOCKS_PER_DAY;
         }
         emit NewRewards(_rewards);
@@ -360,7 +360,7 @@ contract PixelKeeperNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
         uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
         uint256 _reward;
-        for(uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             _reward += multiplier * totalStakedOfRarity[i] * rewardsPerBlockOfRarity[i];
         }
         shouldTotalPaid += _reward;
