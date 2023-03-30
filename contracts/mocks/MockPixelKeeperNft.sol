@@ -3,11 +3,11 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-contract MockTpkNft is ERC721 {
+contract MockPixelKeeperNft is ERC721 {
     uint256 public supply;
     mapping(uint256 => uint256) public rarityOfItem;
 
-    constructor() ERC721("Test Nft", "TNFT") {}
+    constructor() ERC721("Mock TPK", "MTPK") {}
 
     function mint(uint256 _rarity, address _to) external {
         supply++;

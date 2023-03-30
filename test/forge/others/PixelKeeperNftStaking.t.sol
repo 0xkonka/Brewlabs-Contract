@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "forge-std/Test.sol";
 
 import {MockErc20} from "../../../contracts/mocks/MockErc20.sol";
-import {MockTpkNft} from "../../../contracts/mocks/MockTpkNft.sol";
+import {MockPixelKeeperNft} from "../../../contracts/mocks/MockPixelKeeperNft.sol";
 import {PixelKeeperNftStaking} from "../../../contracts/others/PixelKeeperNftStaking.sol";
 
 import {Utils} from "../utils/Utils.sol";
@@ -12,7 +12,7 @@ import {Utils} from "../utils/Utils.sol";
 contract PixelKeeperNftStakingTest is Test {
     PixelKeeperNftStaking public nftStaking;
     MockErc20 public token;
-    MockTpkNft public nft;
+    MockPixelKeeperNft public nft;
 
     Utils internal utils;
     uint256[3] internal rewardPerBlock;
@@ -23,9 +23,9 @@ contract PixelKeeperNftStakingTest is Test {
     event EmergencyWithdraw(address indexed user, uint256[] tokenIds);
 
     function setUp() public {
-        nftStaking = new PixelKeeperNftStaking();
         token = new MockErc20(18);
-        nft = new MockTpkNft();
+        nft = new MockPixelKeeperNft();
+        nftStaking = new PixelKeeperNftStaking();
 
         utils = new Utils();
 
@@ -249,6 +249,9 @@ contract PixelKeeperNftStakingTest is Test {
         assertEq(_amounts[0], 0);
         assertEq(_amounts[1], 0);
         assertEq(_amounts[2], 0);
+
+        utils.mineBlocks(10);
+        assertEq(nftStaking.pendingReward(user), 0);
 
         vm.stopPrank();
     }
