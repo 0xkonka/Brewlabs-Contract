@@ -122,7 +122,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
 
         IBrewlabsIndex _index = IBrewlabsIndex(index[tokenId]);
         uint8 numTokens = _index.NUM_TOKENS();
-        (uint256 level, uint256[] memory amounts, uint256 ethAmount) = _index.nftInfo(tokenId);
+        (uint256 level, uint256[] memory amounts, uint256 usdAmount) = _index.nftInfo(tokenId);
 
         string[3] memory levels = ["Yellow", "Blue", "Black"];
         string memory attributes = '"attributes":[';
@@ -150,7 +150,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
             );
         }
         attributes = string(
-            abi.encodePacked(attributes, ', {"trait_type":"zapped amount", "value":"', ethAmount.toString(), '"}]')
+            abi.encodePacked(attributes, ', {"trait_type":"USD Amount", "value":"', usdAmount.toString(), '"}]')
         );
 
         // If both are set, concatenate the baseURI (via abi.encodePacked).

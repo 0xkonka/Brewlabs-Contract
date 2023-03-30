@@ -43,7 +43,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     // Info of each user.
     struct UserInfo {
         uint256[] amounts; // How many tokens that user has bought
-        uint256 zappedEthAmount; // ETH amount that user sold
+        uint256 usdAmount; // ETH amount that user sold
     }
 
     mapping(address => UserInfo) private users;
@@ -51,7 +51,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     struct NftInfo {
         uint256 level;
         uint256[] amounts; // locked token amounts in NFT
-        uint256 zappedEthAmount; // ETH amount that sold for above tokens
+        uint256 usdAmount; // ETH amount that sold for above tokens
     }
 
     mapping(uint256 => NftInfo) private nfts;
@@ -62,11 +62,11 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     address public treasury;
     address public feeWallet;
 
-    event TokenZappedIn(address indexed user, uint256 ethAmount, uint256[] percents, uint256[] amountOuts);
-    event TokenZappedOut(address indexed user, uint256 ethAmount, uint256[] amounts);
+    event TokenZappedIn(address indexed user, uint256 ethAmount, uint256[] percents, uint256[] amountOuts, uint256 usdAmount);
+    event TokenZappedOut(address indexed user, uint256[] amounts, uint256 ethAmount);
     event TokenClaimed(address indexed user, uint256[] amounts);
-    event TokenLocked(address indexed user, uint256[] amounts, uint256 ethAmount, uint256 tokenId);
-    event TokenUnLocked(address indexed user, uint256[] amounts, uint256 ethAmount, uint256 tokenId);
+    event TokenLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
+    event TokenUnLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
 
     event ServiceInfoUpadted(address addr, uint256 fee);
     event SetFee(uint256 fee);
@@ -156,8 +156,9 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
             totalStaked[i] += amountOuts[i];
         }
-        user.zappedEthAmount += amount;
-        emit TokenZappedIn(msg.sender, amount, _percents, amountOuts);
+        uint256 usdAmount = amount * _getPriceFromChainlink() / 1 ether;
+        user.usdAmount += usdAmount;
+        emit TokenZappedIn(msg.sender, amount, _percents, amountOuts, usdAmount);
 
         if (totalPercentage < PERCENTAGE_PRECISION) {
             payable(msg.sender).transfer(ethAmount * (PERCENTAGE_PRECISION - totalPercentage) / PERCENTAGE_PRECISION);
@@ -169,26 +170,32 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      *         If the user exits the index in a loss then there is no fee.
      *         If the user exists the index in a profit, processing fee will be applied.
      */
-    function claimTokens() external onlyInitialized nonReentrant {
+    function claimTokens(uint256 _percent) external onlyInitialized nonReentrant {
+        require(_percent > 0 && _percent < PERCENTAGE_PRECISION, "Invalid percent");
         UserInfo memory user = users[msg.sender];
-        require(user.zappedEthAmount > 0, "No available tokens");
+        require(user.usdAmount > 0, "No available tokens");
 
         uint256 expectedAmt = _expectedEth(user.amounts);
-        if (expectedAmt > user.zappedEthAmount) {
-            for (uint8 i = 0; i < NUM_TOKENS; i++) {
-                uint256 claimFee = (user.amounts[i] * fee) / PERCENTAGE_PRECISION;
-                tokens[i].safeTransfer(feeWallet, claimFee);
-                tokens[i].safeTransfer(msg.sender, user.amounts[i] - claimFee);
-            }
-        } else {
-            for (uint8 i = 0; i < NUM_TOKENS; i++) {
-                totalStaked[i] -= user.amounts[i];
-                tokens[i].safeTransfer(msg.sender, user.amounts[i]);
-            }
-        }
+        uint256 price = _getPriceFromChainlink();
+        
+        uint256[] memory amounts = new uint256[](NUM_TOKENS);
+        for (uint256 i = 0; i < NUM_TOKENS; i++) {
+            uint256 claimAmount = (user.amounts[i] * _percent) / PERCENTAGE_PRECISION;
+            amounts[i] = claimAmount;
 
-        emit TokenClaimed(msg.sender, user.amounts);
-        delete users[msg.sender];
+            uint256 claimFee = 0;
+            if ((expectedAmt * price / 1 ether) > user.usdAmount) {
+                claimFee = (claimAmount * fee) / PERCENTAGE_PRECISION;
+                tokens[i].safeTransfer(feeWallet, claimFee);
+            }
+            tokens[i].safeTransfer(msg.sender, claimAmount - claimFee);
+
+            user.amounts[i] -= claimAmount;
+            totalStaked[i] -= claimAmount;
+        }
+        user.usdAmount -= (user.usdAmount * _percent) / PERCENTAGE_PRECISION;
+
+        emit TokenClaimed(msg.sender, amounts);
     }
 
     /**
@@ -196,26 +203,34 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      *         If the user exits the index in a loss then there is no fee.
      *         If the user exists the index in a profit, processing fee will be applied.
      */
-    function zapOut() external onlyInitialized nonReentrant {
+    function zapOut(uint256 _percent) external onlyInitialized nonReentrant {
         UserInfo memory user = users[msg.sender];
-        require(user.zappedEthAmount > 0, "No available tokens");
+        require(user.usdAmount > 0, "No available tokens");
 
         uint256 ethAmount;
-        for (uint8 i = 0; i < NUM_TOKENS; i++) {
-            totalStaked[i] -= user.amounts[i];
-            uint256 amountOut = _safeSwapForETH(user.amounts[i], getSwapPath(i, false));
+        uint256[] memory amounts = new uint256[](NUM_TOKENS);
+        for (uint256 i = 0; i < NUM_TOKENS; i++) {
+            uint256 claimAmount = (user.amounts[i] * _percent) / PERCENTAGE_PRECISION;
+            amounts[i] = claimAmount;
+            user.amounts[i] -= claimAmount;
+            totalStaked[i] -= claimAmount;
+
+            uint256 amountOut = _safeSwapForETH(claimAmount, getSwapPath(i, false));
             ethAmount += amountOut;
         }
 
-        if (ethAmount > user.zappedEthAmount) {
+        uint256 price = _getPriceFromChainlink();
+        uint256 claimUsdAmount = (user.usdAmount * _percent) / PERCENTAGE_PRECISION;
+        if ((ethAmount * price / 1 ether) > claimUsdAmount) {
             uint256 swapFee = (ethAmount * fee) / PERCENTAGE_PRECISION;
             payable(feeWallet).transfer(swapFee);
 
             ethAmount -= swapFee;
         }
+        user.usdAmount -= claimUsdAmount;
 
         payable(msg.sender).transfer(ethAmount);
-        emit TokenZappedOut(msg.sender, ethAmount, user.amounts);
+        emit TokenZappedOut(msg.sender, amounts, ethAmount);
         delete users[msg.sender];
     }
 
@@ -227,7 +242,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      */
     function mintNft() external payable onlyInitialized nonReentrant returns (uint256) {
         UserInfo storage user = users[msg.sender];
-        require(user.zappedEthAmount > 0, "No available tokens");
+        require(user.usdAmount > 0, "No available tokens");
 
         _transferPerformanceFee();
 
@@ -237,16 +252,14 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         // lock available tokens for NFT
         NftInfo storage nftData = nfts[tokenId];
         nftData.amounts = user.amounts;
-        nftData.zappedEthAmount = user.zappedEthAmount;
+        nftData.usdAmount = user.usdAmount;
 
-        uint256 price = _getPriceFromChainlink();
-        uint256 usdAmount = nftData.zappedEthAmount * price / 10 ** 18;
         nftData.level = 1;
-        if (usdAmount < 1000) nftData.level = 0;
-        if (usdAmount > 5000) nftData.level = 2;
+        if (nftData.usdAmount < 1000 ether) nftData.level = 0;
+        if (nftData.usdAmount > 5000 ether) nftData.level = 2;
 
         delete users[msg.sender];
-        emit TokenLocked(msg.sender, nftData.amounts, nftData.zappedEthAmount, tokenId);
+        emit TokenLocked(msg.sender, nftData.amounts, nftData.usdAmount, tokenId);
 
         return tokenId;
     }
@@ -268,9 +281,9 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         for (uint8 i = 0; i < NUM_TOKENS; i++) {
             user.amounts[i] += nftData.amounts[i];
         }
-        user.zappedEthAmount = nftData.zappedEthAmount;
+        user.usdAmount = nftData.usdAmount;
 
-        emit TokenUnLocked(msg.sender, nftData.amounts, nftData.zappedEthAmount, tokenId);
+        emit TokenUnLocked(msg.sender, nftData.amounts, nftData.usdAmount, tokenId);
         delete nfts[tokenId];
     }
 
@@ -278,11 +291,11 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      * @notice Returns purchased tokens and ETH amount at the time when bought tokens.
      * @param _user: user address
      */
-    function userInfo(address _user) external view returns (uint256[] memory amounts, uint256 ethAmount) {
+    function userInfo(address _user) external view returns (uint256[] memory amounts, uint256 usdAmount) {
         UserInfo memory _userData = users[_user];
-        ethAmount = _userData.zappedEthAmount;
+        usdAmount = _userData.usdAmount;
         amounts = new uint256[](NUM_TOKENS);
-        if (ethAmount == 0) return (amounts, ethAmount);
+        if (usdAmount == 0) return (amounts, usdAmount);
 
         for (uint256 i = 0; i < NUM_TOKENS; i++) {
             amounts[i] = _userData.amounts[i];
@@ -296,13 +309,13 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     function nftInfo(uint256 _tokenId)
         external
         view
-        returns (uint256 level, uint256[] memory amounts, uint256 ethAmount)
+        returns (uint256 level, uint256[] memory amounts, uint256 usdAmount)
     {
         NftInfo memory _nftData = nfts[_tokenId];
         level = _nftData.level;
-        ethAmount = _nftData.zappedEthAmount;
+        usdAmount = _nftData.usdAmount;
         amounts = new uint256[](NUM_TOKENS);
-        if (ethAmount == 0) return (1, amounts, ethAmount);
+        if (usdAmount == 0) return (1, amounts, usdAmount);
 
         for (uint256 i = 0; i < NUM_TOKENS; i++) {
             amounts[i] = _nftData.amounts[i];
@@ -330,7 +343,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      * @param _index: token index
      * @param _isZapIn: swap direction(true: ETH to token, false: token to ETH)
      */
-    function getSwapPath(uint8 _index, bool _isZapIn) public view returns (address[] memory) {
+    function getSwapPath(uint256 _index, bool _isZapIn) public view returns (address[] memory) {
         if (_isZapIn) return ethToTokenPaths[_index];
 
         uint256 len = ethToTokenPaths[_index].length;
