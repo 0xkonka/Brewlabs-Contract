@@ -32,7 +32,7 @@ interface IBrewlabsIndex {
 
     function zapIn(uint256[] memory percents) external payable;
     function zapOut() external;
-    function claimTokens() external;
+    function claimTokens(uint256 percent) external;
     function mintNft() external payable returns (uint256);
     function stakeNft(uint256 tokenId) external payable;
 
