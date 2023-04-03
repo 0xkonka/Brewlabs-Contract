@@ -21,11 +21,11 @@ interface IBrewlabsIndex {
     function swapRouter() external view returns (address);
     function getSwapPath(uint8 index, bool isZapIn) external view returns (address[] memory);
 
-    function userInfo(address user) external view returns (uint256[] memory amounts, uint256 ethAmount);
+    function userInfo(address user) external view returns (uint256[] memory amounts, uint256 usdAmount);
     function nftInfo(uint256 tokenId)
         external
         view
-        returns (uint256 level, uint256[] memory amounts, uint256 ethAmount);
+        returns (uint256 level, uint256[] memory amounts, uint256 usdAmount);
     function estimateEthforUser(address user) external view returns (uint256);
     function estimateEthforNft(uint256 tokenId) external view returns (uint256);
     function totalStaked(uint256 index) external view returns (uint256);

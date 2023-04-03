@@ -149,9 +149,8 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
                 )
             );
         }
-        attributes = string(
-            abi.encodePacked(attributes, ', {"trait_type":"USD Amount", "value":"', usdAmount.toString(), '"}]')
-        );
+        attributes =
+            string(abi.encodePacked(attributes, ', {"trait_type":"USD Amount", "value":"', usdAmount.toString(), '"}]'));
 
         // If both are set, concatenate the baseURI (via abi.encodePacked).
         string memory metadata = string(
@@ -174,8 +173,9 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         return string(abi.encodePacked("data:application/json;base64,", _base64(bytes(metadata))));
     }
 
-    function getNftInfo(uint256 tokenId) external view returns (uint256, uint256[] memory, uint256) {
-        return IBrewlabsIndex(index[tokenId]).nftInfo(tokenId);
+    function getNftInfo(uint256 tokenId) external view returns (uint256, uint256[] memory, uint256, address) {
+        (uint256 level, uint256[] memory amounts, uint256 usdAmount) = IBrewlabsIndex(index[tokenId]).nftInfo(tokenId);
+        return (level, amounts, usdAmount, address(index[tokenId]));
     }
 
     function _baseURI() internal view override returns (string memory) {

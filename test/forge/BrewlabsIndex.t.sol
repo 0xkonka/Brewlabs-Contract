@@ -19,9 +19,16 @@ contract BrewlabsIndexTest is Test {
     uint256 mainnetFork;
     string MAINNET_RPC_URL = "https://bsc-dataseed.binance.org/";
 
-    event TokenZappedIn(address indexed user, uint256 ethAmount, uint256[] percents, uint256[] amountOuts, uint256 usdAmount);
-    event TokenZappedOut(address indexed user, uint256[] amounts, uint256 ethAmount);
-    event TokenClaimed(address indexed user, uint256[] amounts);
+    event TokenZappedIn(
+        address indexed user,
+        uint256 ethAmount,
+        uint256[] percents,
+        uint256[] amountOuts,
+        uint256 usdAmount,
+        uint256 commission
+    );
+    event TokenZappedOut(address indexed user, uint256[] amounts, uint256 ethAmount, uint256 commission);
+    event TokenClaimed(address indexed user, uint256[] amounts, uint256 commission);
     event TokenLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
     event TokenUnLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
 
@@ -67,7 +74,7 @@ contract BrewlabsIndexTest is Test {
         percents[1] = 5000;
         uint256 amount = 0.5 ether;
         vm.expectEmit(true, false, false, false);
-        emit TokenZappedIn(user, 0, _amounts, percents, 0);
+        emit TokenZappedIn(user, 0, _amounts, percents, 0, 0);
         index.zapIn{value: amount}(percents);
 
         (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
@@ -110,7 +117,7 @@ contract BrewlabsIndexTest is Test {
 
         utils.mineBlocks(10);
         vm.expectEmit(true, true, false, true);
-        emit TokenClaimed(user, amounts);
+        emit TokenClaimed(user, amounts, 0);
         index.claimTokens(10000);
 
         assertEq(amounts[0], token0.balanceOf(user) - prevBalanceForToken0);
@@ -147,7 +154,7 @@ contract BrewlabsIndexTest is Test {
 
         utils.mineBlocks(10);
         vm.expectEmit(true, false, false, false);
-        emit TokenZappedOut(user, amounts, 0);
+        emit TokenZappedOut(user, amounts, 0, 0);
         index.zapOut();
 
         assertEq(token0.balanceOf(address(index)), 0);

@@ -62,9 +62,16 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     address public treasury;
     address public feeWallet;
 
-    event TokenZappedIn(address indexed user, uint256 ethAmount, uint256[] percents, uint256[] amountOuts, uint256 usdAmount);
-    event TokenZappedOut(address indexed user, uint256[] amounts, uint256 ethAmount);
-    event TokenClaimed(address indexed user, uint256[] amounts);
+    event TokenZappedIn(
+        address indexed user,
+        uint256 ethAmount,
+        uint256[] percents,
+        uint256[] amountOuts,
+        uint256 usdAmount,
+        uint256 commission
+    );
+    event TokenZappedOut(address indexed user, uint256[] amounts, uint256 ethAmount, uint256 commission);
+    event TokenClaimed(address indexed user, uint256[] amounts, uint256 commission);
     event TokenLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
     event TokenUnLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
 
@@ -155,9 +162,12 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
             totalStaked[i] += amountOuts[i];
         }
-        uint256 usdAmount = amount * getPriceFromChainlink() / 1 ether;
+        uint256 price = getPriceFromChainlink();
+        uint256 usdAmount = amount * price / 1 ether;
+        uint256 commission = buyingFee * price / 1 ether;
+
         user.usdAmount += usdAmount;
-        emit TokenZappedIn(msg.sender, amount, _percents, amountOuts, usdAmount);
+        emit TokenZappedIn(msg.sender, amount, _percents, amountOuts, usdAmount, commission);
 
         if (totalPercentage < PERCENTAGE_PRECISION) {
             payable(msg.sender).transfer(ethAmount * (PERCENTAGE_PRECISION - totalPercentage) / PERCENTAGE_PRECISION);
@@ -176,7 +186,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
         uint256 expectedAmt = _expectedEth(user.amounts);
         uint256 price = getPriceFromChainlink();
-        
+
         uint256[] memory amounts = new uint256[](NUM_TOKENS);
         for (uint256 i = 0; i < NUM_TOKENS; i++) {
             uint256 claimAmount = (user.amounts[i] * _percent) / PERCENTAGE_PRECISION;
@@ -192,9 +202,15 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             user.amounts[i] -= claimAmount;
             totalStaked[i] -= claimAmount;
         }
-        user.usdAmount -= (user.usdAmount * _percent) / PERCENTAGE_PRECISION;
 
-        emit TokenClaimed(msg.sender, amounts);
+        uint256 commission = 0;
+        if ((expectedAmt * price / 1 ether) > user.usdAmount) {
+            commission = (expectedAmt * _percent) / PERCENTAGE_PRECISION;
+            commission = (commission * fee) / PERCENTAGE_PRECISION;
+        }
+
+        user.usdAmount -= (user.usdAmount * _percent) / PERCENTAGE_PRECISION;
+        emit TokenClaimed(msg.sender, amounts, commission);
     }
 
     /**
@@ -216,15 +232,17 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         }
 
         uint256 price = getPriceFromChainlink();
+        uint256 commission = 0;
         if ((ethAmount * price / 1 ether) > user.usdAmount) {
             uint256 swapFee = (ethAmount * fee) / PERCENTAGE_PRECISION;
             payable(feeWallet).transfer(swapFee);
 
             ethAmount -= swapFee;
+            commission = swapFee * price / 1 ether;
         }
 
         payable(msg.sender).transfer(ethAmount);
-        emit TokenZappedOut(msg.sender, user.amounts, ethAmount);
+        emit TokenZappedOut(msg.sender, user.amounts, ethAmount, commission);
         delete users[msg.sender];
     }
 
