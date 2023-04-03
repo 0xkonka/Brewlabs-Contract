@@ -19,11 +19,11 @@ contract BrewlabsIndexTest is Test {
     uint256 mainnetFork;
     string MAINNET_RPC_URL = "https://bsc-dataseed.binance.org/";
 
-    event TokenZappedIn(address indexed user, uint256 ethAmount, uint256[] percents, uint256[] amountOuts);
-    event TokenZappedOut(address indexed user, uint256 ethAmount, uint256[] amountOuts);
+    event TokenZappedIn(address indexed user, uint256 ethAmount, uint256[] percents, uint256[] amountOuts, uint256 usdAmount);
+    event TokenZappedOut(address indexed user, uint256[] amounts, uint256 ethAmount);
     event TokenClaimed(address indexed user, uint256[] amounts);
-    event TokenLocked(address indexed user, uint256[] amounts, uint256 ethAmount, uint256 tokenId);
-    event TokenUnLocked(address indexed user, uint256[] amounts, uint256 ethAmount, uint256 tokenId);
+    event TokenLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
+    event TokenUnLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
 
     event ServiceInfoUpadted(address addr, uint256 fee);
     event SetFee(uint256 fee);
@@ -59,24 +59,27 @@ contract BrewlabsIndexTest is Test {
         vm.deal(user, 10 ether);
         vm.startPrank(user);
 
+        uint256 price = index.getPriceFromChainlink();
+
         uint256[] memory _amounts;
         uint256[] memory percents = new uint256[](2);
         percents[0] = 5000;
         percents[1] = 5000;
         uint256 amount = 0.5 ether;
         vm.expectEmit(true, false, false, false);
-        emit TokenZappedIn(user, 0, _amounts, _amounts);
+        emit TokenZappedIn(user, 0, _amounts, percents, 0);
         index.zapIn{value: amount}(percents);
 
-        (uint256[] memory amounts, uint256 zappedEthAmount) = index.userInfo(user);
-        assertEq(zappedEthAmount, amount - (amount * index.fee()) / 10000);
+        (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
+
+        assertEq(usdAmount, (amount - (amount * index.fee()) / 10000) * price / 1 ether);
         assertEq(token0.balanceOf(address(index)), amounts[0]);
         assertEq(token1.balanceOf(address(index)), amounts[1]);
 
         assertEq(index.totalStaked(0), amounts[0]);
         assertEq(index.totalStaked(1), amounts[1]);
 
-        emit log_named_uint("zapped ETH", zappedEthAmount);
+        emit log_named_uint("USD Amount", usdAmount);
         emit log_named_uint("token0", amounts[0]);
         emit log_named_uint("token1", amounts[1]);
 
@@ -93,10 +96,11 @@ contract BrewlabsIndexTest is Test {
         percents[0] = 5000;
         percents[1] = 5000;
         index.zapIn{value: amount}(percents);
-        (uint256[] memory amounts, uint256 zappedEthAmount) = index.userInfo(user);
+        (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
 
         uint256 estimatedEthAmount = index.estimateEthforUser(user);
-        if (estimatedEthAmount > zappedEthAmount) {
+        uint256 price = index.getPriceFromChainlink();
+        if (estimatedEthAmount * price / 1 ether > usdAmount) {
             amounts[0] -= amounts[0] * index.fee() / 10000;
             amounts[1] -= amounts[1] * index.fee() / 10000;
         }
@@ -107,7 +111,7 @@ contract BrewlabsIndexTest is Test {
         utils.mineBlocks(10);
         vm.expectEmit(true, true, false, true);
         emit TokenClaimed(user, amounts);
-        index.claimTokens();
+        index.claimTokens(10000);
 
         assertEq(amounts[0], token0.balanceOf(user) - prevBalanceForToken0);
         assertEq(amounts[1], token1.balanceOf(user) - prevBalanceForToken1);
@@ -118,10 +122,10 @@ contract BrewlabsIndexTest is Test {
         assertEq(index.totalStaked(0), 0);
         assertEq(index.totalStaked(1), 0);
 
-        (amounts, zappedEthAmount) = index.userInfo(user);
+        (amounts, usdAmount) = index.userInfo(user);
         assertEq(amounts[0], 0);
         assertEq(amounts[1], 0);
-        assertEq(zappedEthAmount, 0);
+        assertEq(usdAmount, 0);
         vm.stopPrank();
     }
 
@@ -136,14 +140,14 @@ contract BrewlabsIndexTest is Test {
         percents[1] = 5000;
         index.zapIn{value: amount}(percents);
 
-        (uint256[] memory amounts, uint256 zappedEthAmount) = index.userInfo(user);
-        emit log_named_uint("zapped ETH", zappedEthAmount);
+        (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
+        emit log_named_uint("USD Amount", usdAmount);
         emit log_named_uint("token0", amounts[0]);
         emit log_named_uint("token1", amounts[1]);
 
         utils.mineBlocks(10);
         vm.expectEmit(true, false, false, false);
-        emit TokenZappedOut(user, 0, amounts);
+        emit TokenZappedOut(user, amounts, 0);
         index.zapOut();
 
         assertEq(token0.balanceOf(address(index)), 0);
@@ -152,10 +156,10 @@ contract BrewlabsIndexTest is Test {
         assertEq(index.totalStaked(0), 0);
         assertEq(index.totalStaked(1), 0);
 
-        (amounts, zappedEthAmount) = index.userInfo(user);
+        (amounts, usdAmount) = index.userInfo(user);
         assertEq(amounts[0], 0);
         assertEq(amounts[1], 0);
-        assertEq(zappedEthAmount, 0);
+        assertEq(usdAmount, 0);
         vm.stopPrank();
     }
 
@@ -169,7 +173,7 @@ contract BrewlabsIndexTest is Test {
         percents[0] = 5000;
         percents[1] = 5000;
         index.zapIn{value: amount}(percents);
-        (uint256[] memory amounts, uint256 zappedEthAmount) = index.userInfo(user);
+        (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
 
         utils.mineBlocks(10);
         vm.expectEmit(true, false, false, false);
@@ -183,15 +187,15 @@ contract BrewlabsIndexTest is Test {
         (, uint256[] memory _amounts, uint256 _ethAmount) = index.nftInfo(tokenId);
         assertEq(_amounts[0], amounts[0]);
         assertEq(_amounts[1], amounts[1]);
-        assertEq(_ethAmount, zappedEthAmount);
+        assertEq(_ethAmount, usdAmount);
 
         assertEq(index.totalStaked(0), amounts[0]);
         assertEq(index.totalStaked(1), amounts[1]);
 
-        (amounts, zappedEthAmount) = index.userInfo(user);
+        (amounts, usdAmount) = index.userInfo(user);
         assertEq(amounts[0], 0);
         assertEq(amounts[1], 0);
-        assertEq(zappedEthAmount, 0);
+        assertEq(usdAmount, 0);
         vm.stopPrank();
     }
 
@@ -221,10 +225,10 @@ contract BrewlabsIndexTest is Test {
         assertEq(index.totalStaked(0), _amounts[0]);
         assertEq(index.totalStaked(1), _amounts[1]);
 
-        (uint256[] memory amounts, uint256 zappedEthAmount) = index.userInfo(user);
+        (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
         assertEq(amounts[0], _amounts[0]);
         assertEq(amounts[1], _amounts[1]);
-        assertEq(zappedEthAmount, _ethAmount);
+        assertEq(usdAmount, _ethAmount);
         vm.stopPrank();
     }
 }
