@@ -65,7 +65,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
         payingToken = token;
         serviceFee = price;
-        treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
+        treasury = indexOwner;
         indexDefaultOwner = indexOwner;
 
         indexNft = nft;
