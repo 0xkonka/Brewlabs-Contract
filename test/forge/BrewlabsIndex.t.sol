@@ -28,7 +28,7 @@ contract BrewlabsIndexTest is Test {
         uint256 commission
     );
     event TokenZappedOut(address indexed user, uint256[] amounts, uint256 ethAmount, uint256 commission);
-    event TokenClaimed(address indexed user, uint256[] amounts, uint256 commission);
+    event TokenClaimed(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 commission);
     event TokenLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
     event TokenUnLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
 
@@ -116,8 +116,8 @@ contract BrewlabsIndexTest is Test {
         uint256 prevBalanceForToken1 = token1.balanceOf(user);
 
         utils.mineBlocks(10);
-        vm.expectEmit(true, true, false, true);
-        emit TokenClaimed(user, amounts, 0);
+        vm.expectEmit(true, false, false, false);
+        emit TokenClaimed(user, amounts, 0, 0);
         index.claimTokens(10000);
 
         assertEq(amounts[0], token0.balanceOf(user) - prevBalanceForToken0);

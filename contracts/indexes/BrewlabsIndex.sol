@@ -71,7 +71,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         uint256 commission
     );
     event TokenZappedOut(address indexed user, uint256[] amounts, uint256 ethAmount, uint256 commission);
-    event TokenClaimed(address indexed user, uint256[] amounts, uint256 commission);
+    event TokenClaimed(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 commission);
     event TokenLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
     event TokenUnLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
 
@@ -164,10 +164,9 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         }
         uint256 price = getPriceFromChainlink();
         uint256 usdAmount = amount * price / 1 ether;
-        uint256 commission = buyingFee * price / 1 ether;
 
         user.usdAmount += usdAmount;
-        emit TokenZappedIn(msg.sender, amount, _percents, amountOuts, usdAmount, commission);
+        emit TokenZappedIn(msg.sender, amount, _percents, amountOuts, usdAmount, buyingFee);
 
         if (totalPercentage < PERCENTAGE_PRECISION) {
             payable(msg.sender).transfer(ethAmount * (PERCENTAGE_PRECISION - totalPercentage) / PERCENTAGE_PRECISION);
@@ -208,9 +207,9 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             commission = (expectedAmt * _percent) / PERCENTAGE_PRECISION;
             commission = (commission * fee) / PERCENTAGE_PRECISION;
         }
-
-        user.usdAmount -= (user.usdAmount * _percent) / PERCENTAGE_PRECISION;
-        emit TokenClaimed(msg.sender, amounts, commission);
+        uint256 claimedUsdAmount = (user.usdAmount * _percent) / PERCENTAGE_PRECISION;
+        user.usdAmount -= claimedUsdAmount;
+        emit TokenClaimed(msg.sender, amounts, claimedUsdAmount, commission);
     }
 
     /**
@@ -231,18 +230,17 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             ethAmount += amountOut;
         }
 
+        uint256 swapFee = 0;
         uint256 price = getPriceFromChainlink();
-        uint256 commission = 0;
         if ((ethAmount * price / 1 ether) > user.usdAmount) {
-            uint256 swapFee = (ethAmount * fee) / PERCENTAGE_PRECISION;
+            swapFee = (ethAmount * fee) / PERCENTAGE_PRECISION;
             payable(feeWallet).transfer(swapFee);
 
             ethAmount -= swapFee;
-            commission = swapFee * price / 1 ether;
         }
 
         payable(msg.sender).transfer(ethAmount);
-        emit TokenZappedOut(msg.sender, user.amounts, ethAmount, commission);
+        emit TokenZappedOut(msg.sender, user.amounts, ethAmount, swapFee);
         delete users[msg.sender];
     }
 
