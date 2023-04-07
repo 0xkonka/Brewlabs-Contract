@@ -7,8 +7,9 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-import "../libs/IUniRouter02.sol";
 import "../libs/AggregatorV3Interface.sol";
+import "../libs/IUniRouter02.sol";
+import "../libs/IWETH.sol";
 
 interface IBrewlabsIndexNft is IERC721 {
     function mint(address to) external returns (uint256);
@@ -32,6 +33,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
     uint256 private PERCENTAGE_PRECISION;
     address private PRICE_FEED;
+    address public WBNB;
 
     IERC721 public nft;
     IERC20[] public tokens;
@@ -109,6 +111,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         // initialize default variables
         PERCENTAGE_PRECISION = 10000;
         PRICE_FEED = 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE; // BNB-USD FEED
+        WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
         NUM_TOKENS = _tokens.length;
 
         fee = 25;
@@ -152,7 +155,12 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             uint256 amountIn = (ethAmount * _percents[i]) / PERCENTAGE_PRECISION;
             if (amountIn == 0) continue;
 
-            amountOuts[i] = _safeSwapEth(amountIn, getSwapPath(i, true), address(this));
+            if(address(tokens[i]) == WBNB) {
+                IWETH(WBNB).deposit{value: amountIn}();
+                amountOuts[i] = amountIn;
+            } else {
+                amountOuts[i] = _safeSwapEth(amountIn, getSwapPath(i, true), address(this));
+            }
 
             if (user.amounts.length == 0) {
                 user.amounts = new uint256[](NUM_TOKENS);
@@ -194,9 +202,9 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             uint256 claimFee = 0;
             if ((expectedAmt * price / 1 ether) > user.usdAmount) {
                 claimFee = (claimAmount * fee) / PERCENTAGE_PRECISION;
-                tokens[i].safeTransfer(feeWallet, claimFee);
+                _transferToken(tokens[i], feeWallet, claimFee);
             }
-            tokens[i].safeTransfer(msg.sender, claimAmount - claimFee);
+            _transferToken(tokens[i], msg.sender, claimAmount - claimFee);
 
             user.amounts[i] -= claimAmount;
             totalStaked[i] -= claimAmount;
@@ -226,7 +234,13 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             uint256 claimAmount = user.amounts[i];
             totalStaked[i] -= claimAmount;
 
-            uint256 amountOut = _safeSwapForETH(claimAmount, getSwapPath(i, false));
+            uint256 amountOut;
+            if(address(tokens[i]) == WBNB) {
+                amountOut = claimAmount;
+                IWETH(WBNB).withdraw(amountOut);
+            } else {
+                amountOut = _safeSwapForETH(claimAmount, getSwapPath(i, false));
+            }
             ethAmount += amountOut;
         }
 
@@ -451,6 +465,15 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     function _transferPerformanceFee() internal {
         require(msg.value >= performanceFee, "Should pay small gas to call method");
         payable(treasury).transfer(performanceFee);
+    }
+
+    function _transferToken(IERC20 _token, address _to, uint256 _amount) internal {
+        if(address(_token) == WBNB) {
+            IWETH(WBNB).withdraw(_amount);
+            payable(_to).transfer(_amount);
+        } else {
+            _token.safeTransfer(_to, _amount);
+        }
     }
 
     /**
