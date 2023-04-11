@@ -189,7 +189,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
     /**
      * @notice Deposit staked tokens and collect reward tokens (if any)
-     * @param _amount: amount to withdraw (in earnedToken)
+     * @param _amount: amount to deposit (in staking token)
      */
     function deposit(uint256 _amount) external payable nonReentrant {
         require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
@@ -262,7 +262,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
     /**
      * @notice Withdraw staked tokens and collect reward tokens
-     * @param _amount: amount to withdraw (in earnedToken)
+     * @param _amount: amount to withdraw (in staking token)
      */
     function withdraw(uint256 _amount) external payable nonReentrant {
         require(_amount > 0, "Amount should be greator than 0");
