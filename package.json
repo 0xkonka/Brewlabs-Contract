@@ -11,7 +11,7 @@
     "deploy_eth_mainnet": "npx hardhat deploy --network eth_mainnet",
     "deploy_bsc_mainnet": "npx hardhat deploy --network bsc_mainnet",
     "deploy_bsc_testnet": "npx hardhat deploy --network bsc_testnet",
-    "deploy_polygon": "npx hardhat deploy --network matic",
+    "deploy_polygon": "npx hardhat deploy --network polygon",
     "deploy_local": "npx hardhat deploy --network localhost --reset",
     "forge_coverage": "forge coverage",
     "forge_test": "forge test",

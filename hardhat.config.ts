@@ -77,7 +77,7 @@ module.exports = {
       accounts: [accountPrivateKey["test"]],
     },
 
-    matic: {
+    polygon: {
       url: `https://polygon-rpc.com`,
       chainId: 137,
       //gasPrice: 20000000000,
