@@ -117,7 +117,9 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
 
         string memory base = _baseURI();
         string memory description = string(
-            abi.encodePacked('"description": "', name(), " #", tokenId.toString(), ': Brewlabs Index NFT description"')
+            abi.encodePacked(
+                '"description": "Brewlabs Index NFTs represent  users fractionalised ownership of a particular basket of tokens(Index)."'
+            )
         );
 
         IBrewlabsIndex _index = IBrewlabsIndex(index[tokenId]);
@@ -157,6 +159,8 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
             abi.encodePacked(
                 '{"name": "',
                 name(),
+                " #",
+                tokenId.toString(),
                 '", ',
                 description,
                 ', "image": "',

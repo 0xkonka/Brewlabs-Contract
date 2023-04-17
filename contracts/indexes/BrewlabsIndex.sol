@@ -155,7 +155,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             uint256 amountIn = (ethAmount * _percents[i]) / PERCENTAGE_PRECISION;
             if (amountIn == 0) continue;
 
-            if(address(tokens[i]) == WBNB) {
+            if (address(tokens[i]) == WBNB) {
                 IWETH(WBNB).deposit{value: amountIn}();
                 amountOuts[i] = amountIn;
             } else {
@@ -235,7 +235,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             totalStaked[i] -= claimAmount;
 
             uint256 amountOut;
-            if(address(tokens[i]) == WBNB) {
+            if (address(tokens[i]) == WBNB) {
                 amountOut = claimAmount;
                 IWETH(WBNB).withdraw(amountOut);
             } else {
@@ -468,7 +468,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     }
 
     function _transferToken(IERC20 _token, address _to, uint256 _amount) internal {
-        if(address(_token) == WBNB) {
+        if (address(_token) == WBNB) {
             IWETH(WBNB).withdraw(_amount);
             payable(_to).transfer(_amount);
         } else {
