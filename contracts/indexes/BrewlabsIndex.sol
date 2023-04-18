@@ -484,8 +484,13 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         amountOut = 0;
         for (uint8 i = 0; i < NUM_TOKENS; i++) {
             if (amounts[i] == 0) continue;
-            uint256[] memory _amounts = IUniRouter02(swapRouter).getAmountsOut(amounts[i], getSwapPath(i, false));
-            amountOut += _amounts[_amounts.length - 1];
+            
+            if (address(tokens[i]) == WBNB) {
+                amountOut += amounts[i];
+            } else {
+                uint256[] memory _amounts = IUniRouter02(swapRouter).getAmountsOut(amounts[i], getSwapPath(i, false));
+                amountOut += _amounts[_amounts.length - 1];
+            }
         }
     }
 
