@@ -22,7 +22,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
 
     // The staked token
     IERC20 public lpToken;
-    IERC20 public earnedToken;
+    IERC20 public rewardToken;
     // The dividend token of lpToken token
     address public dividendToken;
 
@@ -107,9 +107,9 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     /**
      * @notice Initialize the contract
      * @param _lpToken: LP address
-     * @param _earnedToken: earned token address
+     * @param _rewardToken: earned token address
      * @param _dividendToken: reflection token address
-     * @param _rewardPerBlock: reward per block (in earnedToken)
+     * @param _rewardPerBlock: reward per block (in rewardToken)
      * @param _depositFee: deposit fee
      * @param _withdrawFee: withdraw fee
      * @param _hasDividend: reflection available flag
@@ -117,7 +117,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
      */
     function initialize(
         IERC20 _lpToken,
-        IERC20 _earnedToken,
+        IERC20 _rewardToken,
         address _dividendToken,
         uint256 _rewardPerBlock,
         uint256 _depositFee,
@@ -143,7 +143,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         performanceFee = 0.0035 ether;
 
         lpToken = _lpToken;
-        earnedToken = _earnedToken;
+        rewardToken = _rewardToken;
         dividendToken = _dividendToken;
 
         hasDividend = _hasDividend;
@@ -177,7 +177,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
                 paidRewards = paidRewards + pending;
 
                 pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-                earnedToken.safeTransfer(address(msg.sender), pending);
+                rewardToken.safeTransfer(address(msg.sender), pending);
                 if (totalEarned > pending) {
                     totalEarned = totalEarned - pending;
                 } else {
@@ -239,7 +239,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
             paidRewards = paidRewards + pending;
 
             pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-            earnedToken.safeTransfer(address(msg.sender), pending);
+            rewardToken.safeTransfer(address(msg.sender), pending);
             if (totalEarned > pending) {
                 totalEarned = totalEarned - pending;
             } else {
@@ -290,7 +290,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
             paidRewards = paidRewards + pending;
 
             pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-            earnedToken.safeTransfer(msg.sender, pending);
+            rewardToken.safeTransfer(msg.sender, pending);
             if (totalEarned > pending) {
                 totalEarned = totalEarned - pending;
             } else {
@@ -346,16 +346,16 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
             }
             emit Compound(msg.sender, pending);
 
-            if (address(lpToken) != address(earnedToken)) {
+            if (address(lpToken) != address(rewardToken)) {
                 uint256 tokenAmt = pending / 2;
                 uint256 tokenAmt0 = tokenAmt;
-                address token0 = address(earnedToken);
+                address token0 = address(rewardToken);
                 if (swapSettings.earnedToToken0.length > 0) {
                     token0 = swapSettings.earnedToToken0[swapSettings.earnedToToken0.length - 1];
                     tokenAmt0 = _safeSwap(tokenAmt, swapSettings.earnedToToken0, address(this));
                 }
                 uint256 tokenAmt1 = tokenAmt;
-                address token1 = address(earnedToken);
+                address token1 = address(rewardToken);
                 if (swapSettings.earnedToToken1.length > 0) {
                     token1 = swapSettings.earnedToToken1[swapSettings.earnedToToken1.length - 1];
                     tokenAmt1 = _safeSwap(tokenAmt, swapSettings.earnedToToken1, address(this));
@@ -439,7 +439,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     function _calculateTotalStaked(uint256 _amount, bool _deposit) internal {
         if (_deposit) {
             totalStaked = totalStaked + _amount;
-            if (address(lpToken) == address(earnedToken)) {
+            if (address(lpToken) == address(rewardToken)) {
                 totalRewardStaked = totalRewardStaked + _amount;
             }
             if (address(lpToken) == dividendToken) {
@@ -447,7 +447,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
             }
         } else {
             totalStaked = totalStaked - _amount;
-            if (address(lpToken) == address(earnedToken)) {
+            if (address(lpToken) == address(rewardToken)) {
                 if (totalRewardStaked < _amount) totalRewardStaked = _amount;
                 totalRewardStaked = totalRewardStaked - _amount;
             }
@@ -481,9 +481,9 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
      * @notice Available amount of reward token
      */
     function availableRewardTokens() public view returns (uint256) {
-        if (address(earnedToken) == dividendToken && hasDividend) return totalEarned;
+        if (address(rewardToken) == dividendToken && hasDividend) return totalEarned;
 
-        uint256 _amount = earnedToken.balanceOf(address(this));
+        uint256 _amount = rewardToken.balanceOf(address(this));
         return _amount - totalRewardStaked;
     }
 
@@ -497,7 +497,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         }
 
         uint256 _amount = IERC20(dividendToken).balanceOf(address(this));
-        if (dividendToken == address(earnedToken)) {
+        if (dividendToken == address(rewardToken)) {
             if (_amount < totalEarned) return 0;
             _amount = _amount - totalEarned;
         }
@@ -562,7 +562,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
      * Admin Methods
      */
     function transferToHarvest() external onlyOwner {
-        if (hasDividend || address(earnedToken) == dividendToken) return;
+        if (hasDividend || address(rewardToken) == dividendToken) return;
 
         if (dividendToken == address(0x0)) {
             payable(treasury).transfer(address(this).balance);
@@ -579,9 +579,9 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     function depositRewards(uint256 _amount) external onlyOwner nonReentrant {
         require(_amount > 0, "invalid amount");
 
-        uint256 beforeAmt = earnedToken.balanceOf(address(this));
-        earnedToken.safeTransferFrom(msg.sender, address(this), _amount);
-        uint256 afterAmt = earnedToken.balanceOf(address(this));
+        uint256 beforeAmt = rewardToken.balanceOf(address(this));
+        rewardToken.safeTransferFrom(msg.sender, address(this), _amount);
+        uint256 afterAmt = rewardToken.balanceOf(address(this));
 
         totalEarned = totalEarned + afterAmt - beforeAmt;
     }
@@ -593,9 +593,9 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
 
         _updatePool();
 
-        uint256 beforeAmt = earnedToken.balanceOf(address(this));
-        earnedToken.safeTransferFrom(msg.sender, address(this), _amount);
-        uint256 afterAmt = earnedToken.balanceOf(address(this));
+        uint256 beforeAmt = rewardToken.balanceOf(address(this));
+        rewardToken.safeTransferFrom(msg.sender, address(this), _amount);
+        uint256 afterAmt = rewardToken.balanceOf(address(this));
 
         totalEarned = totalEarned + afterAmt - beforeAmt;
         _updateRewardRate();
@@ -623,7 +623,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         require(availableRewardTokens() >= _amount, "Insufficient reward tokens");
 
         if (_amount == 0) _amount = availableRewardTokens();
-        earnedToken.safeTransfer(address(msg.sender), _amount);
+        rewardToken.safeTransfer(address(msg.sender), _amount);
 
         if (totalEarned > 0) {
             if (_amount > totalEarned) {
@@ -651,7 +651,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
      */
     function recoverWrongTokens(address _token) external onlyOwner {
         require(
-            _token != address(earnedToken) && _token != dividendToken, "cannot recover reward token or reflection token"
+            _token != address(rewardToken) && _token != dividendToken, "cannot recover reward token or reflection token"
         );
         require(_token != address(lpToken), "token is using on pool");
 
@@ -685,7 +685,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
             remainRewards = remainRewards - shouldTotalPaid;
-            earnedToken.transfer(msg.sender, remainRewards);
+            rewardToken.transfer(msg.sender, remainRewards);
 
             if (totalEarned > remainRewards) {
                 totalEarned = totalEarned - remainRewards;
