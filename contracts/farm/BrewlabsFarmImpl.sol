@@ -8,54 +8,70 @@ import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import "../libs/IUniRouter02.sol";
 import "../libs/IWETH.sol";
 
-// BrewlabsFarm is the master of earnedToken. He can make earnedToken and he is a fair guy.
-//
-// Note that it's ownable and the owner wields tremendous power. The ownership
-// will be transferred to a governance smart contract once earnedToken is sufficiently
-// distributed and the community can show to govern itself.
-//
-// Have fun reading it. Hopefully it's bug-free. God bless.
 contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // Whether it is initialized
     bool private isInitialized;
 
-    // Info of each user.
+    uint256 private BLOCKS_PER_DAY;
+    uint256 private PERCENT_PRECISION;
+    uint256 public PRECISION_FACTOR;
+    uint256 public MAX_FEE;
+    // The precision factor
+
+    // The staked token
+    IERC20 public lpToken;
+    IERC20 public earnedToken;
+    // The dividend token of lpToken token
+    address public dividendToken;
+
+    bool public hasDividend;
+    bool public autoAdjustableForRewardRate = false;
+
+    uint256 public duration;
+    // The block number when staking starts.
+    uint256 public startBlock;
+    // The block number when staking ends.
+    uint256 public bonusEndBlock;
+    // tokens created per block.
+    uint256 public rewardPerBlock;
+    // The block number of the last pool update
+    uint256 public lastRewardBlock;
+    // Accrued token per share
+    uint256 public accTokenPerShare;
+    uint256 public accDividendPerShare;
+    // The deposit & withdraw fee
+    uint256 public depositFee;
+    uint256 public withdrawFee;
+
+    // service fees
+    address public feeAddress;
+    address public treasury;
+    uint256 public performanceFee;
+    uint256 public rewardFee;
+
     struct UserInfo {
-        uint256 amount; // How many LP tokens the user has provided.
-        uint256 rewardDebt; // Reward debt. See explanation below.
-        uint256 reflectionDebt; // Reflection debt. See explanation below.
-            //
-            // We do some fancy math here. Basically, any point in time, the amount of tokens
-            // entitled to a user but is pending to be distributed is:
-            //
-            //   pending reward = (user.amount * pool.accTokenPerShare) - user.rewardDebt
-            //
-            // Whenever a user deposits or withdraws LP tokens to a pool. Here's what happens:
-            //   1. The pool's `accTokenPerShare` (and `lastRewardBlock`) gets updated.
-            //   2. User receives the pending reward sent to his/her address.
-            //   3. User's `amount` gets updated.
-            //   4. User's `rewardDebt` gets updated.
+        uint256 amount; // How many staked lp the user has provided
+        uint256 rewardDebt; // Reward debt
+        uint256 reflectionDebt; // Reflection debt
     }
+    // Info of each user that stakes lpToken
 
-    // Info of each pool.
-    struct PoolInfo {
-        IERC20 lpToken; // Address of LP token contract.
-        uint256 allocPoint; // How many allocation points assigned to this pool. tokens to distribute per block.
-        uint256 duration;
-        uint256 startBlock;
-        uint256 bonusEndBlock;
-        uint256 lastRewardBlock; // Last block number that tokens distribution occurs.
-        uint256 accTokenPerShare; // Accumulated tokens per share, times 1e12. See below.
-        uint256 accReflectionPerShare; // Accumulated tokens per share, times 1e12. See below.
-        uint256 lastReflectionPerPoint;
-        uint16 depositFee; // Deposit fee in basis points
-        uint16 withdrawFee; // Deposit fee in basis points
-    }
+    mapping(address => UserInfo) public userInfo;
 
+    uint256 public totalStaked;
+    uint256 private totalEarned;
+    uint256 private totalReflections;
+    uint256 private totalRewardStaked;
+    uint256 private totalReflectionStaked;
+    uint256 private reflectionDebt;
+
+    uint256 private paidRewards;
+    uint256 private shouldTotalPaid;
+
+    // swap router and path
     struct SwapSetting {
-        IERC20 lpToken;
         address swapRouter;
         address[] earnedToToken0;
         address[] earnedToToken1;
@@ -64,644 +80,355 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         bool enabled;
     }
 
-    // The earnedToken TOKEN!
-    IERC20 public earnedToken;
-    // Reflection Token
-    address public reflectionToken;
-    uint256 public accReflectionPerPoint;
-    bool public hasDividend;
-    bool public autoAdjustableForRewardRate = false;
+    SwapSetting public swapSettings;
 
-    // earnedToken tokens created per block.
-    uint256 public rewardPerBlock;
-    // Bonus muliplier for early earnedToken makers.
-    uint256 public BONUS_MULTIPLIER;
-    uint256 public PERCENT_PRECISION;
-    uint256 private BLOCKS_PER_DAY;
+    event Deposit(address indexed user, uint256 amount);
+    event Withdraw(address indexed user, uint256 amount);
+    event Claim(address indexed user, uint256 amount);
+    event ClaimDividend(address indexed user, uint256 amount);
+    event Compound(address indexed user, uint256 amount);
+    event CompoundDividend(address indexed user, uint256 amount);
+    event EmergencyWithdraw(address indexed user, uint256 amount);
+    event AdminTokenRecovered(address tokenRecovered, uint256 amount);
 
-    // Deposit Fee address
-    address public feeAddress;
-    address public treasury;
-    uint256 public performanceFee;
-    uint256 public rewardFee;
+    event NewStartAndEndBlocks(uint256 startBlock, uint256 endBlock);
+    event NewRewardPerBlock(uint256 rewardPerBlock);
+    event RewardsStop(uint256 blockNumber);
+    event EndBlockUpdated(uint256 blockNumber);
 
-    // Info of each pool.
-    PoolInfo[] public poolInfo;
-    SwapSetting[] public swapSettings;
-    uint256[] public totalStaked;
-
-    // Info of each user that stakes LP tokens.
-    mapping(uint256 => mapping(address => UserInfo)) public userInfo;
-    // Total allocation points. Must be the sum of all allocation points in all pools.
-    uint256 public totalAllocPoint;
-    // The block number when earnedToken mining starts.
-    uint256 public startBlock;
-
-    uint256 private totalEarned;
-    uint256 private totalRewardStaked;
-    uint256 private totalReflectionStaked;
-    uint256 private totalReflections;
-    uint256 private reflectionDebt;
-
-    uint256 public paidRewards;
-    uint256 private shouldTotalPaid;
-
-    event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
-    event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
-    event Claim(address indexed user, uint256 indexed pid, uint256 amount);
-    event ClaimDividend(address indexed user, uint256 indexed pid, uint256 amount);
-    event Compound(address indexed user, uint256 indexed pid, uint256 amount);
-    event CompoundDividend(address indexed user, uint256 indexed pid, uint256 amount);
-    event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
-    event SetPool(
-        uint256 pid,
-        address indexed lpToken,
-        uint256 allocPoint,
-        uint256 duration,
-        uint256 depositFee,
-        uint256 withdrawFee,
-        uint256 startBlock,
-        uint256 endBlock
-    );
-    event SetFeeAddress(address indexed user, address indexed newAddress);
-    event SetBuyBackWallet(address indexed user, address newAddress);
-    event SetPerformanceFee(uint256 fee);
-    event SetRewardFee(uint256 fee);
+    event ServiceInfoUpadted(address addr, uint256 fee);
+    event DurationUpdated(uint256 duration);
     event SetAutoAdjustableForRewardRate(bool status);
-    event UpdateEmissionRate(address indexed user, uint256 rewardPerBlock);
 
-    mapping(IERC20 => bool) public poolExistence;
-
-    modifier nonDuplicated(IERC20 _lpToken) {
-        require(poolExistence[_lpToken] == false, "nonDuplicated: duplicated");
-        _;
-    }
+    event SetSettings(uint256 depositFee, uint256 withdrawFee, address feeAddr);
 
     constructor() {}
 
     /**
-     * @notice Initialize index contract.
-     * @param _brews: earning token
-     * @param _reflectionToken: dividend token
-     * @param _rewardPerBlock: reward per block
-     * @param _hasDividend: dividend flag
+     * @notice Initialize the contract
+     * @param _lpToken: LP address
+     * @param _earnedToken: earned token address
+     * @param _dividendToken: reflection token address
+     * @param _rewardPerBlock: reward per block (in earnedToken)
+     * @param _depositFee: deposit fee
+     * @param _withdrawFee: withdraw fee
+     * @param _hasDividend: reflection available flag
      * @param _owner: owner address
      */
     function initialize(
-        IERC20 _brews,
-        address _reflectionToken,
+        IERC20 _lpToken,
+        IERC20 _earnedToken,
+        address _dividendToken,
         uint256 _rewardPerBlock,
+        uint256 _depositFee,
+        uint256 _withdrawFee,
         bool _hasDividend,
         address _owner
-    ) external {
+    ) external onlyOwner {
         require(!isInitialized, "Already initialized");
         require(owner() == address(0x0) || msg.sender == owner(), "Not allowed");
 
-        // initialize default variables
+        // Make this contract initialized
         isInitialized = true;
 
-        BONUS_MULTIPLIER = 1;
         PERCENT_PRECISION = 10000;
         BLOCKS_PER_DAY = 28800;
+        MAX_FEE = 2000;
+        PRECISION_FACTOR = 10 ** 18;
 
-        performanceFee = 0.0035 ether;
+        duration = 365; // 365 days
+
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         feeAddress = _owner;
+        performanceFee = 0.0035 ether;
 
-        earnedToken = _brews;
-        reflectionToken = _reflectionToken;
-        rewardPerBlock = _rewardPerBlock;
+        lpToken = _lpToken;
+        earnedToken = _earnedToken;
+        dividendToken = _dividendToken;
+
         hasDividend = _hasDividend;
+        rewardPerBlock = _rewardPerBlock;
 
-        startBlock = block.number + 30 * BLOCKS_PER_DAY; // after 30 days
+        require(_depositFee < MAX_FEE, "Invalid deposit fee");
+        require(_withdrawFee < MAX_FEE, "Invalid withdraw fee");
+        depositFee = _depositFee;
+        withdrawFee = _withdrawFee;
 
         _transferOwnership(_owner);
     }
 
-    function poolLength() external view returns (uint256) {
-        return poolInfo.length;
-    }
+    /**
+     * @notice Deposit LP tokens and collect reward tokens (if any)
+     * @param _amount: amount to stake (in lp token)
+     */
+    function deposit(uint256 _amount) external payable nonReentrant {
+        require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
+        require(_amount > 0, "Amount should be greator than 0");
 
-    // Add a new lp to the pool. Can only be called by the owner.
-    function add(
-        uint256 _allocPoint,
-        IERC20 _lpToken,
-        uint16 _depositFee,
-        uint16 _withdrawFee,
-        uint256 _duration,
-        bool _withUpdate
-    ) external onlyOwner nonDuplicated(_lpToken) {
-        require(_depositFee <= PERCENT_PRECISION, "add: invalid deposit fee basis points");
-        require(_withdrawFee <= PERCENT_PRECISION, "add: invalid withdraw fee basis points");
-
-        if (_withUpdate) {
-            massUpdatePools();
-        }
-
-        uint256 lastRewardBlock = block.number > startBlock ? block.number : startBlock;
-        totalAllocPoint = totalAllocPoint + _allocPoint;
-        poolExistence[_lpToken] = true;
-        poolInfo.push(
-            PoolInfo({
-                lpToken: _lpToken,
-                allocPoint: _allocPoint,
-                duration: _duration,
-                startBlock: lastRewardBlock,
-                bonusEndBlock: lastRewardBlock + _duration * BLOCKS_PER_DAY,
-                lastRewardBlock: lastRewardBlock,
-                accTokenPerShare: 0,
-                accReflectionPerShare: 0,
-                lastReflectionPerPoint: 0,
-                depositFee: _depositFee,
-                withdrawFee: _withdrawFee
-            })
-        );
-
-        swapSettings.push();
-        swapSettings[swapSettings.length - 1].lpToken = _lpToken;
-
-        totalStaked.push(0);
-        emit SetPool(
-            poolInfo.length - 1,
-            address(_lpToken),
-            _allocPoint,
-            _duration,
-            _depositFee,
-            _withdrawFee,
-            lastRewardBlock,
-            lastRewardBlock + _duration * BLOCKS_PER_DAY
-            );
-    }
-
-    // Update the given pool's earnedToken allocation point and deposit fee. Can only be called by the owner.
-    function set(
-        uint256 _pid,
-        uint256 _allocPoint,
-        uint16 _depositFee,
-        uint16 _withdrawFee,
-        uint256 _duration,
-        bool _withUpdate
-    ) external onlyOwner {
-        require(_depositFee <= PERCENT_PRECISION, "set: invalid deposit fee basis points");
-        require(_withdrawFee <= PERCENT_PRECISION, "set: invalid withdraw fee basis points");
-        if (poolInfo[_pid].bonusEndBlock > block.number) {
-            require(poolInfo[_pid].startBlock + _duration * BLOCKS_PER_DAY > block.number, "set: invalid duration");
-        }
-
-        if (_withUpdate) {
-            massUpdatePools();
-        }
-
-        totalAllocPoint = totalAllocPoint - poolInfo[_pid].allocPoint + _allocPoint;
-
-        poolInfo[_pid].allocPoint = _allocPoint;
-        poolInfo[_pid].depositFee = _depositFee;
-        poolInfo[_pid].withdrawFee = _withdrawFee;
-        poolInfo[_pid].duration = _duration;
-
-        if (poolInfo[_pid].bonusEndBlock < block.number) {
-            if (!_withUpdate) updatePool(_pid);
-
-            poolInfo[_pid].startBlock = block.number;
-            poolInfo[_pid].bonusEndBlock = block.number + _duration * BLOCKS_PER_DAY;
-        } else {
-            poolInfo[_pid].bonusEndBlock = poolInfo[_pid].startBlock + _duration * BLOCKS_PER_DAY;
-        }
-        emit SetPool(
-            _pid,
-            address(poolInfo[_pid].lpToken),
-            _allocPoint,
-            _duration,
-            _depositFee,
-            _withdrawFee,
-            poolInfo[_pid].startBlock,
-            poolInfo[_pid].bonusEndBlock
-            );
-    }
-
-    // Update the given pool's compound parameters. Can only be called by the owner.
-    function setSwapSetting(
-        uint256 _pid,
-        address _uniRouter,
-        address[] memory _earnedToToken0,
-        address[] memory _earnedToToken1,
-        address[] memory _reflectionToToken0,
-        address[] memory _reflectionToToken1,
-        bool _enabled
-    ) external onlyOwner {
-        SwapSetting storage swapSetting = swapSettings[_pid];
-
-        swapSetting.enabled = _enabled;
-        swapSetting.swapRouter = _uniRouter;
-        swapSetting.earnedToToken0 = _earnedToToken0;
-        swapSetting.earnedToToken1 = _earnedToToken1;
-        swapSetting.reflectionToToken0 = _reflectionToToken0;
-        swapSetting.reflectionToToken1 = _reflectionToToken1;
-    }
-
-    // Return reward multiplier over the given _from to _to block.
-    function getMultiplier(uint256 _from, uint256 _to, uint256 _endBlock) public view returns (uint256) {
-        if (_from > _endBlock) return 0;
-        if (_to > _endBlock) {
-            return (_endBlock - _from) * BONUS_MULTIPLIER;
-        }
-
-        return (_to - _from) * BONUS_MULTIPLIER;
-    }
-
-    // View function to see pending earnedToken on frontend.
-    function pendingRewards(uint256 _pid, address _user) external view returns (uint256) {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][_user];
-
-        uint256 accTokenPerShare = pool.accTokenPerShare;
-        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-        if (block.number > pool.lastRewardBlock && lpSupply > 0 && totalAllocPoint > 0) {
-            uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number, pool.bonusEndBlock);
-            uint256 reward = (multiplier * rewardPerBlock * pool.allocPoint) / totalAllocPoint;
-            accTokenPerShare += (reward * 1e12) / lpSupply;
-        }
-        return (user.amount * accTokenPerShare) / 1e12 - user.rewardDebt;
-    }
-
-    function pendingReflections(uint256 _pid, address _user) external view returns (uint256) {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][_user];
-
-        uint256 accReflectionPerShare = pool.accReflectionPerShare;
-        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-        if (reflectionToken == address(pool.lpToken)) lpSupply = totalReflectionStaked;
-        if (block.number > pool.lastRewardBlock && lpSupply > 0 && hasDividend && totalAllocPoint > 0) {
-            uint256 reflectionAmt = availableDividendTokens();
-            if (reflectionAmt > totalReflections) {
-                reflectionAmt -= totalReflections;
-            } else {
-                reflectionAmt = 0;
-            }
-
-            uint256 _accReflectionPerPoint = accReflectionPerPoint + (reflectionAmt * 1e12) / totalAllocPoint;
-
-            accReflectionPerShare = pool.accReflectionPerShare
-                + ((pool.allocPoint * (_accReflectionPerPoint - pool.lastReflectionPerPoint)) / lpSupply);
-        }
-        return (user.amount * accReflectionPerShare) / 1e12 - user.reflectionDebt;
-    }
-
-    // Update reward variables for all pools. Be careful of gas spending!
-    function massUpdatePools() public {
-        uint256 length = poolInfo.length;
-        for (uint256 pid = 0; pid < length; pid++) {
-            updatePool(pid);
-        }
-    }
-
-    // Update reward variables of the given pool to be up-to-date.
-    function updatePool(uint256 _pid) public {
-        PoolInfo storage pool = poolInfo[_pid];
-        if (block.number <= pool.lastRewardBlock) {
-            return;
-        }
-        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-        if (address(pool.lpToken) == address(earnedToken)) lpSupply = totalRewardStaked;
-        if (address(pool.lpToken) == reflectionToken) lpSupply = totalReflectionStaked;
-        if (lpSupply == 0 || pool.allocPoint == 0) {
-            pool.lastRewardBlock = block.number;
-            return;
-        }
-
-        uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number, pool.bonusEndBlock);
-        uint256 reward = (multiplier * rewardPerBlock * pool.allocPoint) / totalAllocPoint;
-        pool.accTokenPerShare += (reward * 1e12) / lpSupply;
-
-        if (hasDividend) {
-            uint256 reflectionAmt = availableDividendTokens();
-            if (reflectionAmt > totalReflections) {
-                reflectionAmt -= totalReflections;
-            } else {
-                reflectionAmt = 0;
-            }
-
-            accReflectionPerPoint += (reflectionAmt * 1e12) / totalAllocPoint;
-            pool.accReflectionPerShare +=
-                (pool.allocPoint * (accReflectionPerPoint - pool.lastReflectionPerPoint)) / (lpSupply);
-
-            pool.lastReflectionPerPoint = accReflectionPerPoint;
-
-            totalReflections += reflectionAmt;
-        }
-
-        pool.lastRewardBlock = block.number;
-        shouldTotalPaid = shouldTotalPaid + reward;
-    }
-
-    // Deposit LP tokens to BrewlabsFarm for earnedToken allocation.
-    function deposit(uint256 _pid, uint256 _amount) external payable nonReentrant {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
+        UserInfo storage user = userInfo[msg.sender];
 
         _transferPerformanceFee();
-        massUpdatePools();
+        _updatePool();
 
         if (user.amount > 0) {
-            uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
+            uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
             if (pending > 0) {
                 require(availableRewardTokens() >= pending, "Insufficient reward tokens");
                 paidRewards = paidRewards + pending;
 
                 pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-                safeTokenTransfer(msg.sender, pending);
+                earnedToken.safeTransfer(address(msg.sender), pending);
                 if (totalEarned > pending) {
                     totalEarned = totalEarned - pending;
                 } else {
                     totalEarned = 0;
                 }
-                emit Claim(msg.sender, _pid, pending);
+                emit Claim(msg.sender, pending);
             }
 
-            uint256 pendingReflection = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
+            uint256 pendingReflection = (user.amount * accDividendPerShare) / PRECISION_FACTOR - user.reflectionDebt;
             if (pendingReflection > 0 && hasDividend) {
                 totalReflections -= pendingReflection;
-                pendingReflection = _estimateDividendAmount(pendingReflection);
-                if (address(reflectionToken) == address(0x0)) {
+                pendingReflection = estimateDividendAmount(pendingReflection);
+                if (address(dividendToken) == address(0x0)) {
                     payable(msg.sender).transfer(pendingReflection);
                 } else {
-                    IERC20(reflectionToken).safeTransfer(msg.sender, pendingReflection);
+                    IERC20(dividendToken).safeTransfer(address(msg.sender), pendingReflection);
                 }
-                emit ClaimDividend(msg.sender, _pid, pendingReflection);
+                emit ClaimDividend(msg.sender, pendingReflection);
             }
         }
 
-        uint256 realAmount = _amount;
-        if (_amount > 0) {
-            uint256 beforeAmt = pool.lpToken.balanceOf(address(this));
-            pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
-            uint256 afterAmt = pool.lpToken.balanceOf(address(this));
-            uint256 amount = afterAmt - beforeAmt;
+        uint256 beforeAmt = lpToken.balanceOf(address(this));
+        lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
+        uint256 afterAmt = lpToken.balanceOf(address(this));
+        uint256 realAmount = afterAmt - beforeAmt;
 
-            if (pool.depositFee > 0) {
-                uint256 depositFee = (amount * pool.depositFee) / PERCENT_PRECISION;
-                pool.lpToken.safeTransfer(feeAddress, depositFee);
-                user.amount += amount - depositFee;
-                realAmount -= depositFee;
-            } else {
-                user.amount = user.amount + amount;
-            }
-
-            _calculateTotalStaked(_pid, pool.lpToken, amount, true);
+        if (depositFee > 0) {
+            uint256 fee = (realAmount * depositFee) / PERCENT_PRECISION;
+            lpToken.safeTransfer(feeAddress, fee);
+            realAmount -= fee;
         }
+        _calculateTotalStaked(realAmount, true);
 
-        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
-        user.reflectionDebt = (user.amount * pool.accReflectionPerShare) / 1e12;
+        user.amount = user.amount + realAmount;
+        user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
+        user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR;
 
-        emit Deposit(msg.sender, _pid, realAmount);
+        emit Deposit(msg.sender, realAmount);
 
-        if (pool.bonusEndBlock <= block.number) {
-            totalAllocPoint = totalAllocPoint - pool.allocPoint;
-            pool.allocPoint = 0;
-            rewardPerBlock = 0;
-            emit UpdateEmissionRate(msg.sender, rewardPerBlock);
-        } else if ((rewardFee > 0 && _amount > 0) || autoAdjustableForRewardRate) {
-            _updateRewardRate();
-        }
+        if (rewardFee > 0 || autoAdjustableForRewardRate) _updateRewardRate();
     }
 
-    // Withdraw LP tokens from BrewlabsFarm.
-    function withdraw(uint256 _pid, uint256 _amount) external payable nonReentrant {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
-        require(user.amount >= _amount, "withdraw: not good");
+    /**
+     * @notice Withdraw staked lp token and collect reward tokens
+     * @param _amount: amount to withdraw (in lp token)
+     */
+    function withdraw(uint256 _amount) external payable nonReentrant {
         require(_amount > 0, "Amount should be greator than 0");
 
+        UserInfo storage user = userInfo[msg.sender];
+        require(user.amount >= _amount, "Amount to withdraw too high");
+
         _transferPerformanceFee();
+        _updatePool();
 
-        if (pool.bonusEndBlock < block.number) {
-            massUpdatePools();
-
-            totalAllocPoint = totalAllocPoint - pool.allocPoint;
-            pool.allocPoint = 0;
-            rewardPerBlock = 0;
-            emit UpdateEmissionRate(msg.sender, rewardPerBlock);
-        } else {
-            updatePool(_pid);
-        }
-
-        uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
+        uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             paidRewards = paidRewards + pending;
 
             pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-            safeTokenTransfer(msg.sender, pending);
+            earnedToken.safeTransfer(address(msg.sender), pending);
             if (totalEarned > pending) {
                 totalEarned = totalEarned - pending;
             } else {
                 totalEarned = 0;
             }
-            emit Claim(msg.sender, _pid, pending);
+            emit Claim(msg.sender, pending);
         }
 
-        uint256 pendingReflection = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
+        uint256 pendingReflection = (user.amount * accDividendPerShare) / PRECISION_FACTOR - user.reflectionDebt;
         if (pendingReflection > 0 && hasDividend) {
             totalReflections -= pendingReflection;
-            pendingReflection = _estimateDividendAmount(pendingReflection);
-            if (address(reflectionToken) == address(0x0)) {
+            pendingReflection = estimateDividendAmount(pendingReflection);
+            if (address(dividendToken) == address(0x0)) {
                 payable(msg.sender).transfer(pendingReflection);
             } else {
-                IERC20(reflectionToken).safeTransfer(msg.sender, pendingReflection);
+                IERC20(dividendToken).safeTransfer(msg.sender, pendingReflection);
             }
-            emit ClaimDividend(msg.sender, _pid, pendingReflection);
+            emit ClaimDividend(msg.sender, pendingReflection);
         }
 
-        if (_amount > 0) {
-            user.amount = user.amount - _amount;
-            if (pool.withdrawFee > 0) {
-                uint256 withdrawFee = (_amount * pool.withdrawFee) / PERCENT_PRECISION;
-                pool.lpToken.safeTransfer(feeAddress, withdrawFee);
-                pool.lpToken.safeTransfer(address(msg.sender), _amount - withdrawFee);
-            } else {
-                pool.lpToken.safeTransfer(address(msg.sender), _amount);
-            }
-
-            _calculateTotalStaked(_pid, pool.lpToken, _amount, false);
+        if (withdrawFee > 0) {
+            uint256 fee = (_amount * withdrawFee) / PERCENT_PRECISION;
+            lpToken.safeTransfer(feeAddress, fee);
+            lpToken.safeTransfer(msg.sender, _amount - fee);
+        } else {
+            lpToken.safeTransfer(msg.sender, _amount);
         }
-        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
-        user.reflectionDebt = (user.amount * pool.accReflectionPerShare) / 1e12;
+        _calculateTotalStaked(_amount, false);
 
-        emit Withdraw(msg.sender, _pid, _amount);
+        user.amount = user.amount - _amount;
+        user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
+        user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR;
+        emit Withdraw(msg.sender, _amount);
 
-        if (autoAdjustableForRewardRate) _updateRewardRate();
+        if (rewardFee > 0 || autoAdjustableForRewardRate) _updateRewardRate();
     }
 
-    function claimReward(uint256 _pid) external payable nonReentrant {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
+    function claimReward() external payable nonReentrant {
+        UserInfo storage user = userInfo[msg.sender];
         if (user.amount == 0) return;
 
         _transferPerformanceFee();
-        updatePool(_pid);
+        _updatePool();
 
-        uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
+        uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
             paidRewards = paidRewards + pending;
 
             pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-            safeTokenTransfer(msg.sender, pending);
+            earnedToken.safeTransfer(msg.sender, pending);
             if (totalEarned > pending) {
                 totalEarned = totalEarned - pending;
             } else {
                 totalEarned = 0;
             }
-            emit Claim(msg.sender, _pid, pending);
+            emit Claim(msg.sender, pending);
         }
-        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
+
+        user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
     }
 
-    function compoundReward(uint256 _pid) external payable nonReentrant {
-        PoolInfo storage pool = poolInfo[_pid];
-        SwapSetting memory swapSetting = swapSettings[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
-        if (user.amount == 0) return;
-        if (!swapSetting.enabled) return;
-
-        _transferPerformanceFee();
-        updatePool(_pid);
-
-        uint256 pending = (user.amount * pool.accTokenPerShare) / 1e12 - user.rewardDebt;
-        if (pending > 0) {
-            require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-            paidRewards = paidRewards + pending;
-
-            pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-            if (totalEarned > pending) {
-                totalEarned = totalEarned - pending;
-            } else {
-                totalEarned = 0;
-            }
-            emit Compound(msg.sender, _pid, pending);
-        }
-
-        if (address(earnedToken) != address(pool.lpToken)) {
-            uint256 tokenAmt = pending / 2;
-            uint256 tokenAmt0 = tokenAmt;
-            address token0 = address(earnedToken);
-            if (swapSetting.earnedToToken0.length > 0) {
-                token0 = swapSetting.earnedToToken0[swapSetting.earnedToToken0.length - 1];
-                tokenAmt0 = _safeSwap(swapSetting.swapRouter, tokenAmt, swapSetting.earnedToToken0, address(this));
-            }
-            uint256 tokenAmt1 = tokenAmt;
-            address token1 = address(earnedToken);
-            if (swapSetting.earnedToToken1.length > 0) {
-                token1 = swapSetting.earnedToToken1[swapSetting.earnedToToken1.length - 1];
-                tokenAmt1 = _safeSwap(swapSetting.swapRouter, tokenAmt, swapSetting.earnedToToken1, address(this));
-            }
-
-            uint256 beforeAmt = pool.lpToken.balanceOf(address(this));
-            _addLiquidity(swapSetting.swapRouter, token0, token1, tokenAmt0, tokenAmt1, address(this));
-            uint256 afterAmt = pool.lpToken.balanceOf(address(this));
-
-            pending = afterAmt - beforeAmt;
-        }
-
-        user.amount = user.amount + pending;
-        user.rewardDebt = (user.amount * pool.accTokenPerShare) / 1e12;
-        user.reflectionDebt = user.reflectionDebt + (pending * pool.accReflectionPerShare) / 1e12;
-
-        _calculateTotalStaked(_pid, pool.lpToken, pending, true);
-        emit Deposit(msg.sender, _pid, pending);
-    }
-
-    function claimDividend(uint256 _pid) external payable nonReentrant {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
+    function claimDividend() external payable nonReentrant {
+        UserInfo storage user = userInfo[msg.sender];
         if (user.amount == 0) return;
         if (!hasDividend) return;
 
         _transferPerformanceFee();
-        updatePool(_pid);
+        _updatePool();
 
-        uint256 pendingReflection = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
+        uint256 pendingReflection = (user.amount * accDividendPerShare) / PRECISION_FACTOR - user.reflectionDebt;
         if (pendingReflection > 0) {
             totalReflections = totalReflections - pendingReflection;
-            pendingReflection = _estimateDividendAmount(pendingReflection);
-            if (address(reflectionToken) == address(0x0)) {
+            pendingReflection = estimateDividendAmount(pendingReflection);
+            if (address(dividendToken) == address(0x0)) {
                 payable(msg.sender).transfer(pendingReflection);
             } else {
-                IERC20(reflectionToken).safeTransfer(msg.sender, pendingReflection);
+                IERC20(dividendToken).safeTransfer(msg.sender, pendingReflection);
             }
-            emit ClaimDividend(msg.sender, _pid, pendingReflection);
+            emit ClaimDividend(msg.sender, pendingReflection);
         }
 
-        user.reflectionDebt = (user.amount * pool.accReflectionPerShare) / 1e12;
+        user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR;
     }
 
-    function compoundDividend(uint256 _pid) external payable nonReentrant {
-        PoolInfo storage pool = poolInfo[_pid];
-        SwapSetting memory swapSetting = swapSettings[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
+    function compoundReward() external payable nonReentrant {
+        UserInfo storage user = userInfo[msg.sender];
         if (user.amount == 0) return;
-        if (!hasDividend) return;
+        if (!swapSettings.enabled) return;
 
         _transferPerformanceFee();
-        updatePool(_pid);
+        _updatePool();
 
-        uint256 _pending = (user.amount * pool.accReflectionPerShare) / 1e12 - user.reflectionDebt;
-        uint256 pending = _estimateDividendAmount(_pending);
-        totalReflections = totalReflections - _pending;
-        emit CompoundDividend(msg.sender, _pid, pending);
+        uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
+        if (pending > 0) {
+            require(availableRewardTokens() >= pending, "Insufficient reward tokens");
+            paidRewards = paidRewards + pending;
 
-        if (reflectionToken != address(pool.lpToken)) {
-            if (reflectionToken == address(0x0)) {
-                address wethAddress = IUniRouter02(swapSetting.swapRouter).WETH();
-                IWETH(wethAddress).deposit{value: pending}();
+            pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
+            if (totalEarned > pending) {
+                totalEarned = totalEarned - pending;
+            } else {
+                totalEarned = 0;
+            }
+            emit Compound(msg.sender, pending);
+
+            if (address(lpToken) != address(earnedToken)) {
+                uint256 tokenAmt = pending / 2;
+                uint256 tokenAmt0 = tokenAmt;
+                address token0 = address(earnedToken);
+                if (swapSettings.earnedToToken0.length > 0) {
+                    token0 = swapSettings.earnedToToken0[swapSettings.earnedToToken0.length - 1];
+                    tokenAmt0 = _safeSwap(tokenAmt, swapSettings.earnedToToken0, address(this));
+                }
+                uint256 tokenAmt1 = tokenAmt;
+                address token1 = address(earnedToken);
+                if (swapSettings.earnedToToken1.length > 0) {
+                    token1 = swapSettings.earnedToToken1[swapSettings.earnedToToken1.length - 1];
+                    tokenAmt1 = _safeSwap(tokenAmt, swapSettings.earnedToToken1, address(this));
+                }
+
+                uint256 beforeAmt = lpToken.balanceOf(address(this));
+                _addLiquidity(swapSettings.swapRouter, token0, token1, tokenAmt0, tokenAmt1, address(this));
+                uint256 afterAmt = lpToken.balanceOf(address(this));
+
+                pending = afterAmt - beforeAmt;
             }
 
-            uint256 tokenAmt = pending / 2;
-            uint256 tokenAmt0 = tokenAmt;
-            address token0 = reflectionToken;
-            if (swapSetting.reflectionToToken0.length > 0) {
-                token0 = swapSetting.reflectionToToken0[swapSetting.reflectionToToken0.length - 1];
-                tokenAmt0 = _safeSwap(swapSetting.swapRouter, tokenAmt, swapSetting.reflectionToToken0, address(this));
-            }
-            uint256 tokenAmt1 = tokenAmt;
-            address token1 = reflectionToken;
-            if (swapSetting.reflectionToToken1.length > 0) {
-                token0 = swapSetting.reflectionToToken1[swapSetting.reflectionToToken1.length - 1];
-                tokenAmt1 = _safeSwap(swapSetting.swapRouter, tokenAmt, swapSetting.reflectionToToken1, address(this));
-            }
+            user.amount = user.amount + pending;
+            user.rewardDebt = (user.amount * accTokenPerShare) / PERCENT_PRECISION;
+            user.reflectionDebt = user.reflectionDebt + (pending * accDividendPerShare) / PERCENT_PRECISION;
 
-            uint256 beforeAmt = pool.lpToken.balanceOf(address(this));
-            _addLiquidity(swapSetting.swapRouter, token0, token1, tokenAmt0, tokenAmt1, address(this));
-            uint256 afterAmt = pool.lpToken.balanceOf(address(this));
-
-            pending = afterAmt - beforeAmt;
+            _calculateTotalStaked(pending, true);
+            emit Deposit(msg.sender, pending);
         }
-
-        user.amount = user.amount + pending;
-        user.rewardDebt = user.rewardDebt + (pending * pool.accTokenPerShare) / 1e12;
-        user.reflectionDebt = (user.amount * pool.accReflectionPerShare) / 1e12;
-
-        _calculateTotalStaked(_pid, pool.lpToken, pending, true);
-        emit Deposit(msg.sender, _pid, pending);
     }
 
-    // Withdraw without caring about rewards. EMERGENCY ONLY.
-    function emergencyWithdraw(uint256 _pid) external nonReentrant {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
-        uint256 amount = user.amount;
-        user.amount = 0;
-        user.rewardDebt = 0;
-        user.reflectionDebt = 0;
-        pool.lpToken.safeTransfer(address(msg.sender), amount);
+    function compoundDividend() external payable nonReentrant {
+        UserInfo storage user = userInfo[msg.sender];
+        if (user.amount == 0) return;
+        if (!hasDividend || !swapSettings.enabled) return;
 
-        _calculateTotalStaked(_pid, pool.lpToken, amount, false);
+        _transferPerformanceFee();
+        _updatePool();
 
-        emit EmergencyWithdraw(msg.sender, _pid, amount);
+        uint256 _pending = (user.amount * accDividendPerShare) / PRECISION_FACTOR - user.reflectionDebt;
+        totalReflections = totalReflections - _pending;
+        uint256 pending = estimateDividendAmount(_pending);
+        if (pending > 0) {
+            emit CompoundDividend(msg.sender, pending);
+
+            if (address(lpToken) != address(dividendToken)) {
+                if (address(dividendToken) == address(0x0)) {
+                    address wethAddress = IUniRouter02(swapSettings.swapRouter).WETH();
+                    IWETH(wethAddress).deposit{value: pending}();
+                }
+
+                uint256 tokenAmt = pending / 2;
+                uint256 tokenAmt0 = tokenAmt;
+                address token0 = dividendToken;
+                if (swapSettings.reflectionToToken0.length > 0) {
+                    token0 = swapSettings.reflectionToToken0[swapSettings.reflectionToToken0.length - 1];
+                    tokenAmt0 = _safeSwap(tokenAmt, swapSettings.reflectionToToken0, address(this));
+                }
+                uint256 tokenAmt1 = tokenAmt;
+                address token1 = dividendToken;
+                if (swapSettings.reflectionToToken1.length > 0) {
+                    token0 = swapSettings.reflectionToToken1[swapSettings.reflectionToToken1.length - 1];
+                    tokenAmt1 = _safeSwap(tokenAmt, swapSettings.reflectionToToken1, address(this));
+                }
+
+                uint256 beforeAmt = lpToken.balanceOf(address(this));
+                _addLiquidity(swapSettings.swapRouter, token0, token1, tokenAmt0, tokenAmt1, address(this));
+                uint256 afterAmt = lpToken.balanceOf(address(this));
+
+                pending = afterAmt - beforeAmt;
+            }
+
+            user.amount = user.amount + pending;
+            user.rewardDebt = user.rewardDebt + (pending * accTokenPerShare) / PRECISION_FACTOR;
+            user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR;
+
+            _calculateTotalStaked(pending, true);
+            emit Deposit(msg.sender, pending);
+        }
     }
 
     function _transferPerformanceFee() internal {
-        require(msg.value >= performanceFee, "should pay small gas");
+        require(msg.value >= performanceFee, "should pay small gas to compound or harvest");
 
         payable(treasury).transfer(performanceFee);
         if (msg.value > performanceFee) {
@@ -709,40 +436,52 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         }
     }
 
-    function _calculateTotalStaked(uint256 _pid, IERC20 _lpToken, uint256 _amount, bool _deposit) internal {
+    function _calculateTotalStaked(uint256 _amount, bool _deposit) internal {
         if (_deposit) {
-            totalStaked[_pid] = totalStaked[_pid] + _amount;
-            if (address(_lpToken) == address(earnedToken)) {
+            totalStaked = totalStaked + _amount;
+            if (address(lpToken) == address(earnedToken)) {
                 totalRewardStaked = totalRewardStaked + _amount;
             }
-            if (address(_lpToken) == reflectionToken) {
+            if (address(lpToken) == dividendToken) {
                 totalReflectionStaked = totalReflectionStaked + _amount;
             }
         } else {
-            totalStaked[_pid] = totalStaked[_pid] - _amount;
-            if (address(_lpToken) == address(earnedToken)) {
+            totalStaked = totalStaked - _amount;
+            if (address(lpToken) == address(earnedToken)) {
                 if (totalRewardStaked < _amount) totalRewardStaked = _amount;
                 totalRewardStaked = totalRewardStaked - _amount;
             }
-            if (address(_lpToken) == reflectionToken) {
+            if (address(lpToken) == dividendToken) {
                 if (totalReflectionStaked < _amount) totalReflectionStaked = _amount;
                 totalReflectionStaked = totalReflectionStaked - _amount;
             }
         }
     }
 
-    function _estimateDividendAmount(uint256 amount) internal view returns (uint256) {
-        uint256 dTokenBal = availableDividendTokens();
-        if (amount > totalReflections) amount = totalReflections;
-        if (amount > dTokenBal) amount = dTokenBal;
-        return amount;
+    /**
+     * @notice Withdraw staked tokens without caring about rewards
+     * @dev Needs to be for emergency.
+     */
+    function emergencyWithdraw() external nonReentrant {
+        UserInfo storage user = userInfo[msg.sender];
+        if (user.amount == 0) return;
+
+        uint256 amountToTransfer = user.amount;
+        lpToken.safeTransfer(address(msg.sender), amountToTransfer);
+
+        user.amount = 0;
+        user.rewardDebt = 0;
+        user.reflectionDebt = 0;
+
+        _calculateTotalStaked(amountToTransfer, false);
+        emit EmergencyWithdraw(msg.sender, amountToTransfer);
     }
 
     /**
      * @notice Available amount of reward token
      */
     function availableRewardTokens() public view returns (uint256) {
-        if (address(earnedToken) == reflectionToken && hasDividend) return totalEarned;
+        if (address(earnedToken) == dividendToken && hasDividend) return totalEarned;
 
         uint256 _amount = earnedToken.balanceOf(address(this));
         return _amount - totalRewardStaked;
@@ -753,12 +492,12 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
      */
     function availableDividendTokens() public view returns (uint256) {
         if (hasDividend == false) return 0;
-        if (address(reflectionToken) == address(0x0)) {
+        if (dividendToken == address(0x0)) {
             return address(this).balance;
         }
 
-        uint256 _amount = IERC20(reflectionToken).balanceOf(address(this));
-        if (address(reflectionToken) == address(earnedToken)) {
+        uint256 _amount = IERC20(dividendToken).balanceOf(address(this));
+        if (dividendToken == address(earnedToken)) {
             if (_amount < totalEarned) return 0;
             _amount = _amount - totalEarned;
         }
@@ -769,16 +508,11 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         uint256 adjustedShouldTotalPaid = shouldTotalPaid;
         uint256 remainRewards = availableRewardTokens() + paidRewards;
 
-        uint256 length = poolInfo.length;
-        for (uint256 pid = 0; pid < length; pid++) {
-            PoolInfo memory pool = poolInfo[pid];
-            if (startBlock == 0) {
-                adjustedShouldTotalPaid +=
-                    (rewardPerBlock * pool.allocPoint * pool.duration * BLOCKS_PER_DAY) / totalAllocPoint;
-            } else {
-                uint256 multiplier = getMultiplier(pool.lastRewardBlock, pool.bonusEndBlock, pool.bonusEndBlock);
-                adjustedShouldTotalPaid += (multiplier * rewardPerBlock * pool.allocPoint) / totalAllocPoint;
-            }
+        if (startBlock == 0) {
+            adjustedShouldTotalPaid = adjustedShouldTotalPaid + rewardPerBlock * duration * BLOCKS_PER_DAY;
+        } else {
+            uint256 remainBlocks = _getMultiplier(lastRewardBlock, bonusEndBlock);
+            adjustedShouldTotalPaid = adjustedShouldTotalPaid + rewardPerBlock * remainBlocks;
         }
 
         if (remainRewards >= adjustedShouldTotalPaid) return 0;
@@ -786,64 +520,55 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         return adjustedShouldTotalPaid - remainRewards;
     }
 
-    // Safe earnedToken transfer function, just in case if rounding error causes pool to not have enough tokens.
-    function safeTokenTransfer(address _to, uint256 _amount) internal {
-        uint256 tokenBal = earnedToken.balanceOf(address(this));
-        bool transferSuccess = false;
-        if (_amount > tokenBal) {
-            transferSuccess = earnedToken.transfer(_to, tokenBal);
-        } else {
-            transferSuccess = earnedToken.transfer(_to, _amount);
+    /**
+     * @notice View function to see pending reward on frontend.
+     * @param _user: user address
+     * @return Pending reward for a given user
+     */
+    function pendingRewards(address _user) external view returns (uint256) {
+        UserInfo memory user = userInfo[_user];
+
+        uint256 adjustedTokenPerShare = accTokenPerShare;
+        if (block.number > lastRewardBlock && totalStaked != 0 && lastRewardBlock > 0) {
+            uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
+            uint256 rewards = multiplier * rewardPerBlock;
+
+            adjustedTokenPerShare = accTokenPerShare + ((rewards * PRECISION_FACTOR) / totalStaked);
         }
-        require(transferSuccess, "safeTokenTransfer: transfer failed");
+
+        return (user.amount * adjustedTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
     }
 
-    function setFeeAddress(address _feeAddress) external onlyOwner {
-        feeAddress = _feeAddress;
-        emit SetFeeAddress(msg.sender, _feeAddress);
+    function pendingReflections(address _user) external view returns (uint256) {
+        if (totalStaked == 0) return 0;
+
+        UserInfo memory user = userInfo[_user];
+
+        uint256 reflectionAmount = availableDividendTokens();
+        if (reflectionAmount > totalReflections) {
+            reflectionAmount -= totalReflections;
+        } else {
+            reflectionAmount = 0;
+        }
+
+        uint256 adjustedReflectionPerShare = accDividendPerShare + ((reflectionAmount * PRECISION_FACTOR) / totalStaked);
+
+        uint256 pendingReflection = (user.amount * adjustedReflectionPerShare) / PRECISION_FACTOR - user.reflectionDebt;
+
+        return pendingReflection;
     }
 
-    function setPerformanceFee(uint256 _fee) external {
-        require(msg.sender == treasury, "setPerformanceFee: FORBIDDEN");
+    /**
+     * Admin Methods
+     */
+    function transferToHarvest() external onlyOwner {
+        if (hasDividend || address(earnedToken) == dividendToken) return;
 
-        performanceFee = _fee;
-        emit SetPerformanceFee(_fee);
-    }
-
-    function setRewardFee(uint256 _fee) external onlyOwner {
-        require(_fee < PERCENT_PRECISION, "setRewardFee: invalid percentage");
-
-        rewardFee = _fee;
-        emit SetRewardFee(_fee);
-    }
-
-    function setBuyBackWallet(address _addr) external {
-        require(msg.sender == treasury, "setBuyBackWallet: FORBIDDEN");
-        treasury = _addr;
-        emit SetBuyBackWallet(msg.sender, _addr);
-    }
-
-    function setAutoAdjustableForRewardRate(bool _status) external onlyOwner {
-        autoAdjustableForRewardRate = _status;
-        emit SetAutoAdjustableForRewardRate(_status);
-    }
-
-    //Earning Token has to add hidden dummy pools inorder to alter the emission, here we make it simple and transparent to all.
-    function updateEmissionRate(uint256 _rewardPerBlock) external onlyOwner {
-        massUpdatePools();
-        rewardPerBlock = _rewardPerBlock;
-        emit UpdateEmissionRate(msg.sender, _rewardPerBlock);
-    }
-
-    function updateStartBlock(uint256 _startBlock) external onlyOwner {
-        require(startBlock > block.number, "farm is running now");
-        require(_startBlock > block.number, "should be greater than current block");
-
-        startBlock = _startBlock;
-        for (uint256 pid = 0; pid < poolInfo.length; pid++) {
-            poolInfo[pid].startBlock = startBlock;
-            poolInfo[pid].lastRewardBlock = startBlock;
-            poolInfo[pid].bonusEndBlock = startBlock + poolInfo[pid].duration * BLOCKS_PER_DAY;
+        if (dividendToken == address(0x0)) {
+            payable(treasury).transfer(address(this).balance);
+        } else {
+            uint256 _amount = IERC20(dividendToken).balanceOf(address(this));
+            IERC20(dividendToken).safeTransfer(treasury, _amount);
         }
     }
 
@@ -851,8 +576,8 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
      * @notice Deposit reward token
      * @dev Only call by owner. Needs to be for deposit of reward token when reflection token is same with reward token.
      */
-    function depositRewards(uint256 _amount) external nonReentrant {
-        require(_amount > 0);
+    function depositRewards(uint256 _amount) external onlyOwner nonReentrant {
+        require(_amount > 0, "invalid amount");
 
         uint256 beforeAmt = earnedToken.balanceOf(address(this));
         earnedToken.safeTransferFrom(msg.sender, address(this), _amount);
@@ -862,18 +587,11 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     }
 
     function increaseEmissionRate(uint256 _amount) external onlyOwner {
-        require(startBlock > 0, "pool is not started");
         require(_amount > 0, "invalid amount");
-
-        uint256 bonusEndBlock = 0;
-        for (uint256 i = 0; i < poolInfo.length; i++) {
-            if (bonusEndBlock < poolInfo[i].bonusEndBlock) {
-                bonusEndBlock = poolInfo[i].bonusEndBlock;
-            }
-        }
+        require(startBlock > 0, "pool is not started");
         require(bonusEndBlock > block.number, "pool was already finished");
 
-        massUpdatePools();
+        _updatePool();
 
         uint256 beforeAmt = earnedToken.balanceOf(address(this));
         earnedToken.safeTransferFrom(msg.sender, address(this), _amount);
@@ -884,12 +602,6 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     }
 
     function _updateRewardRate() internal {
-        uint256 bonusEndBlock = 0;
-        for (uint256 i = 0; i < poolInfo.length; i++) {
-            if (bonusEndBlock < poolInfo[i].bonusEndBlock) {
-                bonusEndBlock = poolInfo[i].bonusEndBlock;
-            }
-        }
         if (bonusEndBlock <= block.number) return;
 
         uint256 remainRewards = availableRewardTokens() + paidRewards;
@@ -898,65 +610,228 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
 
             uint256 remainBlocks = bonusEndBlock - block.number;
             rewardPerBlock = remainRewards / remainBlocks;
-            emit UpdateEmissionRate(msg.sender, rewardPerBlock);
+            emit NewRewardPerBlock(rewardPerBlock);
         }
     }
 
-    function emergencyWithdrawRewards(uint256 _amount) external onlyOwner {
-        if (_amount == 0) {
-            uint256 amount = earnedToken.balanceOf(address(this));
-            safeTokenTransfer(msg.sender, amount);
-        } else {
-            safeTokenTransfer(msg.sender, _amount);
-        }
-    }
+    /**
+     * @notice Withdraw reward token
+     * @dev Only callable by owner. Needs to be for emergency.
+     */
+    function emergencyRewardWithdraw(uint256 _amount) external onlyOwner {
+        require(block.number > bonusEndBlock, "Pool is running");
+        require(availableRewardTokens() >= _amount, "Insufficient reward tokens");
 
-    function emergencyWithdrawReflections() external onlyOwner {
-        if (address(reflectionToken) == address(0x0)) {
-            uint256 amount = address(this).balance;
-            payable(address(msg.sender)).transfer(amount);
-        } else {
-            uint256 amount = IERC20(reflectionToken).balanceOf(address(this));
-            IERC20(reflectionToken).transfer(msg.sender, amount);
-        }
-    }
+        if (_amount == 0) _amount = availableRewardTokens();
+        earnedToken.safeTransfer(address(msg.sender), _amount);
 
-    function transferToHarvest() external onlyOwner {
-        if (hasDividend || address(earnedToken) == reflectionToken) return;
-
-        if (reflectionToken == address(0x0)) {
-            payable(treasury).transfer(address(this).balance);
-        } else {
-            uint256 _amount = IERC20(reflectionToken).balanceOf(address(this));
-            IERC20(reflectionToken).safeTransfer(treasury, _amount);
-        }
-    }
-
-    function recoverWrongToken(address _token) external onlyOwner {
-        require(
-            _token != address(earnedToken) && _token != reflectionToken,
-            "cannot recover reward token or reflection token"
-        );
-        require(poolExistence[IERC20(_token)] == false, "token is using on pool");
-
-        if (_token == address(0x0)) {
-            uint256 amount = address(this).balance;
-            payable(address(msg.sender)).transfer(amount);
-        } else {
-            uint256 amount = IERC20(_token).balanceOf(address(this));
-            if (amount > 0) {
-                IERC20(_token).transfer(msg.sender, amount);
+        if (totalEarned > 0) {
+            if (_amount > totalEarned) {
+                totalEarned = 0;
+            } else {
+                totalEarned = totalEarned - _amount;
             }
         }
     }
 
-    function _safeSwap(address _uniRouter, uint256 _amountIn, address[] memory _path, address _to)
-        internal
-        returns (uint256)
-    {
+    function emergencyWithdrawReflections() external onlyOwner {
+        if (dividendToken == address(0x0)) {
+            uint256 amount = address(this).balance;
+            payable(address(msg.sender)).transfer(amount);
+        } else {
+            uint256 amount = IERC20(dividendToken).balanceOf(address(this));
+            IERC20(dividendToken).transfer(msg.sender, amount);
+        }
+    }
+
+    /**
+     * @notice It allows the admin to recover wrong tokens sent to the contract
+     * @param _token: the address of the token to withdraw
+     * @dev This function is only callable by admin.
+     */
+    function recoverWrongTokens(address _token) external onlyOwner {
+        require(
+            _token != address(earnedToken) && _token != dividendToken, "cannot recover reward token or reflection token"
+        );
+        require(_token != address(lpToken), "token is using on pool");
+
+        uint256 amount;
+        if (_token == address(0x0)) {
+            amount = address(this).balance;
+            payable(address(msg.sender)).transfer(amount);
+        } else {
+            amount = IERC20(_token).balanceOf(address(this));
+            if (amount > 0) {
+                IERC20(_token).transfer(msg.sender, amount);
+            }
+        }
+
+        emit AdminTokenRecovered(_token, amount);
+    }
+
+    function startReward() external onlyOwner {
+        require(startBlock == 0, "Pool was already started");
+
+        startBlock = block.number + 100;
+        bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
+        lastRewardBlock = startBlock;
+
+        emit NewStartAndEndBlocks(startBlock, bonusEndBlock);
+    }
+
+    function stopReward() external onlyOwner {
+        _updatePool();
+
+        uint256 remainRewards = availableRewardTokens() + paidRewards;
+        if (remainRewards > shouldTotalPaid) {
+            remainRewards = remainRewards - shouldTotalPaid;
+            earnedToken.transfer(msg.sender, remainRewards);
+
+            if (totalEarned > remainRewards) {
+                totalEarned = totalEarned - remainRewards;
+            } else {
+                totalEarned = 0;
+            }
+        }
+
+        bonusEndBlock = block.number;
+        emit RewardsStop(bonusEndBlock);
+    }
+
+    function updateEndBlock(uint256 _endBlock) external onlyOwner {
+        require(startBlock > 0, "Pool is not started");
+        require(bonusEndBlock > block.number, "Pool was already finished");
+        require(_endBlock > block.number && _endBlock > startBlock, "Invalid end block");
+        bonusEndBlock = _endBlock;
+        emit EndBlockUpdated(_endBlock);
+    }
+
+    /**
+     * @notice Update reward per block
+     * @dev Only callable by owner.
+     * @param _rewardPerBlock: the reward per block
+     */
+    function updateEmissionRate(uint256 _rewardPerBlock) external onlyOwner {
+        // require(block.number < startBlock, "Pool was already started");
+        _updatePool();
+
+        rewardPerBlock = _rewardPerBlock;
+        emit NewRewardPerBlock(_rewardPerBlock);
+    }
+
+    function setServiceInfo(address _treasury, uint256 _fee) external {
+        require(msg.sender == treasury, "setServiceInfo: FORBIDDEN");
+        require(_treasury != address(0x0), "Invalid address");
+
+        treasury = _treasury;
+        performanceFee = _fee;
+
+        emit ServiceInfoUpadted(_treasury, _fee);
+    }
+
+    function setDuration(uint256 _duration) external onlyOwner {
+        require(_duration >= 30, "lower limit reached");
+
+        duration = _duration;
+        if (startBlock > 0) {
+            bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
+            require(bonusEndBlock > block.number, "invalid duration");
+        }
+        emit DurationUpdated(_duration);
+    }
+
+    function setAutoAdjustableForRewardRate(bool _status) external onlyOwner {
+        autoAdjustableForRewardRate = _status;
+        emit SetAutoAdjustableForRewardRate(_status);
+    }
+
+    function setSettings(uint256 _depositFee, uint256 _withdrawFee, address _feeAddr) external onlyOwner {
+        require(_feeAddr != address(0x0) || _feeAddr != feeAddress, "Invalid address");
+        require(_depositFee < MAX_FEE, "Invalid deposit fee");
+        require(_withdrawFee < MAX_FEE, "Invalid withdraw fee");
+
+        depositFee = _depositFee;
+        withdrawFee = _withdrawFee;
+
+        feeAddress = _feeAddr;
+        emit SetSettings(_depositFee, _withdrawFee, _feeAddr);
+    }
+
+    // Update the given pool's compound parameters. Can only be called by the owner.
+    function setSwapSetting(
+        address _uniRouter,
+        address[] memory _earnedToToken0,
+        address[] memory _earnedToToken1,
+        address[] memory _reflectionToToken0,
+        address[] memory _reflectionToToken1,
+        bool _enabled
+    ) external onlyOwner {
+        swapSettings.enabled = _enabled;
+        swapSettings.swapRouter = _uniRouter;
+        swapSettings.earnedToToken0 = _earnedToToken0;
+        swapSettings.earnedToToken1 = _earnedToToken1;
+        swapSettings.reflectionToToken0 = _reflectionToToken0;
+        swapSettings.reflectionToToken1 = _reflectionToToken1;
+    }
+
+    /**
+     * @notice Update reward variables of the given pool to be up-to-date.
+     */
+    function _updatePool() internal {
+        if (block.number <= lastRewardBlock || lastRewardBlock == 0) return;
+        if (totalStaked == 0) {
+            lastRewardBlock = block.number;
+            return;
+        }
+
+        // calc reflection rate
+        if (totalStaked > 0 && hasDividend) {
+            uint256 reflectionAmount = availableDividendTokens();
+            if (reflectionAmount > totalReflections) {
+                reflectionAmount -= totalReflections;
+            } else {
+                reflectionAmount = 0;
+            }
+
+            accDividendPerShare += (reflectionAmount * PRECISION_FACTOR) / totalStaked;
+            totalReflections += reflectionAmount;
+        }
+
+        uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
+        uint256 _reward = multiplier * rewardPerBlock;
+        accTokenPerShare += (_reward * PRECISION_FACTOR) / totalStaked;
+
+        lastRewardBlock = block.number;
+        shouldTotalPaid = shouldTotalPaid + _reward;
+    }
+
+    function estimateDividendAmount(uint256 amount) internal view returns (uint256) {
+        uint256 dTokenBal = availableDividendTokens();
+        if (amount > totalReflections) amount = totalReflections;
+        if (amount > dTokenBal) amount = dTokenBal;
+        return amount;
+    }
+
+    /**
+     * @notice Return reward multiplier over the given _from to _to block.
+     * @param _from: block to start
+     * @param _to: block to finish
+     */
+    function _getMultiplier(uint256 _from, uint256 _to) internal view returns (uint256) {
+        if (_to <= bonusEndBlock) {
+            return _to - _from;
+        } else if (_from >= bonusEndBlock) {
+            return 0;
+        } else {
+            return bonusEndBlock - _from;
+        }
+    }
+
+    function _safeSwap(uint256 _amountIn, address[] memory _path, address _to) internal returns (uint256) {
         uint256 beforeAmt = IERC20(_path[_path.length - 1]).balanceOf(address(this));
-        IERC20(_path[0]).safeApprove(_uniRouter, _amountIn);
-        IUniRouter02(_uniRouter).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+
+        IERC20(_path[0]).safeApprove(swapSettings.swapRouter, _amountIn);
+        IUniRouter02(swapSettings.swapRouter).swapExactTokensForTokensSupportingFeeOnTransferTokens(
             _amountIn, 0, _path, _to, block.timestamp + 600
         );
         uint256 afterAmt = IERC20(_path[_path.length - 1]).balanceOf(address(this));
