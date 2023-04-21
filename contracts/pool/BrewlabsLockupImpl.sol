@@ -246,10 +246,10 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         }
 
         if (pendingReflection > 0) {
+            uint256 _pendingReflection = estimateDividendAmount(pendingReflection);
             totalReflections = totalReflections - pendingReflection;
-            pendingReflection = estimateDividendAmount(pendingReflection);
-            _transferToken(dividendToken, msg.sender, pendingReflection);
-            emit ClaimDividend(msg.sender, _stakeType, pendingReflection);
+            _transferToken(dividendToken, msg.sender, _pendingReflection);
+            emit ClaimDividend(msg.sender, _stakeType, _pendingReflection);
         }
 
         uint256 beforeAmount = stakingToken.balanceOf(address(this));
@@ -359,10 +359,10 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         }
 
         if (pendingReflection > 0) {
+            uint256 _pendingReflection = estimateDividendAmount(pendingReflection);
             totalReflections = totalReflections - pendingReflection;
-            pendingReflection = estimateDividendAmount(pendingReflection);
-            _transferToken(dividendToken, msg.sender, pendingReflection);
-            emit ClaimDividend(msg.sender, _stakeType, pendingReflection);
+            _transferToken(dividendToken, msg.sender, _pendingReflection);
+            emit ClaimDividend(msg.sender, _stakeType, _pendingReflection);
         }
 
         uint256 realAmount = _amount - remained;
@@ -436,10 +436,10 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         }
 
         if (pendingReflection > 0) {
+            uint256 _pendingReflection = estimateDividendAmount(pendingReflection);
             totalReflections = totalReflections - pendingReflection;
-            pendingReflection = estimateDividendAmount(pendingReflection);
-            emit ClaimDividend(msg.sender, _stakeType, pendingReflection);
-            _transferToken(dividendToken, msg.sender, pendingReflection);
+            emit ClaimDividend(msg.sender, _stakeType, _pendingReflection);
+            _transferToken(dividendToken, msg.sender, _pendingReflection);
         }
     }
 
