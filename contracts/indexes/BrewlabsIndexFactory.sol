@@ -12,7 +12,8 @@ interface IBrewlabsIndex {
         IERC721 _nft,
         address _router,
         address[][] memory _paths,
-        address _owner
+        address _owner,
+        address _deployer
     ) external;
 }
 
@@ -36,6 +37,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
     struct IndexInfo {
         address index;
+        uint256 version;
         IERC721 nft;
         IERC20[] tokens;
         address swapRouter;
@@ -92,10 +94,10 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         bytes32 salt = keccak256(abi.encodePacked(msg.sender, tokens.length, tokens[0], block.timestamp));
 
         index = Clones.cloneDeterministic(implementation, salt);
-        IBrewlabsIndex(index).initialize(tokens, indexNft, swapRouter, swapPaths, indexDefaultOwner);
+        IBrewlabsIndex(index).initialize(tokens, indexNft, swapRouter, swapPaths, indexDefaultOwner, msg.sender);
         IBrewlabsIndexNft(address(indexNft)).setMinterRole(index, true);
 
-        indexList.push(IndexInfo(index, indexNft, tokens, swapRouter, msg.sender, block.timestamp));
+        indexList.push(IndexInfo(index, version, indexNft, tokens, swapRouter, msg.sender, block.timestamp));
 
         address[] memory _tokens = new address[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {

@@ -13,6 +13,7 @@ interface IBrewlabsIndex {
 
     function performanceFee() external view returns (uint256);
     function treasury() external view returns (address);
+    function deployer() external view returns (address);
 
     function nft() external view returns (address);
 

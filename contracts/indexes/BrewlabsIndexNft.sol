@@ -7,7 +7,8 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 
 interface IBrewlabsIndex {
-    function NUM_TOKENS() external view returns (uint8);
+    function deployer() external view returns (address);
+    function NUM_TOKENS() external view returns (uint256);
     function tokens(uint256 index) external view returns (address);
     function nftInfo(uint256 _tokenId) external view returns (uint256, uint256[] memory, uint256);
 }
@@ -123,13 +124,24 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         );
 
         IBrewlabsIndex _index = IBrewlabsIndex(index[tokenId]);
-        uint8 numTokens = _index.NUM_TOKENS();
+        uint256 numTokens = _index.NUM_TOKENS();
+        address deployer = _index.deployer();
         (uint256 level, uint256[] memory amounts, uint256 usdAmount) = _index.nftInfo(tokenId);
 
         string[3] memory levels = ["Yellow", "Blue", "Black"];
         string memory attributes = '"attributes":[';
-        attributes = string(abi.encodePacked(attributes, '{"trait_type":"type", "value":"', levels[level], '"},'));
-        for (uint8 i = 0; i < numTokens; i++) {
+        attributes = string(
+            abi.encodePacked(
+                attributes,
+                '{"trait_type":"type", "value":"',
+                levels[level],
+                '"},',
+                '{"trait_type":"deployer", "value":"',
+                deployer.toHexString(),
+                '"},'
+            )
+        );
+        for (uint256 i = 0; i < numTokens; i++) {
             address _token = _index.tokens(i);
             if (i > 0) {
                 attributes = string(abi.encodePacked(attributes, ","));
@@ -177,9 +189,10 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         return string(abi.encodePacked("data:application/json;base64,", _base64(bytes(metadata))));
     }
 
-    function getNftInfo(uint256 tokenId) external view returns (uint256, uint256[] memory, uint256, address) {
+    function getNftInfo(uint256 tokenId) external view returns (uint256, uint256[] memory, uint256, address, address) {
         (uint256 level, uint256[] memory amounts, uint256 usdAmount) = IBrewlabsIndex(index[tokenId]).nftInfo(tokenId);
-        return (level, amounts, usdAmount, address(index[tokenId]));
+        address deployer = IBrewlabsIndex(index[tokenId]).deployer();
+        return (level, amounts, usdAmount, address(index[tokenId]), deployer);
     }
 
     function _baseURI() internal view override returns (string memory) {

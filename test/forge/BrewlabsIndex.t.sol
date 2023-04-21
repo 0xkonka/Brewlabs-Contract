@@ -57,7 +57,7 @@ contract BrewlabsIndexTest is Test {
         IERC20[] memory tokens = new IERC20[](2);
         tokens[0] = token0;
         tokens[1] = token1;
-        index.initialize(tokens, IERC721(nft), _router, _paths, address(0x123));
+        index.initialize(tokens, IERC721(nft), _router, _paths, address(0x123), address(0x111));
         nft.setMinterRole(address(index), true);
     }
 

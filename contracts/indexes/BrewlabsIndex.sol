@@ -63,6 +63,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     uint256 public performanceFee;
     address public treasury;
     address public feeWallet;
+    address public deployer;
 
     event TokenZappedIn(
         address indexed user,
@@ -101,7 +102,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         IERC721 _nft,
         address _router,
         address[][] memory _paths,
-        address _owner
+        address _owner,
+        address _deployer
     ) external {
         require(!isInitialized, "Already initialized");
         require(owner() == address(0x0) || msg.sender == owner(), "Not allowed");
@@ -118,6 +120,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         performanceFee = 0.01 ether;
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         feeWallet = _owner;
+        deployer = _deployer;
 
         nft = _nft;
         tokens = _tokens;
