@@ -109,6 +109,20 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256 withdrawFee,
         address deployer
     );
+
+    event LockupPenaltyPoolCreated(
+        address indexed pool,
+        address stakingToken,
+        address rewardToken,
+        address dividendToken,
+        uint256 lockup,
+        uint256 lockDuration,
+        uint256 rewardPerBlock,
+        uint256 depositFee,
+        uint256 withdrawFee,
+        address deployer
+    );
+
     event SetPoolOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(uint256 category, address impl, uint256 version);
@@ -319,7 +333,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
                 )
             );
 
-            emit LockupPoolCreated(
+            emit LockupPenaltyPoolCreated(
                 pool,
                 address(stakingToken),
                 address(rewardToken),
