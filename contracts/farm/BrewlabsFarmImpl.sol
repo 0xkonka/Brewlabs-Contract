@@ -68,7 +68,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     uint256 private totalReflectionStaked;
     uint256 private reflectionDebt;
 
-    uint256 private paidRewards;
+    uint256 public paidRewards;
     uint256 private shouldTotalPaid;
 
     // swap router and path
@@ -659,7 +659,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
      * @param _token: the address of the token to withdraw
      * @dev This function is only callable by admin.
      */
-    function recoverWrongTokens(address _token) external onlyOwner {
+    function rescueTokens(address _token) external onlyOwner {
         require(
             _token != address(rewardToken) && _token != dividendToken, "cannot recover reward token or reflection token"
         );
@@ -689,7 +689,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         emit NewStartAndEndBlocks(startBlock, bonusEndBlock);
     }
 
-    function stopReward() external onlyOwner {
+    function stopReward() external onlyAdmin {
         _updatePool();
 
         uint256 remainRewards = availableRewardTokens() + paidRewards;
@@ -708,7 +708,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         emit RewardsStop(bonusEndBlock);
     }
 
-    function updateEndBlock(uint256 _endBlock) external onlyOwner {
+    function updateEndBlock(uint256 _endBlock) external onlyAdmin {
         require(startBlock > 0, "Pool is not started");
         require(bonusEndBlock > block.number, "Pool was already finished");
         require(_endBlock > block.number && _endBlock > startBlock, "Invalid end block");
