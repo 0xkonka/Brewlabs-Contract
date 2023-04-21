@@ -50,6 +50,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     address public treasury;
     uint256 public performanceFee;
     uint256 public rewardFee;
+    address public operator;
 
     struct UserInfo {
         uint256 amount; // How many staked lp the user has provided
@@ -99,8 +100,14 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     event ServiceInfoUpadted(address addr, uint256 fee);
     event DurationUpdated(uint256 duration);
     event SetAutoAdjustableForRewardRate(bool status);
+    event OperatorTransferred(address oldOperator, address newOperator);
 
     event SetSettings(uint256 depositFee, uint256 withdrawFee, address feeAddr);
+
+    modifier onlyAdmin() {
+        require(msg.sender == owner() || msg.sender == operator, "caller is not owner or operator");
+        _;
+    }
 
     constructor() {}
 
@@ -123,8 +130,9 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         uint256 _depositFee,
         uint256 _withdrawFee,
         bool _hasDividend,
-        address _owner
-    ) external onlyOwner {
+        address _owner,
+        address _operator
+    ) external {
         require(!isInitialized, "Already initialized");
         require(owner() == address(0x0) || msg.sender == owner(), "Not allowed");
 
@@ -153,6 +161,8 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         require(_withdrawFee < MAX_FEE, "Invalid withdraw fee");
         depositFee = _depositFee;
         withdrawFee = _withdrawFee;
+
+        operator = _operator;
 
         _transferOwnership(_owner);
     }
@@ -576,7 +586,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
      * @notice Deposit reward token
      * @dev Only call by owner. Needs to be for deposit of reward token when reflection token is same with reward token.
      */
-    function depositRewards(uint256 _amount) external onlyOwner nonReentrant {
+    function depositRewards(uint256 _amount) external onlyAdmin nonReentrant {
         require(_amount > 0, "invalid amount");
 
         uint256 beforeAmt = rewardToken.balanceOf(address(this));
@@ -669,7 +679,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         emit AdminTokenRecovered(_token, amount);
     }
 
-    function startReward() external onlyOwner {
+    function startReward() external onlyAdmin {
         require(startBlock == 0, "Pool was already started");
 
         startBlock = block.number + 100;
@@ -743,6 +753,12 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     function setAutoAdjustableForRewardRate(bool _status) external onlyOwner {
         autoAdjustableForRewardRate = _status;
         emit SetAutoAdjustableForRewardRate(_status);
+    }
+
+    function transferOperator(address _operator) external onlyAdmin {
+        require(_operator != address(0x0), "invalid address");
+        emit OperatorTransferred(operator, _operator);
+        operator = _operator;
     }
 
     function setSettings(uint256 _depositFee, uint256 _withdrawFee, address _feeAddr) external onlyOwner {
