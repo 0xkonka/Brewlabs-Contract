@@ -241,14 +241,14 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
                 (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
             if (pendingReflection > 0 && hasDividend) {
+                uint256 _pendingReflection = estimateDividendAmount(pendingReflection);
                 totalReflections = totalReflections - pendingReflection;
-                pendingReflection = estimateDividendAmount(pendingReflection);
                 if (address(dividendToken) == address(0x0)) {
-                    payable(msg.sender).transfer(pendingReflection);
+                    payable(msg.sender).transfer(_pendingReflection);
                 } else {
-                    IERC20(dividendToken).safeTransfer(address(msg.sender), pendingReflection);
+                    IERC20(dividendToken).safeTransfer(address(msg.sender), _pendingReflection);
                 }
-                emit ClaimDividend(msg.sender, pendingReflection);
+                emit ClaimDividend(msg.sender, _pendingReflection);
             }
         }
 
@@ -307,14 +307,14 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
                 (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
             if (pendingReflection > 0 && hasDividend) {
+                uint256 _pendingReflection = estimateDividendAmount(pendingReflection);
                 totalReflections = totalReflections - pendingReflection;
-                pendingReflection = estimateDividendAmount(pendingReflection);
                 if (address(dividendToken) == address(0x0)) {
-                    payable(msg.sender).transfer(pendingReflection);
+                    payable(msg.sender).transfer(_pendingReflection);
                 } else {
-                    IERC20(dividendToken).safeTransfer(address(msg.sender), pendingReflection);
+                    IERC20(dividendToken).safeTransfer(address(msg.sender), _pendingReflection);
                 }
-                emit ClaimDividend(msg.sender, pendingReflection);
+                emit ClaimDividend(msg.sender, _pendingReflection);
             }
         }
 
@@ -379,14 +379,14 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
             (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - user.reflectionDebt;
 
         if (pendingReflection > 0) {
+            uint256 _pendingReflection = estimateDividendAmount(pendingReflection);
             totalReflections = totalReflections - pendingReflection;
-            pendingReflection = estimateDividendAmount(pendingReflection);
             if (address(dividendToken) == address(0x0)) {
-                payable(msg.sender).transfer(pendingReflection);
+                payable(msg.sender).transfer(_pendingReflection);
             } else {
-                IERC20(dividendToken).safeTransfer(address(msg.sender), pendingReflection);
+                IERC20(dividendToken).safeTransfer(address(msg.sender), _pendingReflection);
             }
-            emit ClaimDividend(msg.sender, pendingReflection);
+            emit ClaimDividend(msg.sender, _pendingReflection);
         }
 
         user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
