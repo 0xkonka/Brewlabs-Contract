@@ -131,7 +131,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
 
         vm.expectRevert(abi.encodePacked("Amount should be greator than 0"));
         farm.deposit(0);
-        
+
         lpToken.mint(address(0x1), 1 ether);
         vm.deal(address(0x1), farm.performanceFee());
 
@@ -204,7 +204,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
         uint256 bonusEndBlock = farm.bonusEndBlock();
         uint256 remainRewards = rewards;
         uint256 shouldTotalPaid = farm.rewardPerBlock() * (block.number - farm.lastRewardBlock());
-        if(remainRewards > shouldTotalPaid) {
+        if (remainRewards > shouldTotalPaid) {
             remainRewards = remainRewards - shouldTotalPaid + (pending - (pending * (10000 - rewardFee)) / 10000);
         }
         uint256 _expectedRewards = remainRewards / (bonusEndBlock - block.number);
@@ -246,7 +246,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
 
         utils.mineBlocks(1000);
 
-        (uint256 amount,uint256 rewardDebt,) = farm.userInfo(address(0x1));
+        (uint256 amount, uint256 rewardDebt,) = farm.userInfo(address(0x1));
 
         uint256 rewards = 1000 * farm.rewardPerBlock();
         uint256 accTokenPerShare = farm.accTokenPerShare() + rewards * 1e18 / farm.totalStaked();
@@ -286,7 +286,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
 
         utils.mineBlocks(2);
         tryDeposit(address(0x2), 2 ether);
-        
+
         (uint256 amount,,) = farm.userInfo(address(0x1));
         uint256 _withdrawFee = amount * WITHDRAW_FEE / 10000;
         uint256 pending = farm.pendingRewards(address(0x1));
@@ -302,7 +302,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
         vm.stopPrank();
 
         rewardToken.mint(address(farm), rewards);
-        
+
         vm.startPrank(address(0x1));
         vm.expectEmit(true, false, false, true);
         emit Withdraw(address(0x1), amount);
@@ -581,7 +581,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
         rewardToken.mint(farm.owner(), 100 ether);
 
         rewardToken.approve(address(farm), 100 ether);
-        
+
         farm.depositRewards(100 ether);
         assertEq(rewardToken.balanceOf(address(farm)), 100 ether);
         assertEq(farm.availableRewardTokens(), 100 ether);
@@ -706,18 +706,9 @@ contract BrewlabsFarmImplWithETHReflectionTest is BrewlabsFarmImplBase {
         lpToken = new MockErc20(18);
         utils = new Utils();
 
-        
         farm = new BrewlabsFarmImpl();
         farm.initialize(
-            lpToken,
-            rewardToken,
-            address(0x0),
-            1e18,
-            DEPOSIT_FEE,
-            WITHDRAW_FEE,
-            true,
-            farm.owner(),
-            farm.owner()
+            lpToken, rewardToken, address(0x0), 1e18, DEPOSIT_FEE, WITHDRAW_FEE, true, farm.owner(), farm.owner()
         );
 
         farm.startReward();
