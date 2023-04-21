@@ -100,6 +100,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     event ServiceInfoUpadted(address addr, uint256 fee);
     event DurationUpdated(uint256 duration);
     event SetAutoAdjustableForRewardRate(bool status);
+    event SetRewardFee(uint256 fee);
     event OperatorTransferred(address oldOperator, address newOperator);
 
     event SetSettings(uint256 depositFee, uint256 withdrawFee, address feeAddr);
@@ -172,7 +173,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
      * @param _amount: amount to stake (in lp token)
      */
     function deposit(uint256 _amount) external payable nonReentrant {
-        require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
+        require(startBlock > 0 && startBlock < block.number, "Farming hasn't started yet");
         require(_amount > 0, "Amount should be greator than 0");
 
         UserInfo storage user = userInfo[msg.sender];
@@ -748,6 +749,13 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
             require(bonusEndBlock > block.number, "invalid duration");
         }
         emit DurationUpdated(_duration);
+    }
+
+    function setRewardFee(uint256 _fee) external onlyOwner {
+        require(_fee < PERCENT_PRECISION, "setRewardFee: invalid percentage");
+
+        rewardFee = _fee;
+        emit SetRewardFee(_fee);
     }
 
     function setAutoAdjustableForRewardRate(bool _status) external onlyOwner {
