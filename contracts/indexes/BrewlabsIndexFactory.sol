@@ -39,13 +39,14 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         IERC721 nft;
         IERC20[] tokens;
         address swapRouter;
+        address deployer;
         uint256 createdAt;
     }
 
     IndexInfo[] public indexList;
     mapping(address => bool) public whitelist;
 
-    event IndexCreated(address indexed index, address[] tokens, address nftAddr, address swapRouter);
+    event IndexCreated(address indexed index, address[] tokens, address nftAddr, address swapRouter, address deployer);
     event SetIndexNft(address newNftAddr);
     event SetIndexOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
@@ -94,13 +95,13 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         IBrewlabsIndex(index).initialize(tokens, indexNft, swapRouter, swapPaths, indexDefaultOwner);
         IBrewlabsIndexNft(address(indexNft)).setMinterRole(index, true);
 
-        indexList.push(IndexInfo(index, indexNft, tokens, swapRouter, block.timestamp));
+        indexList.push(IndexInfo(index, indexNft, tokens, swapRouter, msg.sender, block.timestamp));
 
         address[] memory _tokens = new address[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             _tokens[i] = address(tokens[i]);
         }
-        emit IndexCreated(index, _tokens, address(indexNft), swapRouter);
+        emit IndexCreated(index, _tokens, address(indexNft), swapRouter, msg.sender);
 
         return index;
     }
