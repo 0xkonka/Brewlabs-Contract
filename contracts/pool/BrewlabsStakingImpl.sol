@@ -52,6 +52,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
 
     uint256 public withdrawFee;
 
+    address public operator;
     address public walletA;
     address public treasury;
     uint256 public performanceFee;
@@ -79,7 +80,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
     uint256 private totalReflections;
     uint256 private reflections;
 
-    uint256 private paidRewards;
+    uint256 public paidRewards;
     uint256 private shouldTotalPaid;
 
     // Info of each user that stakes tokens (stakingToken)
@@ -121,6 +122,11 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         address[] _path1
     );
 
+    modifier onlyAdmin() {
+        require(msg.sender == owner() || msg.sender == operator, "caller is not owner or operator");
+        _;
+    }
+
     constructor() {}
 
     /**
@@ -134,9 +140,9 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
      * @param _uniRouter: uniswap router address for swap tokens
      * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
      * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
-     * @param _whiteList: whitelist contract address
      * @param _hasDividend: reflection available flag
      * @param _owner: owner address
+     * @param _operator: operator address
      */
     function initialize(
         IERC20 _stakingToken,
@@ -148,10 +154,10 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         address _uniRouter,
         address[] memory _earnedToStakedPath,
         address[] memory _reflectionToStakedPath,
-        address _whiteList,
         bool _hasDividend,
-        address _owner
-    ) external onlyOwner {
+        address _owner,
+        address _operator
+    ) external {
         require(!isInitialized, "Already initialized");
         require(owner() == address(0x0) || msg.sender == owner(), "Not allowed");
 
@@ -182,6 +188,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         depositFee = _depositFee;
         withdrawFee = _withdrawFee;
         walletA = _owner;
+        operator = _operator;
 
         uint256 decimalsRewardToken = uint256(IERC20Metadata(address(earnedToken)).decimals());
         require(decimalsRewardToken < 30, "Must be inferior to 30");
@@ -197,7 +204,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         uniRouterAddress = _uniRouter;
         earnedToStakedPath = _earnedToStakedPath;
         reflectionToStakedPath = _reflectionToStakedPath;
-        whiteList = _whiteList;
+        whiteList = address(0x0);
 
         _transferOwnership(_owner);
     }
@@ -605,7 +612,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
     /**
      * Admin Methods
      */
-    function harvestTo(address _treasury) external onlyOwner {
+    function harvestTo(address _treasury) external onlyAdmin {
         _updatePool();
 
         if (reflections > 0) {
@@ -624,7 +631,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
      * @notice Deposit reward token
      * @dev Only call by owner. Needs to be for deposit of reward token when reflection token is same with reward token.
      */
-    function depositRewards(uint256 _amount) external onlyOwner nonReentrant {
+    function depositRewards(uint256 _amount) external onlyAdmin nonReentrant {
         require(_amount > 0, "invalid amount");
 
         uint256 beforeAmt = earnedToken.balanceOf(address(this));
@@ -634,7 +641,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         totalEarned = totalEarned + afterAmt - beforeAmt;
     }
 
-    function increaseEmissionRate(uint256 _amount) external onlyOwner {
+    function increaseEmissionRate(uint256 _amount) external onlyAdmin {
         require(startBlock > 0, "pool is not started");
         require(bonusEndBlock > block.number, "pool was already finished");
         require(_amount > 0, "invalid amount");
@@ -688,7 +695,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
      * @param _tokenAmount: the number of tokens to withdraw
      * @dev This function is only callable by admin.
      */
-    function recoverWrongTokens(address _tokenAddress, uint256 _tokenAmount) external onlyOwner {
+    function rescueTokens(address _tokenAddress, uint256 _tokenAmount) external onlyOwner {
         require(_tokenAddress != address(earnedToken) || _tokenAddress == dividendToken, "Cannot be reward token");
 
         if (_tokenAddress == address(stakingToken)) {
@@ -705,7 +712,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         emit AdminTokenRecovered(_tokenAddress, _tokenAmount);
     }
 
-    function startReward() external onlyOwner {
+    function startReward() external onlyAdmin {
         require(startBlock == 0, "Pool was already started");
 
         startBlock = block.number + 100;
@@ -715,7 +722,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         emit NewStartAndEndBlocks(startBlock, bonusEndBlock);
     }
 
-    function stopReward() external onlyOwner {
+    function stopReward() external onlyAdmin {
         _updatePool();
 
         uint256 remainRewards = availableRewardTokens() + paidRewards;
@@ -734,7 +741,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         emit RewardsStop(bonusEndBlock);
     }
 
-    function updateEndBlock(uint256 _endBlock) external onlyOwner {
+    function updateEndBlock(uint256 _endBlock) external onlyAdmin {
         require(startBlock > 0, "Pool is not started");
         require(bonusEndBlock > block.number, "Pool was already finished");
         require(_endBlock > block.number && _endBlock > startBlock, "Invalid end block");
@@ -765,7 +772,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
      * @dev Only callable by owner.
      * @param _rewardPerBlock: the reward per block
      */
-    function updateRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
+    function updateRewardPerBlock(uint256 _rewardPerBlock) external onlyAdmin {
         // require(block.number < startBlock, "Pool was already started");
         _updatePool();
 

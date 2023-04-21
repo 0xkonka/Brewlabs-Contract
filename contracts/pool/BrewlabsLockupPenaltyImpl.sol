@@ -13,14 +13,14 @@ interface WhiteList {
     function whitelisted(address _address) external view returns (bool);
 }
 
-contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
+contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 private PERCENT_PRECISION;
     uint256 private BLOCKS_PER_DAY;
 
     // Whether it is initialized
-    bool private isInitialized;
+    bool public isInitialized;
     uint256 public duration; // 365 days
 
     // Whether a limit is set for users
@@ -48,6 +48,9 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     address public walletA;
     address public treasury;
     uint256 public performanceFee;
+
+    bool public enablePenalty;
+    uint256 public penaltyFee;
 
     // The precision factor
     uint256 public PRECISION_FACTOR;
@@ -123,6 +126,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     event ServiceInfoUpadted(address _addr, uint256 _fee);
     event DurationUpdated(uint256 _duration);
     event SetWhiteList(address _whitelist);
+    event SetPenaltyStatus(bool status, uint256 fee);
 
     event SetSettings(
         uint256 _slippageFactor, address _uniRouter, address[] _path0, address[] _path1, address _walletA
@@ -143,6 +147,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
      * @param _uniRouter: uniswap router address for swap tokens
      * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
      * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
+     * @param _penaltyFee: owner address
      * @param _owner: owner address
      * @param _operator: operator address
      */
@@ -153,6 +158,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         address _uniRouter,
         address[] memory _earnedToStakedPath,
         address[] memory _reflectionToStakedPath,
+        uint256 _penaltyFee,
         address _owner,
         address _operator
     ) external {
@@ -177,8 +183,11 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         earnedToken = _earnedToken;
         dividendToken = _dividendToken;
 
-        walletA = _owner;
+        walletA = msg.sender;
         operator = _operator;
+
+        enablePenalty = true;
+        penaltyFee = _penaltyFee;
 
         uint256 decimalsRewardToken = uint256(IERC20Metadata(address(earnedToken)).decimals());
         require(decimalsRewardToken < 30, "Must be inferior to 30");
@@ -201,7 +210,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
     /**
      * @notice Deposit staked tokens and collect reward tokens (if any)
-     * @param _amount: amount to withdraw (in earnedToken)
+     * @param _amount: amount to stake
      * @param _stakeType: lockup index
      */
     function deposit(uint256 _amount, uint8 _stakeType) external payable nonReentrant {
@@ -315,7 +324,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
     /**
      * @notice Withdraw staked tokens and collect reward tokens
-     * @param _amount: amount to withdraw (in earnedToken)
+     * @param _amount: amount to withdraw
      * @param _stakeType: lockup index
      */
     function withdraw(uint256 _amount, uint8 _stakeType) external payable nonReentrant {
@@ -332,6 +341,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         uint256 pending = 0;
         uint256 pendingReflection = 0;
         uint256 remained = _amount;
+        uint256 forceWithdrawalAmount = 0;
         for (uint256 j = 0; j < stakes.length; j++) {
             Stake storage stake = stakes[j];
             if (stake.stakeType != _stakeType) continue;
@@ -343,13 +353,13 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
                 + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt);
 
             pending = pending + _pending;
-            if (stake.end < block.timestamp || bonusEndBlock < block.number) {
-                if (stake.amount > remained) {
-                    stake.amount = stake.amount - remained;
-                    remained = 0;
-                } else {
-                    remained = remained - stake.amount;
-                    stake.amount = 0;
+            if (stake.end < block.timestamp || bonusEndBlock < block.number || enablePenalty) {
+                uint256 _wAmount = stake.amount > remained ? remained : stake.amount;
+
+                stake.amount -= _wAmount;
+                remained -= _wAmount;
+                if (stake.end >= block.timestamp && bonusEndBlock >= block.number) {
+                    forceWithdrawalAmount += _wAmount;
                 }
             }
 
@@ -377,12 +387,17 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         lockup.totalStaked = lockup.totalStaked - realAmount;
         totalStaked = totalStaked - realAmount;
 
+        emit Withdraw(msg.sender, _stakeType, realAmount);
         if (realAmount > 0) {
-            emit Withdraw(msg.sender, _stakeType, realAmount);
-
             if (lockup.withdrawFee > 0) {
                 uint256 fee = (realAmount * lockup.withdrawFee) / PERCENT_PRECISION;
                 stakingToken.safeTransfer(walletA, fee);
+                realAmount = realAmount - fee;
+            }
+            // process penalty fee
+            if (enablePenalty && forceWithdrawalAmount > 0) {
+                uint256 fee = (forceWithdrawalAmount * penaltyFee) / PERCENT_PRECISION;
+                stakingToken.safeTransfer(walletA, fee / 2);
                 realAmount = realAmount - fee;
             }
 
@@ -747,7 +762,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     /**
      * Admin Methods
      */
-    function harvest() external onlyAdmin {
+    function harvest() external onlyOwner {
         _updatePool(0);
 
         if (reflections > 0) {
@@ -761,7 +776,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
      * @notice Deposit reward token
      * @dev Only call by owner. Needs to be for deposit of reward token when reflection token is same with reward token.
      */
-    function depositRewards(uint256 _amount) external onlyAdmin nonReentrant {
+    function depositRewards(uint256 _amount) external onlyOwner nonReentrant {
         require(_amount > 0, "invalid amount");
 
         uint256 beforeAmt = earnedToken.balanceOf(address(this));
@@ -771,7 +786,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         totalEarned = totalEarned + afterAmt - beforeAmt;
     }
 
-    function increaseEmissionRate(uint8 _stakeType, uint256 _amount) external onlyAdmin {
+    function increaseEmissionRate(uint8 _stakeType, uint256 _amount) external onlyOwner {
         require(startBlock > 0, "pool is not started");
         require(bonusEndBlock > block.number, "pool was already finished");
         require(_amount > 0, "invalid amount");
@@ -836,7 +851,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
      * @param _tokenAmount: the number of tokens to withdraw
      * @dev This function is only callable by admin.
      */
-    function rescueTokens(address _tokenAddress, uint256 _tokenAmount) external onlyOwner {
+    function recoverWrongTokens(address _tokenAddress, uint256 _tokenAmount) external onlyOwner {
         require(_tokenAddress != address(earnedToken) || _tokenAddress == dividendToken, "Cannot be reward token");
 
         if (_tokenAddress == address(stakingToken)) {
@@ -853,7 +868,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         emit AdminTokenRecovered(_tokenAddress, _tokenAmount);
     }
 
-    function startReward() external onlyAdmin {
+    function startReward() external onlyOwner {
         require(startBlock == 0, "Pool was already started");
 
         startBlock = block.number + 100;
@@ -865,7 +880,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         emit NewStartAndEndBlocks(startBlock, bonusEndBlock);
     }
 
-    function stopReward() external onlyAdmin {
+    function stopReward() external onlyOwner {
         for (uint8 i = 0; i < lockups.length; i++) {
             _updatePool(i);
         }
@@ -881,7 +896,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         emit RewardsStop(bonusEndBlock);
     }
 
-    function updateEndBlock(uint256 _endBlock) external onlyAdmin {
+    function updateEndBlock(uint256 _endBlock) external onlyOwner {
         require(startBlock > 0, "Pool is not started");
         require(bonusEndBlock > block.number, "Pool was already finished");
         require(_endBlock > block.number && _endBlock > startBlock, "Invalid end block");
@@ -895,7 +910,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
      * @param _hasUserLimit: whether the limit remains forced
      * @param _poolLimitPerUser: new pool limit per user
      */
-    function updatePoolLimitPerUser(bool _hasUserLimit, uint256 _poolLimitPerUser) external onlyAdmin {
+    function updatePoolLimitPerUser(bool _hasUserLimit, uint256 _poolLimitPerUser) external onlyOwner {
         if (_hasUserLimit) {
             require(_poolLimitPerUser > poolLimitPerUser, "New limit must be higher");
             poolLimitPerUser = _poolLimitPerUser;
@@ -971,6 +986,19 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
         activeEmergencyWithdraw = _status;
         emit SetEmergencyWithdrawStatus(_status);
+    }
+
+    function setPenaltyStatus(bool _status, uint256 _fee) external onlyOwner {
+        require(_fee < 3000, "Invalid penalty");
+
+        enablePenalty = _status;
+        penaltyFee = _fee;
+        emit SetPenaltyStatus(_status, _fee);
+
+        if (_status && !activeEmergencyWithdraw) {
+            activeEmergencyWithdraw = true;
+            emit SetEmergencyWithdrawStatus(_status);
+        }
     }
 
     function setDuration(uint256 _duration) external onlyOwner {
