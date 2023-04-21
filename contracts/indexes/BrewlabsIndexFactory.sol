@@ -53,7 +53,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     event SetIndexOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(address impl, uint256 version);
-    event SetServiceInfo(address addr, uint256 fee);
+    event TreasuryChanged(address addr);
     event Whitelisted(address indexed account, bool isWhitelisted);
 
     constructor() {}
@@ -80,7 +80,6 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     function createBrewlabsIndex(IERC20[] memory tokens, address swapRouter, address[][] memory swapPaths)
         external
         payable
-        onlyOwner
         returns (address index)
     {
         require(tokens.length <= 5, "Exceed token limit");
@@ -156,17 +155,11 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         emit Whitelisted(_addr, false);
     }
 
-    /**
-     * This method can be called by treasury.
-     * @notice Update treasury wallet.
-     * @param newTreasury: new treasury address
-     */
-    function setServiceInfo(address newTreasury, uint256 /* fee */ ) external {
-        require(msg.sender == treasury, "setServiceInfo: FORBIDDEN");
+    function setTreasury(address newTreasury) external onlyOwner {
         require(newTreasury != address(0x0), "Invalid address");
 
         treasury = newTreasury;
-        emit SetServiceInfo(newTreasury, 0);
+        emit TreasuryChanged(newTreasury);
     }
 
     /**
