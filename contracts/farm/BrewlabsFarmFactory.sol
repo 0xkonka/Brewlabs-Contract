@@ -57,7 +57,6 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
         bool hasDividend,
         address deployer
     );
-    event SetFarmNft(address newNftAddr);
     event SetFarmOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(address impl, uint256 version);
