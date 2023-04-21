@@ -23,7 +23,17 @@ interface IBrewlabsIndexFactory {
     function treasury() external view returns (address);
 
     function indexCount() external view returns (uint256);
-    function getIndexInfo(uint256 index) external view returns (address, IERC721, IERC20[] memory, address, uint256);
+    function getIndexInfo(uint256 idx)
+        external
+        view
+        returns (
+            address indexAddr,
+            IERC721 nft,
+            IERC20[] memory tokens,
+            address swapRouter,
+            address deployer,
+            uint256 createdAt
+        );
     function whitelist(address addr) external view returns (bool);
 
     function setImplementation(address impl) external;
@@ -35,6 +45,6 @@ interface IBrewlabsIndexFactory {
     function addToWhitelist(address addr) external;
     function removeFromWhitelist(address addr) external;
 
-    function setServiceInfo(address treasury, uint256 fee) external;
+    function setTreasury(address treasury) external;
     function rescueTokens(address token) external;
 }

@@ -111,9 +111,20 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         return indexList.length;
     }
 
-    function getIndexInfo(uint256 idx) external view returns (address, IERC721, IERC20[] memory, address, uint256) {
+    function getIndexInfo(uint256 idx)
+        external
+        view
+        returns (address, IERC721, IERC20[] memory, address, address, uint256)
+    {
         IndexInfo memory indexInfo = indexList[idx];
-        return (indexInfo.index, indexInfo.nft, indexInfo.tokens, indexInfo.swapRouter, indexInfo.createdAt);
+        return (
+            indexInfo.index,
+            indexInfo.nft,
+            indexInfo.tokens,
+            indexInfo.swapRouter,
+            indexInfo.deployer,
+            indexInfo.createdAt
+        );
     }
 
     function setImplementation(address impl) external onlyOwner {
