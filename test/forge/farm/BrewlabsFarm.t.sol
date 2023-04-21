@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 // import "forge-std/console.sol";       // use like hardhat console.log
-import {MockErc20} from "../../contracts/mocks/MockErc20.sol";
-import {BrewlabsFarm, IERC20} from "../../contracts/farm/BrewlabsFarm.sol";
-import {Utils} from "./utils/Utils.sol";
+import {MockErc20} from "../../../contracts/mocks/MockErc20.sol";
+import {BrewlabsFarm, IERC20} from "../../../contracts/farm/BrewlabsFarm.sol";
+import {Utils} from "../utils/Utils.sol";
 
 contract BrewlabsFarmBase is Test {
     MockErc20 internal token;
@@ -83,6 +83,7 @@ contract BrewlabsFarmTest is BrewlabsFarmBase {
         vm.roll(farm.startBlock() + 100);
         uint256 pending = farm.pendingRewards(0, address(0x1));
         uint256 pendingReflection = farm.pendingReflections(0, address(0x1));
+
         tryDeposit(address(0x1), 0, 1 ether);
         assertEq(token.balanceOf(address(0x1)), pending);
         assertEq(reflectionToken.balanceOf(address(0x1)), pendingReflection);
