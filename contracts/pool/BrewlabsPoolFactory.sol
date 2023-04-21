@@ -154,6 +154,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         address[] memory reflectionToStakedPath,
         bool hasDividend
     ) external payable returns (address pool) {
+        require(implementation[0] != address(0x0), "No implementation");
         require(depositFee < 2000, "Invalid deposit fee");
         require(withdrawFee < 2000, "Invalid withdraw fee");
 
@@ -223,6 +224,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256[] memory depositFees,
         uint256[] memory withdrawFees
     ) external payable returns (address pool) {
+        require(implementation[1] != address(0x0), "No implementation");
         if (!whitelist[msg.sender]) {
             _transferServiceFee();
         }
@@ -292,6 +294,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256[] memory depositFees,
         uint256[] memory withdrawFees
     ) external payable returns (address pool) {
+        require(implementation[2] != address(0x0), "No implementation");
         if (!whitelist[msg.sender]) {
             _transferServiceFee();
         }
