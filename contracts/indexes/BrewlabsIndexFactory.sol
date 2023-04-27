@@ -9,9 +9,11 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 interface IBrewlabsIndex {
     function initialize(
         IERC20[] memory _tokens,
-        IERC721 _nft,
+        IERC721 _indexNft,
+        IERC721 _deployerNft,
         address _router,
         address[][] memory _paths,
+        uint256 _fee,
         address _owner,
         address _deployer
     ) external;
@@ -24,10 +26,13 @@ interface IBrewlabsIndexNft {
 contract BrewlabsIndexFactory is OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
+    uint256 private constant FEE_DENOMIATOR = 10000;
+
     address public implementation;
     uint256 public version;
 
     IERC721 public indexNft;
+    IERC721 public deployerNft;
     address public indexDefaultOwner;
 
     address public payingToken;
@@ -35,10 +40,15 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     uint256 public performanceFee;
     address public treasury;
 
+    uint256 public brewlabsFee = 25; // 0.25%
+    uint256 public feeLimit = 500; // 5%
+    address public discountMgr;
+
     struct IndexInfo {
         address index;
         uint256 version;
-        IERC721 nft;
+        IERC721 indexNft;
+        IERC721 deployerNft;
         IERC20[] tokens;
         address swapRouter;
         address deployer;
@@ -48,17 +58,28 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     IndexInfo[] public indexList;
     mapping(address => bool) public whitelist;
 
-    event IndexCreated(address indexed index, address[] tokens, address nftAddr, address swapRouter, address deployer);
+    event IndexCreated(
+        address indexed index,
+        address[] tokens,
+        address indexNft,
+        address deployerNft,
+        address swapRouter,
+        address deployer
+    );
     event SetIndexNft(address newNftAddr);
+    event SetDeployerNft(address newOwner);
     event SetIndexOwner(address newOwner);
+    event SetBrewlabsFee(uint256 fee);
+    event SetIndexFeeLimit(uint256 limit);
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(address impl, uint256 version);
+    event SetDiscountMgr(address addr);
     event TreasuryChanged(address addr);
     event Whitelisted(address indexed account, bool isWhitelisted);
 
     constructor() {}
 
-    function initialize(address impl, IERC721 nft, address token, uint256 price, address indexOwner)
+    function initialize(address impl, IERC721 nft, IERC721 dNft, address token, uint256 price, address indexOwner)
         external
         initializer
     {
@@ -72,12 +93,13 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         indexDefaultOwner = indexOwner;
 
         indexNft = nft;
+        deployerNft = dNft;
         implementation = impl;
         version++;
         emit SetImplementation(impl, version);
     }
 
-    function createBrewlabsIndex(IERC20[] memory tokens, address swapRouter, address[][] memory swapPaths)
+    function createBrewlabsIndex(IERC20[] memory tokens, address swapRouter, address[][] memory swapPaths, uint256 fee)
         external
         payable
         returns (address index)
@@ -85,6 +107,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         require(tokens.length <= 5, "Exceed token limit");
         require(tokens.length == swapPaths.length, "Invalid config");
         require(swapRouter != address(0x0), "Invalid address");
+        require(fee <= feeLimit, "Cannot exeed fee limit");
 
         if (!whitelist[msg.sender]) {
             _transferServiceFee();
@@ -93,16 +116,21 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         bytes32 salt = keccak256(abi.encodePacked(msg.sender, tokens.length, tokens[0], block.timestamp));
 
         index = Clones.cloneDeterministic(implementation, salt);
-        IBrewlabsIndex(index).initialize(tokens, indexNft, swapRouter, swapPaths, indexDefaultOwner, msg.sender);
+        IBrewlabsIndex(index).initialize(
+            tokens, indexNft, deployerNft, swapRouter, swapPaths, fee, indexDefaultOwner, msg.sender
+        );
         IBrewlabsIndexNft(address(indexNft)).setMinterRole(index, true);
+        IBrewlabsIndexNft(address(deployerNft)).setMinterRole(index, true);
 
-        indexList.push(IndexInfo(index, version, indexNft, tokens, swapRouter, msg.sender, block.timestamp));
+        indexList.push(
+            IndexInfo(index, version, indexNft, deployerNft, tokens, swapRouter, msg.sender, block.timestamp)
+        );
 
         address[] memory _tokens = new address[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             _tokens[i] = address(tokens[i]);
         }
-        emit IndexCreated(index, _tokens, address(indexNft), swapRouter, msg.sender);
+        emit IndexCreated(index, _tokens, address(indexNft), address(deployerNft), swapRouter, msg.sender);
 
         return index;
     }
@@ -114,12 +142,13 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     function getIndexInfo(uint256 idx)
         external
         view
-        returns (address, IERC721, IERC20[] memory, address, address, uint256)
+        returns (address, IERC721, IERC721, IERC20[] memory, address, address, uint256)
     {
         IndexInfo memory indexInfo = indexList[idx];
         return (
             indexInfo.index,
-            indexInfo.nft,
+            indexInfo.indexNft,
+            indexInfo.deployerNft,
             indexInfo.tokens,
             indexInfo.swapRouter,
             indexInfo.deployer,
@@ -140,10 +169,33 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         emit SetIndexNft(address(newNftAddr));
     }
 
+    function setDeployerNft(IERC721 newNftAddr) external onlyOwner {
+        require(address(deployerNft) != address(newNftAddr), "Same Nft address");
+        deployerNft = newNftAddr;
+        emit SetDeployerNft(address(newNftAddr));
+    }
+
+    function setBrewlabsFee(uint256 fee) external onlyOwner {
+        require(fee <= feeLimit, "fee cannot exceed limit");
+        brewlabsFee = fee;
+        emit SetBrewlabsFee(brewlabsFee);
+    }
+
+    function setIndexFeeLimit(uint256 limit) external onlyOwner {
+        require(limit <= 2000, "fee limit cannot exceed 20%");
+        feeLimit = limit;
+        emit SetIndexFeeLimit(feeLimit);
+    }
+
     function setIndexOwner(address newOwner) external onlyOwner {
         require(address(indexDefaultOwner) != address(newOwner), "Same owner address");
         indexDefaultOwner = newOwner;
         emit SetIndexOwner(newOwner);
+    }
+
+    function setDiscountManager(address addr) external onlyOwner {
+        discountMgr = addr;
+        emit SetDiscountMgr(addr);
     }
 
     function setServiceFee(uint256 fee) external onlyOwner {
