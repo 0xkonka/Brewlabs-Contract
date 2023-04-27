@@ -40,9 +40,10 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     uint256 public performanceFee;
     address public treasury;
 
+    address public discountMgr;
+    address public brewlabsWallet = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
     uint256 public brewlabsFee = 25; // 0.25%
     uint256 public feeLimit = 500; // 5%
-    address public discountMgr;
 
     struct IndexInfo {
         address index;
@@ -70,6 +71,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     event SetDeployerNft(address newOwner);
     event SetIndexOwner(address newOwner);
     event SetBrewlabsFee(uint256 fee);
+    event SetBrewlabsWallet(address wallet);
     event SetIndexFeeLimit(uint256 limit);
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(address impl, uint256 version);
@@ -173,6 +175,12 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         require(address(deployerNft) != address(newNftAddr), "Same Nft address");
         deployerNft = newNftAddr;
         emit SetDeployerNft(address(newNftAddr));
+    }
+
+    function setBrewlabsWallet(address wallet) external onlyOwner {
+        require(wallet != address(0x0), "Invalid wallet");
+        brewlabsWallet = wallet;
+        emit SetBrewlabsWallet(wallet);
     }
 
     function setBrewlabsFee(uint256 fee) external onlyOwner {
