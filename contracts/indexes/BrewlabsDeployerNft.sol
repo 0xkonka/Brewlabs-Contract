@@ -8,12 +8,11 @@ import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOpera
 
 interface IBrewlabsIndex {
     function deployer() external view returns (address);
-    function NUM_TOKENS() external view returns (uint256);
-    function tokens(uint256 index) external view returns (address);
-    function nftInfo(uint256 _tokenId) external view returns (uint256, uint256[] memory, uint256);
+    function totalCommissions() external view returns (uint256);
+    function getPendingCommissions() external view returns (uint256[] memory);
 }
 
-contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable {
+contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable {
     using Strings for uint256;
     using Strings for address;
 
@@ -30,16 +29,16 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
     event SetMinterRole(address minter, bool status);
 
     modifier onlyMinter() {
-        require(isMinter[msg.sender], "BrewlabsIndexNft: Caller is not minter");
+        require(isMinter[msg.sender], "BrewlabsDeployerNft: Caller is not minter");
         _;
     }
 
     modifier onlyAdmin() {
-        require(msg.sender == owner() || msg.sender == admin, "BrewlabsIndexNft: Caller is not admin or owner");
+        require(msg.sender == owner() || msg.sender == admin, "BrewlabsDeployerNft: Caller is not admin or owner");
         _;
     }
 
-    constructor() ERC721("Brewlabs Index Nft", "BINDEX") {
+    constructor() ERC721("Brewlabs Deployer Nft", "BDN") {
         admin = msg.sender;
     }
 
@@ -50,10 +49,6 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
 
         indexes[tokenIndex] = msg.sender;
         return tokenIndex;
-    }
-
-    function burn(uint256 tokenId) external {
-        _burn(tokenId);
     }
 
     function setApprovalForAll(address operator, bool approved)
@@ -114,26 +109,29 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        require(_exists(tokenId), "BrewlabsIndexNft: URI query for nonexistent token");
+        require(_exists(tokenId), "BrewlabsDeployerNft: URI query for nonexistent token");
 
         string memory base = _baseURI();
         string memory description = string(
             abi.encodePacked(
-                '"description": "Brewlabs Index NFTs represent users fractionalised ownership of a particular basket of tokens(Index)."'
+                '"description": "Brewlabs Deployer NFTs represent user\'s ownership of a commission of Index."'
             )
         );
 
         IBrewlabsIndex _index = IBrewlabsIndex(indexes[tokenId]);
-        uint256 numTokens = _index.NUM_TOKENS();
         address deployer = _index.deployer();
-        (uint256 level, uint256[] memory amounts, uint256 usdAmount) = _index.nftInfo(tokenId);
+        uint256 totalCommissions = _index.totalCommissions();
 
-        string[3] memory levels = ["Yellow", "Blue", "Black"];
+        uint256 level = 1;
+        if(totalCommissions <= 100) level = 0;
+        if(totalCommissions > 500) level = 2;
+
+        string[3] memory levels = ["Common", "Rare", "SuperRare"];
         string memory attributes = '"attributes":[';
         attributes = string(
             abi.encodePacked(
                 attributes,
-                '{"trait_type":"Level", "value":"',
+                '{"trait_type": "Level", "value":"',
                 levels[level],
                 '"},',
                 '{"trait_type":"Index", "value":"',
@@ -141,33 +139,9 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
                 '"},'
                 '{"trait_type":"Deployer", "value":"',
                 deployer.toHexString(),
-                '"},'
+                '"}]'
             )
         );
-        for (uint256 i = 0; i < numTokens; i++) {
-            address _token = _index.tokens(i);
-            if (i > 0) {
-                attributes = string(abi.encodePacked(attributes, ","));
-            }
-
-            attributes = string(
-                abi.encodePacked(
-                    attributes,
-                    '{"trait_type":"Token',
-                    uint256(i).toString(),
-                    '", "value":"',
-                    _token.toHexString(),
-                    '"},',
-                    '{"trait_type":"Amount',
-                    uint256(i).toString(),
-                    '", "value":"',
-                    amounts[i].toString(),
-                    '"}'
-                )
-            );
-        }
-        attributes =
-            string(abi.encodePacked(attributes, ', {"trait_type":"USD Amount", "value":"', usdAmount.toString(), '"}]'));
 
         // If both are set, concatenate the baseURI (via abi.encodePacked).
         string memory metadata = string(
@@ -192,10 +166,12 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         return string(abi.encodePacked("data:application/json;base64,", _base64(bytes(metadata))));
     }
 
-    function getNftInfo(uint256 tokenId) external view returns (uint256, uint256[] memory, uint256, address, address) {
-        (uint256 level, uint256[] memory amounts, uint256 usdAmount) = IBrewlabsIndex(indexes[tokenId]).nftInfo(tokenId);
+    function getIndexInfo(uint256 tokenId) external view returns (address, address, uint256, uint256[] memory) {
         address deployer = IBrewlabsIndex(indexes[tokenId]).deployer();
-        return (level, amounts, usdAmount, address(indexes[tokenId]), deployer);
+        uint256 commissions = IBrewlabsIndex(indexes[tokenId]).totalCommissions();
+        uint256[] memory pCommissions = IBrewlabsIndex(indexes[tokenId]).getPendingCommissions();
+
+        return (indexes[tokenId], deployer, commissions, pCommissions);
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -203,7 +179,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
     }
 
     function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal {
-        require(_exists(tokenId), "BrewlabsIndexNft: URI set of nonexistent token");
+        require(_exists(tokenId), "BrewlabsDeployerNft: URI set of nonexistent token");
         _tokenURIs[tokenId] = _tokenURI;
     }
 

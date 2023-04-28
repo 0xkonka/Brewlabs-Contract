@@ -29,7 +29,7 @@ interface IBrewlabsIndexNft {
 }
 
 interface IBrewlabsDeployerNft {
-    function mint(address to, address index) external returns (uint256);
+    function mint(address to) external returns (uint256);
 }
 
 // BrewlabsIndex is index contracts that offer a range of token collections to buy as "Brewlabs Index"
@@ -87,7 +87,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     uint256[] private pendingCommissions;
 
     bool private deployerNftMintable;
-    uint256 private deployerNftId;
+    uint256 public deployerNftId;
 
     event TokenZappedIn(
         address indexed user,
@@ -424,7 +424,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
         commissionWallet = address(0x0);
         deployerNftMintable = false;
-        deployerNftId = IBrewlabsDeployerNft(address(deployerNft)).mint(msg.sender, address(this));
+        deployerNftId = IBrewlabsDeployerNft(address(deployerNft)).mint(msg.sender);
         emit DeployerNftMinted(msg.sender, address(deployerNft), deployerNftId);
     }
 

@@ -25,6 +25,7 @@ interface IBrewlabsIndex {
     function tokens(uint256 index) external view returns (address);
 
     function deployer() external view returns (address);
+    function deployerNftId() external view returns (uint256);
 
     function fee() external view returns (uint256);
     function totalFee() external view returns (uint256);
