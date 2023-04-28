@@ -18,7 +18,6 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
 
     uint256 private tokenIndex;
     string private _tokenBaseURI = "";
-    mapping(uint256 => string) private _tokenURIs;
 
     address public admin;
     mapping(address => bool) public isMinter;
@@ -38,15 +37,14 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
         _;
     }
 
-    constructor() ERC721("Brewlabs Deployer Nft", "BDN") {
+    constructor() ERC721("Brewlabs Deployer Nft", "BDY") {
         admin = msg.sender;
     }
 
     function mint(address to) external onlyMinter returns (uint256) {
         tokenIndex++;
-        _safeMint(to, tokenIndex);
-        _setTokenURI(tokenIndex, tokenIndex.toString());
 
+        _safeMint(to, tokenIndex);
         indexes[tokenIndex] = msg.sender;
         return tokenIndex;
     }
@@ -123,8 +121,8 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
         uint256 totalCommissions = _index.totalCommissions();
 
         uint256 level = 1;
-        if(totalCommissions <= 100 ether) level = 0;
-        if(totalCommissions > 500 ether) level = 2;
+        if (totalCommissions <= 100 ether) level = 0;
+        if (totalCommissions > 500 ether) level = 2;
 
         string[3] memory levels = ["Common", "Rare", "SuperRare"];
         string memory attributes = '"attributes":[';
@@ -136,8 +134,7 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
                 '"},',
                 '{"trait_type":"Index", "value":"',
                 address(_index).toHexString(),
-                '"},'
-                '{"trait_type":"Deployer", "value":"',
+                '"},' '{"trait_type":"Deployer", "value":"',
                 deployer.toHexString(),
                 '"}]'
             )
@@ -176,11 +173,6 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
 
     function _baseURI() internal view override returns (string memory) {
         return _tokenBaseURI;
-    }
-
-    function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal {
-        require(_exists(tokenId), "BrewlabsDeployerNft: URI set of nonexistent token");
-        _tokenURIs[tokenId] = _tokenURI;
     }
 
     function _base64(bytes memory data) internal pure returns (string memory) {

@@ -2,51 +2,86 @@
 pragma solidity ^0.8.13;
 
 import {ERC721, ERC721Enumerable, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 
-interface IBrewlabsIndex {
-    function deployer() external view returns (address);
-    function NUM_TOKENS() external view returns (uint256);
-    function tokens(uint256 index) external view returns (address);
-    function nftInfo(uint256 _tokenId) external view returns (uint256, uint256[] memory, uint256);
-}
-
-contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable {
+contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable {
+    using SafeERC20 for IERC20;
     using Strings for uint256;
     using Strings for address;
 
     uint256 private tokenIndex;
     string private _tokenBaseURI = "";
 
-    address public admin;
-    mapping(address => bool) public isMinter;
-    mapping(uint256 => address) private indexes;
+    string[5] rarityNames = ["Common", "Uncommon", "Rare", "Epic", "Legendary"];
+    mapping(uint256 => uint256) private rarities;
+
+    uint256 public ethMintFee;
+    uint256 public brewsMintFee;
+    IERC20 public feeToken = IERC20(0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7);
+    address public treasury = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
+
+    mapping(address => uint256) public whitelist;
 
     event BaseURIUpdated(string uri);
-    event SetAdminRole(address newAdmin);
-    event SetMinterRole(address minter, bool status);
+    event ItemUpgraded(uint256[3] tokenIds, uint256 newTokenId);
+    event SetFeeToken(address token);
+    event SetMintPrice(uint256 ethFee, uint256 brewsFee);
+    event Whitelisted(address indexed account, uint256 count);
 
-    modifier onlyMinter() {
-        require(isMinter[msg.sender], "BrewlabsIndexNft: Caller is not minter");
-        _;
-    }
+    constructor() ERC721("Brewlabs Flask Nft", "BFL") {}
 
-    modifier onlyAdmin() {
-        require(msg.sender == owner() || msg.sender == admin, "BrewlabsIndexNft: Caller is not admin or owner");
-        _;
-    }
+    function mint() external payable returns (uint256) {
+        if (whitelist[msg.sender] > 0) {
+            require(msg.value >= ethMintFee, "Insufficient BNB fee");
 
-    constructor() ERC721("Brewlabs Index Nft", "BINDEX") {
-        admin = msg.sender;
-    }
+            // process mint fee
+            payable(treasury).transfer(ethMintFee);
+            if (msg.value > ethMintFee) {
+                payable(msg.sender).transfer(msg.value - ethMintFee);
+            }
+            feeToken.safeTransferFrom(msg.sender, treasury, brewsMintFee);
 
-    function mint(address to) external onlyMinter returns (uint256) {
+            whitelist[msg.sender] = whitelist[msg.sender] - 1;
+        }
+
+        // mint NFT
         tokenIndex++;
+        rarities[tokenIndex] = _randomRarity();
 
-        _safeMint(to, tokenIndex);
-        indexes[tokenIndex] = msg.sender;
+        _safeMint(msg.sender, tokenIndex);
+        return tokenIndex;
+    }
+
+    function _randomRarity() internal view returns (uint256) {
+        uint256 randomNum = uint256(
+            keccak256(abi.encode(msg.sender, tx.gasprice, block.number, block.timestamp, blockhash(block.number - 1)))
+        );
+
+        return randomNum % rarityNames.length;
+    }
+
+    function upgradeItem(uint256[3] memory tokenIds) external returns (uint256) {
+        require(rarities[tokenIds[0]] < 2, "Only common or uncommon NFT can be upgraded");
+        require(
+            rarities[tokenIds[0]] == rarities[tokenIds[1]] && rarities[tokenIds[1]] == rarities[tokenIds[2]],
+            "Rarities should be same"
+        );
+
+        uint256 newRarity = rarities[tokenIds[0]] + 1;
+        for (uint256 i = 0; i < 3; i++) {
+            safeTransferFrom(msg.sender, address(this), tokenIds[i]);
+            _burn(tokenIds[i]);
+        }
+
+        // mint NFT
+        tokenIndex++;
+        rarities[tokenIndex] = newRarity;
+
+        _safeMint(msg.sender, tokenIndex);
+        emit ItemUpgraded(tokenIds, tokenIndex);
         return tokenIndex;
     }
 
@@ -94,77 +129,22 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         super.safeTransferFrom(from, to, tokenId, data);
     }
 
-    function setAdmin(address newAdmin) external onlyOwner {
-        require(newAdmin != address(0x0), "invalid address");
-        admin = newAdmin;
-        emit SetAdminRole(newAdmin);
-    }
-
-    function setMinterRole(address minter, bool status) external onlyAdmin {
-        require(minter != address(0x0), "invalid address");
-        isMinter[minter] = status;
-        emit SetMinterRole(minter, status);
-    }
-
-    function setTokenBaseURI(string memory _uri) external onlyOwner {
-        _tokenBaseURI = _uri;
-        emit BaseURIUpdated(_uri);
+    function rarityOf(uint256 tokenId) external view returns (uint256) {
+        return rarities[tokenId];
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        require(_exists(tokenId), "BrewlabsIndexNft: URI query for nonexistent token");
+        require(_exists(tokenId), "BrewlabsFlaskNft: URI query for nonexistent token");
 
         string memory base = _baseURI();
         string memory description = string(
             abi.encodePacked(
-                '"description": "Brewlabs Index NFTs represent users fractionalised ownership of a particular basket of tokens(Index)."'
+                '"description": "Brewlabs Flask NFTs represent users fractionalised ownership of a particular basket of tokens(Index)."'
             )
         );
 
-        IBrewlabsIndex _index = IBrewlabsIndex(indexes[tokenId]);
-        uint256 numTokens = _index.NUM_TOKENS();
-        address deployer = _index.deployer();
-        (uint256 level, uint256[] memory amounts, uint256 usdAmount) = _index.nftInfo(tokenId);
-
-        string[3] memory levels = ["Yellow", "Blue", "Black"];
         string memory attributes = '"attributes":[';
-        attributes = string(
-            abi.encodePacked(
-                attributes,
-                '{"trait_type":"Level", "value":"',
-                levels[level],
-                '"},',
-                '{"trait_type":"Index", "value":"',
-                address(_index).toHexString(),
-                '"},' '{"trait_type":"Deployer", "value":"',
-                deployer.toHexString(),
-                '"},'
-            )
-        );
-        for (uint256 i = 0; i < numTokens; i++) {
-            address _token = _index.tokens(i);
-            if (i > 0) {
-                attributes = string(abi.encodePacked(attributes, ","));
-            }
-
-            attributes = string(
-                abi.encodePacked(
-                    attributes,
-                    '{"trait_type":"Token',
-                    uint256(i).toString(),
-                    '", "value":"',
-                    _token.toHexString(),
-                    '"},',
-                    '{"trait_type":"Amount',
-                    uint256(i).toString(),
-                    '", "value":"',
-                    amounts[i].toString(),
-                    '"}'
-                )
-            );
-        }
-        attributes =
-            string(abi.encodePacked(attributes, ', {"trait_type":"USD Amount", "value":"', usdAmount.toString(), '"}]'));
+        attributes = string(abi.encodePacked(attributes, '{"trait_type":"Rarity", "value":"', rarities[tokenId], '"}]'));
 
         // If both are set, concatenate the baseURI (via abi.encodePacked).
         string memory metadata = string(
@@ -178,7 +158,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
                 ', "image": "',
                 base,
                 "/",
-                levels[level],
+                rarities[tokenId],
                 ".png",
                 '", ',
                 attributes,
@@ -189,10 +169,30 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         return string(abi.encodePacked("data:application/json;base64,", _base64(bytes(metadata))));
     }
 
-    function getNftInfo(uint256 tokenId) external view returns (uint256, uint256[] memory, uint256, address, address) {
-        (uint256 level, uint256[] memory amounts, uint256 usdAmount) = IBrewlabsIndex(indexes[tokenId]).nftInfo(tokenId);
-        address deployer = IBrewlabsIndex(indexes[tokenId]).deployer();
-        return (level, amounts, usdAmount, address(indexes[tokenId]), deployer);
+    function setTokenBaseURI(string memory _uri) external onlyOwner {
+        _tokenBaseURI = _uri;
+        emit BaseURIUpdated(_uri);
+    }
+
+    function setFeeToken(IERC20 token) external onlyOwner {
+        feeToken = token;
+        emit SetFeeToken(address(token));
+    }
+
+    function setMintPrice(uint256 ethFee, uint256 brewsFee) external onlyOwner {
+        ethMintFee = ethFee;
+        brewsMintFee = brewsFee;
+        emit SetMintPrice(ethFee, brewsFee);
+    }
+
+    function addToWhitelist(address _addr, uint256 _count) external onlyOwner {
+        whitelist[_addr] = _count;
+        emit Whitelisted(_addr, _count);
+    }
+
+    function removeFromWhitelist(address _addr) external onlyOwner {
+        whitelist[_addr] = 0;
+        emit Whitelisted(_addr, 0);
     }
 
     function _baseURI() internal view override returns (string memory) {
