@@ -311,10 +311,6 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     function zapOut(address _token) external onlyInitialized nonReentrant {
         UserInfo storage user = users[msg.sender];
         require(user.usdAmount > 0, "No available tokens");
-        if (_token != address(0x0)) {
-            uint8 allowedMethod = IBrewlabsIndexFactory(factory).allowedTokens(_token);
-            require(allowedMethod > 0, "Cannot zap out with this token");
-        }
 
         uint256 ethAmount;
         for (uint256 i = 0; i < NUM_TOKENS; i++) {
@@ -359,6 +355,9 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             payable(_to).transfer(_amount);
             return;
         }
+
+        uint8 allowedMethod = IBrewlabsIndexFactory(factory).allowedTokens(_token);
+        require(allowedMethod > 0, "Cannot zap out with this token");
 
         address[] memory _path = new address[](2);
         _path[0] = WBNB;
