@@ -16,6 +16,7 @@ interface IBrewlabsIndexFactory {
     function feeLimit() external view returns (uint256);
     function brewlabsWallet() external view returns (address);
     function discountMgr() external view returns (address);
+    function allowedTokens(address token) external view returns (uint8);
 }
 
 interface IBrewlabsDiscountMgr {
@@ -178,14 +179,20 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      *         When buy tokens, should pay processing fee(brewlabs fixed fee + deployer fee).
      * @param _percents: list of ETH allocation points to buy tokens
      */
-    function zapIn(uint256[] memory _percents) external payable onlyInitialized nonReentrant {
+    function zapIn(address _token, uint256 _amount, uint256[] memory _percents)
+        external
+        payable
+        onlyInitialized
+        nonReentrant
+    {
         uint256 totalPercentage = 0;
         for (uint8 i = 0; i < NUM_TOKENS; i++) {
             totalPercentage += _percents[i];
         }
         require(totalPercentage <= FEE_DENOMINATOR, "Total percentage cannot exceed 10000");
 
-        uint256 ethAmount = msg.value;
+        uint256 ethAmount = _beforeZapIn(_token, _amount);
+
         // pay brewlabs fee
         uint256 discount = _getDiscount(msg.sender);
         uint256 brewsFee = (ethAmount * IBrewlabsIndexFactory(factory).brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
@@ -228,6 +235,22 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         if (totalPercentage < FEE_DENOMINATOR) {
             payable(msg.sender).transfer(ethAmount * (FEE_DENOMINATOR - totalPercentage) / FEE_DENOMINATOR);
         }
+    }
+
+    function _beforeZapIn(address _token, uint256 _amount) internal returns (uint256 amount) {
+        if (_token == address(0x0)) return msg.value;
+
+        uint8 allowedMethod = IBrewlabsIndexFactory(factory).allowedTokens(_token);
+        require(allowedMethod > 0, "Cannot zap in with this token");
+        require(_amount > 1000, "Not enough amount");
+
+        IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+
+        address[] memory _path = new address[](2);
+        _path[0] = _token;
+        _path[1] = WBNB;
+
+        amount = _safeSwapForETH(_amount, _path);
     }
 
     /**
@@ -285,9 +308,13 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      *         If the user exits the index in a loss then there is no fee.
      *         If the user exists the index in a profit, processing fee will be applied.
      */
-    function zapOut() external onlyInitialized nonReentrant {
+    function zapOut(address _token) external onlyInitialized nonReentrant {
         UserInfo storage user = users[msg.sender];
         require(user.usdAmount > 0, "No available tokens");
+        if (_token != address(0x0)) {
+            uint8 allowedMethod = IBrewlabsIndexFactory(factory).allowedTokens(_token);
+            require(allowedMethod > 0, "Cannot zap out with this token");
+        }
 
         uint256 ethAmount;
         for (uint256 i = 0; i < NUM_TOKENS; i++) {
@@ -321,9 +348,22 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         }
         totalCommissions += commission * price / 1 ether;
 
-        payable(msg.sender).transfer(ethAmount);
         emit TokenZappedOut(msg.sender, user.amounts, ethAmount, commission);
         delete users[msg.sender];
+
+        _afterZapOut(_token, msg.sender, ethAmount);
+    }
+
+    function _afterZapOut(address _token, address _to, uint256 _amount) internal {
+        if (_token == address(0x0)) {
+            payable(_to).transfer(_amount);
+            return;
+        }
+
+        address[] memory _path = new address[](2);
+        _path[0] = WBNB;
+        _path[1] = _token;
+        _safeSwapEth(_amount, _path, _to);
     }
 
     /**

@@ -91,24 +91,28 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
     constructor() {}
 
-    function initialize(address impl, IERC721 nft, IERC721 dNft, address token, uint256 price, address indexOwner)
-        external
-        initializer
-    {
+    function initialize(
+        address _impl,
+        IERC721 _indexNft,
+        IERC721 _deployerNft,
+        address _token,
+        uint256 _price,
+        address _indexOwner
+    ) external initializer {
         __Ownable_init();
 
-        require(token != address(0x0), "Invalid address");
+        require(_token != address(0x0), "Invalid address");
 
-        payingToken = token;
-        serviceFee = price;
-        treasury = indexOwner;
-        indexDefaultOwner = indexOwner;
+        payingToken = _token;
+        serviceFee = _price;
+        treasury = _indexOwner;
+        indexDefaultOwner = _indexOwner;
 
-        indexNft = nft;
-        deployerNft = dNft;
-        implementation = impl;
+        indexNft = _indexNft;
+        deployerNft = _deployerNft;
+        implementation = _impl;
         version++;
-        emit SetImplementation(impl, version);
+        emit SetImplementation(_impl, version);
     }
 
     function createBrewlabsIndex(IERC20[] memory tokens, address swapRouter, address[][] memory swapPaths, uint256 fee)
@@ -209,7 +213,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
      */
     function setAllowedToken(address token, uint8 flag) external onlyOwner {
         require(token != address(0x0), "Invalid token");
-        require(flag < 3, "Invalid type");
+        require(flag < 2, "Invalid type");
 
         allowedTokens[token] = flag;
         emit SetTokenConfig(token, flag);
