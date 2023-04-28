@@ -5,8 +5,15 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 interface IBrewlabsIndexFactory {
-    function initialize(address impl, IERC721 nft, address token, uint256 price, address indexOwner) external;
-    function createBrewlabsIndex(IERC20[] memory tokens, address swapRouter, address[][] memory swapPaths)
+    function initialize(
+        address impl,
+        IERC721 indexNft,
+        IERC721 deployerNft,
+        address token,
+        uint256 price,
+        address indexOwner
+    ) external;
+    function createBrewlabsIndex(IERC20[] memory tokens, address swapRouter, address[][] memory swapPaths, uint256 fee)
         external
         payable
         returns (address index);
@@ -15,6 +22,7 @@ interface IBrewlabsIndexFactory {
     function implementation() external view returns (address);
 
     function indexNft() external view returns (address);
+    function deployerNft() external view returns (address);
     function indexDefaultOwner() external view returns (address);
 
     function payingToken() external view returns (address);
@@ -22,23 +30,38 @@ interface IBrewlabsIndexFactory {
     function performanceFee() external view returns (uint256);
     function treasury() external view returns (address);
 
+    function brewlabsFee() external view returns (uint256);
+    function brewlabsWallet() external view returns (address);
+    function feeLimit() external view returns (uint256);
+
+    function discountMgr() external view returns (address);
+
     function indexCount() external view returns (uint256);
     function getIndexInfo(uint256 idx)
         external
         view
         returns (
             address indexAddr,
-            IERC721 nft,
+            IERC721 indexNft,
+            IERC721 deployerNft,
             IERC20[] memory tokens,
             address swapRouter,
             address deployer,
             uint256 createdAt
         );
+    function allowedTokens(address token) external view returns (uint8);
     function whitelist(address addr) external view returns (bool);
 
     function setImplementation(address impl) external;
     function setIndexNft(IERC721 nft) external;
+    function setDeployerNft(IERC721 nft) external;
     function setIndexOwner(address newOwner) external;
+    function setDiscountManager(address addr) external;
+
+    function setBrewlabsFee(uint256 fee) external;
+    function setBrewlabsWallet(address wallet) external;
+    function setIndexFeeLimit(uint256 limit) external;
+    function setAllowedToken(address token, uint8 flag) external;
 
     function setServiceFee(uint256 fee) external;
     function setPayingToken(address token) external;

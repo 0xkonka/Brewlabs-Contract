@@ -57,7 +57,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         uint256 createdAt;
     }
 
-    IndexInfo[] public indexList;
+    IndexInfo[] private indexList;
     mapping(address => bool) public whitelist;
 
     /**
