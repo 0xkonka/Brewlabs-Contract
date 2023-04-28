@@ -102,9 +102,9 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     event TokenLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
     event TokenUnLocked(address indexed user, uint256[] amounts, uint256 usdAmount, uint256 tokenId);
 
-    event DeployerNFTMinted(address indexed user, address nft, uint256 tokenId);
-    event DeployerNFTStaked(address indexed user, uint256 tokenId);
-    event DeployerNFTUnstaked(address indexed user, uint256 tokenId);
+    event DeployerNftMinted(address indexed user, address nft, uint256 tokenId);
+    event DeployerNftStaked(address indexed user, uint256 tokenId);
+    event DeployerNftUnstaked(address indexed user, uint256 tokenId);
     event PendingCommissionClaimed(address indexed user);
 
     event ServiceInfoUpadted(address addr, uint256 fee);
@@ -418,33 +418,32 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         delete nfts[tokenId];
     }
 
-    function mintDeployerNFT() external {
+    function mintDeployerNft() external {
         require(msg.sender == deployer, "Caller is not the deployer");
         require(deployerNftMintable, "Already Mint");
 
         commissionWallet = address(0x0);
         deployerNftMintable = false;
-        uint256 tokenId = IBrewlabsDeployerNft(address(deployerNft)).mint(msg.sender, address(this));
-        emit DeployerNFTMinted(msg.sender, address(deployerNft), tokenId);
+        deployerNftId = IBrewlabsDeployerNft(address(deployerNft)).mint(msg.sender, address(this));
+        emit DeployerNftMinted(msg.sender, address(deployerNft), deployerNftId);
     }
 
-    function stakeDeployerNFT(uint256 tokenId) external {
-        deployerNft.safeTransferFrom(msg.sender, address(this), tokenId);
-
+    function stakeDeployerNft() external {
         commissionWallet = msg.sender;
-        deployerNftId = tokenId;
-        emit DeployerNFTStaked(msg.sender, tokenId);
+
+        deployerNft.safeTransferFrom(msg.sender, address(this), deployerNftId);
+        emit DeployerNftStaked(msg.sender, deployerNftId);
 
         _claimPendingCommission();
     }
 
-    function unstakeDeployerNFT() external {
+    function unstakeDeployerNft() external {
         require(msg.sender == commissionWallet, "Caller is not the commission wallet");
-        deployerNft.safeTransferFrom(address(this), msg.sender, deployerNftId);
-        emit DeployerNFTUnstaked(msg.sender, deployerNftId);
 
         commissionWallet = address(0x0);
-        deployerNftId = 0;
+
+        deployerNft.safeTransferFrom(address(this), msg.sender, deployerNftId);
+        emit DeployerNftUnstaked(msg.sender, deployerNftId);
     }
 
     function _claimPendingCommission() internal {
