@@ -123,8 +123,8 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
         uint256 totalCommissions = _index.totalCommissions();
 
         uint256 level = 1;
-        if(totalCommissions <= 100) level = 0;
-        if(totalCommissions > 500) level = 2;
+        if(totalCommissions <= 100 ether) level = 0;
+        if(totalCommissions > 500 ether) level = 2;
 
         string[3] memory levels = ["Common", "Rare", "SuperRare"];
         string memory attributes = '"attributes":[';
