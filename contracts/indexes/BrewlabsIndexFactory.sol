@@ -60,6 +60,13 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     IndexInfo[] public indexList;
     mapping(address => bool) public whitelist;
 
+    /**
+     * 0 - DISABLED      : Tokens are not accepted.
+     * 1 - DIRECT_PATH   : Token swap possible directly to BNB.
+     * 2 - LIQUID_TOKEN  : Token can be converted to BNB by burning.
+     */
+    mapping(address => uint8) public allowedTokens;
+
     event IndexCreated(
         address indexed index,
         address[] tokens,
@@ -78,6 +85,8 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     event SetImplementation(address impl, uint256 version);
     event SetDiscountMgr(address addr);
     event TreasuryChanged(address addr);
+
+    event SetTokenConfig(address token, uint8 flag);
     event Whitelisted(address indexed account, bool isWhitelisted);
 
     constructor() {}
@@ -188,6 +197,22 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         require(fee <= feeLimit, "fee cannot exceed limit");
         brewlabsFee = fee;
         emit SetBrewlabsFee(brewlabsFee);
+    }
+
+    /**
+     * @notice Initialize the contract
+     * @param token: staked token address
+     * @param flag: staked token address
+     *     0 - DISABLED      : Tokens are not accepted.
+     *     1 - DIRECT_PATH   : Token swap possible directly to BNB.
+     *     2 - LIQUID_TOKEN  : Token can be converted to BNB by burning.
+     */
+    function setAllowedToken(address token, uint8 flag) external onlyOwner {
+        require(token != address(0x0), "Invalid token");
+        require(flag < 3, "Invalid type");
+
+        allowedTokens[token] = flag;
+        emit SetTokenConfig(token, flag);
     }
 
     function setIndexFeeLimit(uint256 limit) external onlyOwner {
