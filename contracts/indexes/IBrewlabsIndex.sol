@@ -45,6 +45,7 @@ interface IBrewlabsIndex {
     function estimateEthforNft(uint256 tokenId) external view returns (uint256);
     function totalStaked(uint256 index) external view returns (uint256);
 
+    function getPriceFromChainlink() external view returns (uint256);
     function getPendingCommissions() external view returns (uint256[] memory);
     function totalCommissions() external view returns (uint256);
 

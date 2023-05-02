@@ -25,7 +25,7 @@ interface IBrewlabsIndexNft {
 }
 
 interface IBrewlabsDiscountMgr {
-    function discountOfUser(address user) external view returns (uint256);
+    function discountOf(address user) external view returns (uint256);
 }
 
 // BrewlabsIndex is index contracts that offer a range of token collections to buy as "Brewlabs Index"
@@ -642,7 +642,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         address discountMgr = IBrewlabsIndexFactory(factory).discountMgr();
         if (discountMgr == address(0x0)) return FEE_DENOMINATOR;
 
-        return FEE_DENOMINATOR - IBrewlabsDiscountMgr(discountMgr).discountOfUser(_user);
+        return FEE_DENOMINATOR - IBrewlabsDiscountMgr(discountMgr).discountOf(_user);
     }
 
     /**
