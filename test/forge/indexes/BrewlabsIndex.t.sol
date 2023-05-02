@@ -9,12 +9,19 @@ import {BrewlabsIndexFactory} from "../../../contracts/indexes/BrewlabsIndexFact
 import {BrewlabsIndexNft, IERC721} from "../../../contracts/indexes/BrewlabsIndexNft.sol";
 import {BrewlabsNftDiscountMgr} from "../../../contracts/BrewlabsNftDiscountMgr.sol";
 import {BrewlabsDeployerNft} from "../../../contracts/indexes/BrewlabsDeployerNft.sol";
+
 import {IBrewlabsIndex} from "../../../contracts/indexes/IBrewlabsIndex.sol";
+
 import {Utils} from "../utils/Utils.sol";
 
 contract BrewlabsIndexTest is Test {
     IERC20 internal token0 = IERC20(0x2170Ed0880ac9A755fd29B2688956BD959F933F8);
     IERC20 internal token1 = IERC20(0x3EE2200Efb3400fAbB9AacF31297cBdD1d435D47);
+
+    address internal WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address internal BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+    address internal USDT = 0x55d398326f99059fF775485246999027B3197955;
+    address internal USDC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
 
     address internal indexOwner = address(0x111);
     address internal deployer = address(0x123);
@@ -65,7 +72,7 @@ contract BrewlabsIndexTest is Test {
 
         factory = new BrewlabsIndexFactory();
         factory.initialize(
-            address(impl), indexNft, deployerNft, 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0, indexOwner
+            address(impl), indexNft, deployerNft, BUSD, 0, indexOwner
         );
         factory.setDiscountManager(address(discountMgr));
         indexNft.setAdmin(address(factory));
@@ -80,10 +87,10 @@ contract BrewlabsIndexTest is Test {
         address[][] memory _paths = new address[][](2);
         _paths[0] = new address[](2);
         _paths[1] = new address[](2);
-        _paths[0][0] = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-        _paths[0][1] = 0x2170Ed0880ac9A755fd29B2688956BD959F933F8;
-        _paths[1][0] = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-        _paths[1][1] = 0x3EE2200Efb3400fAbB9AacF31297cBdD1d435D47;
+        _paths[0][0] = WBNB;
+        _paths[0][1] = address(token0);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
 
         vm.startPrank(deployer);
         index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, _router, _paths, 20)); // 0.2%
@@ -91,7 +98,7 @@ contract BrewlabsIndexTest is Test {
     }
 
     function test_zapInWithEthAndNoDiscount() public {
-        address user = address(0x12345);
+        address user = address(0x1234);
         vm.deal(user, 10 ether);
         vm.startPrank(user);
 
@@ -122,16 +129,19 @@ contract BrewlabsIndexTest is Test {
         vm.stopPrank();
     }
 
+    function tryZapIn(address token, uint256 amount) internal {
+        uint256[] memory percents = new uint256[](2);
+        percents[0] = 5000;
+        percents[1] = 5000;
+        index.zapIn{value: amount}(token, amount, percents);
+    }
+
     function test_claimTokensWithNoDiscount() public {
         address user = address(0x1234);
         vm.deal(user, 10 ether);
         vm.startPrank(user);
 
-        uint256 amount = 0.5 ether;
-        uint256[] memory percents = new uint256[](2);
-        percents[0] = 5000;
-        percents[1] = 5000;
-        index.zapIn{value: amount}(address(0), 0, percents);
+        tryZapIn(address(0), 0.5 ether);
         (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
 
         uint256 estimatedEthAmount = index.estimateEthforUser(user);
@@ -170,11 +180,7 @@ contract BrewlabsIndexTest is Test {
         vm.deal(user, 10 ether);
         vm.startPrank(user);
 
-        uint256 amount = 0.5 ether;
-        uint256[] memory percents = new uint256[](2);
-        percents[0] = 5000;
-        percents[1] = 5000;
-        index.zapIn{value: amount}(address(0), 0, percents);
+        tryZapIn(address(0), 0.5 ether);
 
         (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
         emit log_named_uint("USD Amount", usdAmount);
@@ -204,11 +210,7 @@ contract BrewlabsIndexTest is Test {
         vm.deal(user, 10 ether);
         vm.startPrank(user);
 
-        uint256 amount = 0.5 ether;
-        uint256[] memory percents = new uint256[](2);
-        percents[0] = 5000;
-        percents[1] = 5000;
-        index.zapIn{value: amount}(address(0), 0, percents);
+        tryZapIn(address(0), 0.5 ether);
         (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
 
         utils.mineBlocks(10);
@@ -240,11 +242,7 @@ contract BrewlabsIndexTest is Test {
         vm.deal(user, 10 ether);
         vm.startPrank(user);
 
-        uint256 amount = 0.5 ether;
-        uint256[] memory percents = new uint256[](2);
-        percents[0] = 5000;
-        percents[1] = 5000;
-        index.zapIn{value: amount}(address(0), 0, percents);
+        tryZapIn(address(0), 0.5 ether);
 
         utils.mineBlocks(10);
         uint256 tokenId = index.mintNft{value: index.performanceFee()}();
