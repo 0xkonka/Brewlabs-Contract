@@ -15,13 +15,16 @@ contract BrewlabsNftDiscountMgr is Ownable {
     address public nftCollection;
     mapping(uint256 => uint256) public discounts;
 
+    uint256 public checkLimit = 30;
+
     event SetNftCollection(address nft);
+    event SetCheckingLimit(uint256 limit);
     event SetDiscountValues(uint256[] discounts);
     event SetDiscountValue(uint256 rarity, uint256 discount);
 
     constructor() {}
 
-    function discountOfUser(address _user) external view returns (uint256) {
+    function discountOf(address _user) external view returns (uint256) {
         if (nftCollection == address(0x0)) return 0;
 
         uint256 balance = IERC721(nftCollection).balanceOf(_user);
@@ -29,6 +32,7 @@ contract BrewlabsNftDiscountMgr is Ownable {
 
         uint256 maxRarity = 0;
         for (uint256 i = 0; i < balance; i++) {
+            if (i >= checkLimit) break;
             uint256 tokenId = IERC721Enumerable(nftCollection).tokenOfOwnerByIndex(_user, i);
             uint256 rarity = IBrewlabsNft(nftCollection).rarityOf(tokenId);
 
@@ -40,6 +44,11 @@ contract BrewlabsNftDiscountMgr is Ownable {
     function setCollection(IERC721 _nft) external onlyOwner {
         nftCollection = address(_nft);
         emit SetNftCollection(nftCollection);
+    }
+
+    function setCheckingLimit(uint256 _limit) external onlyOwner {
+        checkLimit = _limit;
+        emit SetCheckingLimit(_limit);
     }
 
     function setDiscounts(uint256[] memory _discounts) external onlyOwner {
