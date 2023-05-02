@@ -126,7 +126,8 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         address deployer = _index.deployer();
         (uint256 level, uint256[] memory amounts, uint256 usdAmount) = _index.nftInfo(tokenId);
 
-        string[3] memory levels = ["Yellow", "Blue", "Black"];
+        string[3] memory levels = ["Rare", "Epic", "Legendary"];
+        string[3] memory imageUrls = ["Yellow", "Blue", "Black"];
         string memory attributes = '"attributes":[';
         attributes = string(
             abi.encodePacked(
@@ -178,7 +179,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
                 ', "image": "',
                 base,
                 "/",
-                levels[level],
+                imageUrls[level],
                 ".png",
                 '", ',
                 attributes,
