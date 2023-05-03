@@ -468,7 +468,7 @@ contract BrewlabsIndexTest is Test {
         assertEq(indexNft.ownerOf(tokenId), user);
 
         string memory _tokenUri = indexNft.tokenURI(tokenId);
-        emit log_named_string("IndexNFT URI: ", _tokenUri);
+        emit log_named_string("IndexNFT URI", _tokenUri);
 
         (, uint256[] memory _amounts, uint256 _ethAmount) = index.nftInfo(tokenId);
         assertEq(_amounts[0], amounts[0]);
@@ -532,7 +532,7 @@ contract BrewlabsIndexTest is Test {
         vm.stopPrank();
 
         string memory _tokenUri = deployerNft.tokenURI(tokenId);
-        emit log_named_string("DeployerNFT URI: ", _tokenUri);
+        emit log_named_string("DeployerNFT URI", _tokenUri);
 
         tryAddDicountConfig();
         nft.mint(user, 1);
