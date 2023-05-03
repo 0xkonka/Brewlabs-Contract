@@ -358,9 +358,19 @@ contract BrewlabsIndexTest is Test {
         vm.stopPrank();
     }
 
+    function tryBuyToken1(address user, uint256 amount) internal {        
+        address[] memory path = new address[](2);
+        path[0] = WBNB;
+        path[1] = address(token1);
+
+        IUniRouter02(swapRouter).swapExactETHForTokensSupportingFeeOnTransferTokens{value: amount}(
+            0, index.getSwapPath(1, true), user, block.timestamp + 600
+        );
+    }
+
     function test_zapOutWithETH() public {
         address user = address(0x1234);
-        vm.deal(user, 10 ether);
+        vm.deal(user, 100 ether);
 
         tryAddDicountConfig();
         nft.mint(user, 0);
@@ -370,24 +380,32 @@ contract BrewlabsIndexTest is Test {
         tryZapIn(address(0), 0.5 ether);
 
         (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
-        // emit log_named_uint("USD Amount", usdAmount);
-        // emit log_named_uint("token0", amounts[0]);
-        // emit log_named_uint("token1", amounts[1]);
+        emit log_named_uint("USD Amount", usdAmount);
+        emit log_named_uint("token0", amounts[0]);
+        emit log_named_uint("token1", amounts[1]);
 
         utils.mineBlocks(10);
+        tryBuyToken1(user, 30 ether);
 
         uint256 ethAmount = index.estimateEthforUser(user);
+        emit log_named_uint("Estimated ETH", ethAmount);
         uint256 userBalance = user.balance;
 
         uint256 _fee = index.totalFee();
         uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
         uint256 price = index.getPriceFromChainlink();
+        emit log_named_uint("ETH Price", price);
 
         uint256 commission = 0;
         if ((ethAmount * price / 1 ether) > usdAmount) {
             uint256 profit = ((ethAmount * price / 1 ether) - usdAmount) * 1e18 / price;
+            emit log_named_uint("Profit", profit);
+            emit log_named_uint("Discount", discount);
+
             commission = (profit * _fee * discount) / FEE_DENOMINATOR ** 2;
             ethAmount -= commission;
+
+            emit log_named_uint("Commission", commission);
         }
 
         vm.expectEmit(true, false, false, true);
