@@ -44,7 +44,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     address public discountMgr;
     address public brewlabsWallet = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
     uint256 public brewlabsFee = 25; // 0.25%
-    uint256 public feeLimit = 500; // 5%
+    uint256 public feeLimit = 1000; // 10%
 
     struct IndexInfo {
         address index;

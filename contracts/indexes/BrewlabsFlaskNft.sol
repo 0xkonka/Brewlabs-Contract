@@ -18,18 +18,26 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
     string[5] rarityNames = ["Common", "Uncommon", "Rare", "Epic", "Legendary"];
     mapping(uint256 => uint256) private rarities;
 
+    bool public mintAllowed;
     uint256 public ethMintFee;
     uint256 public brewsMintFee;
     IERC20 public feeToken = IERC20(0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7);
-    address public treasury = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
+    address public feeWallet = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
 
     mapping(address => uint256) public whitelist;
 
     event BaseURIUpdated(string uri);
+    event MintEnabled();
     event ItemUpgraded(uint256[3] tokenIds, uint256 newTokenId);
     event SetFeeToken(address token);
+    event SetFeeWallet(address wallet);
     event SetMintPrice(uint256 ethFee, uint256 brewsFee);
     event Whitelisted(address indexed account, uint256 count);
+
+    modifier onlyMintable() {
+        require(mintAllowed, "Cannot mint");
+        _;
+    }
 
     constructor() ERC721("Brewlabs Flask Nft", "BFL") {}
 
@@ -38,11 +46,11 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
             require(msg.value >= ethMintFee, "Insufficient BNB fee");
 
             // process mint fee
-            payable(treasury).transfer(ethMintFee);
+            payable(feeWallet).transfer(ethMintFee);
             if (msg.value > ethMintFee) {
                 payable(msg.sender).transfer(msg.value - ethMintFee);
             }
-            feeToken.safeTransferFrom(msg.sender, treasury, brewsMintFee);
+            feeToken.safeTransferFrom(msg.sender, feeWallet, brewsMintFee);
 
             whitelist[msg.sender] = whitelist[msg.sender] - 1;
         }
@@ -169,6 +177,13 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         return string(abi.encodePacked("data:application/json;base64,", _base64(bytes(metadata))));
     }
 
+    function enableMint() external onlyOwner {
+        require(!mintAllowed, "Already enabled");
+
+        mintAllowed = true;
+        emit MintEnabled();
+    }
+
     function setTokenBaseURI(string memory _uri) external onlyOwner {
         _tokenBaseURI = _uri;
         emit BaseURIUpdated(_uri);
@@ -177,6 +192,12 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
     function setFeeToken(IERC20 token) external onlyOwner {
         feeToken = token;
         emit SetFeeToken(address(token));
+    }
+
+    function setFeeWallet(address wallet) external onlyOwner {
+        require(wallet != address(0x0), "Invalid address");
+        feeWallet = wallet;
+        emit SetFeeWallet(wallet);
     }
 
     function setMintPrice(uint256 ethFee, uint256 brewsFee) external onlyOwner {

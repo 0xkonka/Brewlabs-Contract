@@ -358,7 +358,7 @@ contract BrewlabsIndexTest is Test {
         vm.stopPrank();
     }
 
-    function tryBuyToken1(address user, uint256 amount) internal {        
+    function tryBuyToken1(address user, uint256 amount) internal {
         address[] memory path = new address[](2);
         path[0] = WBNB;
         path[1] = address(token1);
