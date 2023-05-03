@@ -173,6 +173,111 @@ contract BrewlabsIndexTest is Test {
         vm.stopPrank();
     }
 
+    function trySwapUsdt(address user, uint256 amount) internal returns(uint256) {
+        uint256 beforeAmt = IERC20(USDT).balanceOf(user);
+
+        address[] memory path = new address[](2);
+        path[0] = WBNB;
+        path[1] = USDT;
+
+        IUniRouter02(swapRouter).swapExactETHForTokensSupportingFeeOnTransferTokens{value: amount}(
+            0, path, user, block.timestamp + 600
+        );
+
+        return IERC20(USDT).balanceOf(user) - beforeAmt;
+    }
+
+    function test_zapInWithUSDT() public {
+        address user = address(0x1234);
+        vm.deal(user, 10 ether);
+
+        uint256 amountIn = trySwapUsdt(user, 1 ether);
+        factory.setAllowedToken(USDT, 1);
+
+        vm.startPrank(user);
+        uint256 price = index.getPriceFromChainlink();
+
+        uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
+        uint256 ethAmount;
+        {
+            
+        address[] memory path = new address[](2);
+        path[0] = USDT;
+        path[1] = WBNB;
+        uint256[] memory amounts = IUniRouter02(swapRouter).getAmountsOut(amountIn, path);
+        ethAmount = amounts[amounts.length - 1];
+        }
+
+        uint256 brewsFee = (ethAmount * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
+        uint256 deployerFee = (ethAmount * index.fee() * discount) / FEE_DENOMINATOR ** 2;
+        uint256 _usdAmount = (ethAmount - (brewsFee + deployerFee)) * price / 1 ether;
+
+        uint256[] memory percents = new uint256[](2);
+        percents[0] = 5000;
+        percents[1] = 5000;
+
+        uint256[] memory _amounts = new uint256[](2);
+        {
+            uint256 _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[0] / FEE_DENOMINATOR;
+            uint256[] memory _amountOuts =
+                IUniRouter02(swapRouter).getAmountsOut(_ethAmount, index.getSwapPath(0, true));
+            _amounts[0] = _amountOuts[_amountOuts.length - 1];
+
+            _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[1] / FEE_DENOMINATOR;
+            _amountOuts = IUniRouter02(swapRouter).getAmountsOut(_ethAmount, index.getSwapPath(1, true));
+            _amounts[1] = _amountOuts[_amountOuts.length - 1];
+        }
+
+        IERC20(USDT).approve(address(index), amountIn);
+
+        vm.expectEmit(true, false, false, true);
+        emit TokenZappedIn(
+            user, ethAmount - (brewsFee + deployerFee), percents, _amounts, _usdAmount, brewsFee + deployerFee
+            );
+        index.zapIn(USDT, amountIn, percents);
+        vm.stopPrank();
+    }
+    
+    function test_failZapInWithNotSupportedToken() public {
+        address user = address(0x1234);
+        vm.deal(user, 10 ether);
+
+        uint256 amountIn = trySwapUsdt(user, 1 ether);
+
+        vm.startPrank(user);        
+
+        uint256[] memory percents = new uint256[](2);
+        percents[0] = 5000;
+        percents[1] = 5000;
+
+        IERC20(USDT).approve(address(index), amountIn);
+
+        vm.expectRevert("Cannot zap in with unsupported token");
+        index.zapIn(USDT, amountIn, percents);
+        vm.stopPrank();
+    } 
+
+    function test_failZapInWithNotEnoughAmount() public {
+        address user = address(0x1234);
+        vm.deal(user, 10 ether);
+
+        uint256 amountIn = trySwapUsdt(user, 100000);
+        amountIn = 1000;
+        factory.setAllowedToken(USDT, 1);
+
+        vm.startPrank(user);        
+
+        uint256[] memory percents = new uint256[](2);
+        percents[0] = 5000;
+        percents[1] = 5000;
+
+        IERC20(USDT).approve(address(index), amountIn);
+
+        vm.expectRevert("Not enough amount");
+        index.zapIn(USDT, amountIn, percents);
+        vm.stopPrank();
+    }
+
     function tryZapIn(address token, uint256 amount) internal {
         uint256[] memory percents = new uint256[](2);
         percents[0] = 5000;

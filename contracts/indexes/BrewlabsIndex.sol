@@ -237,7 +237,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         if (_token == address(0x0)) return msg.value;
 
         uint8 allowedMethod = IBrewlabsIndexFactory(factory).allowedTokens(_token);
-        require(allowedMethod > 0, "Cannot zap in with this token");
+        require(allowedMethod > 0, "Cannot zap in with unsupported token");
         require(_amount > 1000, "Not enough amount");
 
         IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
