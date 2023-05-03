@@ -55,9 +55,9 @@ interface IBrewlabsIndex {
     function mintNft() external payable returns (uint256);
     function stakeNft(uint256 tokenId) external payable;
 
-    function mintDeployerNft() external;
-    function stakeDeployerNft() external;
-    function unstakeDeployerNft() external;
+    function mintDeployerNft() external payable returns (uint256);
+    function stakeDeployerNft() external payable;
+    function unstakeDeployerNft() external payable;
 
     function setFee(uint256 fee) external;
     function setSwapSettings(address router, address[][] memory paths) external;

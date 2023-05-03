@@ -414,18 +414,23 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         delete nfts[tokenId];
     }
 
-    function mintDeployerNft() external {
+    function mintDeployerNft() external payable returns (uint256) {
         require(msg.sender == deployer, "Caller is not the deployer");
         require(deployerNftMintable, "Already Mint");
+
+        _transferPerformanceFee();
 
         commissionWallet = address(0x0);
         deployerNftMintable = false;
         deployerNftId = IBrewlabsIndexNft(address(deployerNft)).mint(msg.sender);
         emit DeployerNftMinted(msg.sender, address(deployerNft), deployerNftId);
+        return deployerNftId;
     }
 
-    function stakeDeployerNft() external {
+    function stakeDeployerNft() external payable {
         commissionWallet = msg.sender;
+
+        _transferPerformanceFee();
 
         deployerNft.safeTransferFrom(msg.sender, address(this), deployerNftId);
         emit DeployerNftStaked(msg.sender, deployerNftId);
@@ -433,7 +438,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         _claimPendingCommission();
     }
 
-    function unstakeDeployerNft() external {
+    function unstakeDeployerNft() external payable {
         require(msg.sender == commissionWallet, "Caller is not the commission wallet");
 
         commissionWallet = address(0x0);

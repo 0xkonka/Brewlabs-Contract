@@ -274,7 +274,7 @@ contract BrewlabsIndexTest is Test {
 
         uint256 ethAmount = index.estimateEthforUser(user);
         uint256 userBalance = user.balance;
-       
+
         uint256 _fee = index.totalFee();
         uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
         uint256 price = index.getPriceFromChainlink();
@@ -319,7 +319,7 @@ contract BrewlabsIndexTest is Test {
         assertEq(indexNft.ownerOf(tokenId), user);
 
         string memory _tokenUri = indexNft.tokenURI(tokenId);
-        emit log_named_string("URI: ", _tokenUri);
+        emit log_named_string("IndexNFT URI: ", _tokenUri);
 
         (, uint256[] memory _amounts, uint256 _ethAmount) = index.nftInfo(tokenId);
         assertEq(_amounts[0], amounts[0]);
@@ -362,6 +362,187 @@ contract BrewlabsIndexTest is Test {
         assertEq(amounts[0], _amounts[0]);
         assertEq(amounts[1], _amounts[1]);
         assertEq(usdAmount, _ethAmount);
+        vm.stopPrank();
+    }
+
+    function test_mintDeployerNft() public {
+        address user = address(0x1234);
+        vm.deal(user, 10 ether);
+        vm.deal(address(0x1111), 10 ether);
+
+        uint256 pFee = index.performanceFee();
+
+        vm.startPrank(deployer);
+        vm.expectEmit(true, false, false, true);
+        emit DeployerNftMinted(deployer, address(deployerNft), 1);
+        uint256 tokenId = index.mintDeployerNft{value: pFee}();
+        assertEq(deployerNft.ownerOf(tokenId), deployer);
+
+        vm.expectRevert(abi.encodePacked("Already Mint"));
+        index.mintDeployerNft{value: pFee}();
+        vm.stopPrank();
+
+        string memory _tokenUri = deployerNft.tokenURI(tokenId);
+        emit log_named_string("DeployerNFT URI: ", _tokenUri);
+
+        tryAddDicountConfig();
+        nft.mint(user, 1);
+
+        vm.startPrank(user);
+        tryZapIn(address(0), 0.5 ether);
+
+        (, uint256 usdAmount) = index.userInfo(user);
+        uint256 ethAmount = index.estimateEthforUser(user);
+
+        uint256 _fee = index.totalFee();
+        uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
+        uint256 price = index.getPriceFromChainlink();
+
+        uint256 commission = 0;
+        if ((ethAmount * price / 1 ether) > usdAmount) {
+            uint256 profit = ((ethAmount * price / 1 ether) - usdAmount) * 1e18 / price;
+            commission = (profit * _fee * discount) / FEE_DENOMINATOR ** 2;
+            ethAmount -= commission;
+        }
+
+        index.zapOut(address(0));
+
+        uint256[] memory _pendingCommissions = index.getPendingCommissions();
+        assertEq(_pendingCommissions[0], 0);
+        assertEq(_pendingCommissions[1], 0);
+        assertEq(_pendingCommissions[2], commission);
+        assertEq(index.totalCommissions(), commission * price / 1 ether);
+        assertEq(index.commissionWallet(), address(0x0));
+
+        vm.stopPrank();
+    }
+
+    function test_failMintDeployerNftInNotDeployer() public {
+        vm.deal(address(0x1111), 10 ether);
+        uint256 pFee = index.performanceFee();
+
+        vm.startPrank(address(0x1111));
+        vm.expectRevert("Caller is not the deployer");
+        index.mintDeployerNft{value: pFee}();
+        vm.stopPrank();
+    }
+
+    function test_failMintDeployerNftWithNoPerformanceFee() public {
+        vm.startPrank(deployer);
+        vm.expectRevert(abi.encodePacked("Should pay small gas to call method"));
+        index.mintDeployerNft();
+        vm.stopPrank();
+    }
+
+    function test_stakeDeployerNft() public {
+        assertEq(index.commissionWallet(), deployer);
+
+        vm.startPrank(deployer);
+        uint256 tokenId = index.mintDeployerNft{value: index.performanceFee()}();
+        deployerNft.safeTransferFrom(deployer, address(0x12345), tokenId);
+        vm.stopPrank();
+
+        address user = address(0x1234);
+        vm.deal(user, 10 ether);
+        vm.deal(address(0x12345), 1 ether);
+
+        tryAddDicountConfig();
+        nft.mint(user, 1);
+
+        vm.startPrank(user);
+        tryZapIn(address(0), 0.5 ether);
+        index.zapOut(address(0));
+        vm.stopPrank();
+
+        uint256[] memory _pendingCommissions = index.getPendingCommissions();
+
+        uint256 beforeBalance = address(0x12345).balance;
+
+        vm.startPrank(address(0x12345));
+        deployerNft.setApprovalForAll(address(index), true);
+        vm.expectEmit(true, false, false, true);
+        emit DeployerNftStaked(address(0x12345), 1);
+        index.stakeDeployerNft{value: index.performanceFee()}();
+
+        assertEq(deployerNft.ownerOf(tokenId), address(index));
+        assertEq(index.commissionWallet(), address(0x12345));
+        assertEq(address(0x12345).balance + index.performanceFee() - beforeBalance, _pendingCommissions[2]);
+
+        _pendingCommissions = index.getPendingCommissions();
+        assertEq(_pendingCommissions[2], 0);
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        tryZapIn(address(0), 0.5 ether);
+        index.zapOut(address(0));
+        vm.stopPrank();
+
+        _pendingCommissions = index.getPendingCommissions();
+        assertEq(_pendingCommissions[2], 0);
+    }
+
+    function test_unstakeDeployerNft() public {
+        assertEq(index.commissionWallet(), deployer);
+        uint256 pFee = index.performanceFee();
+
+        vm.startPrank(deployer);
+        uint256 tokenId = index.mintDeployerNft{value: pFee}();
+        deployerNft.safeTransferFrom(deployer, address(0x12345), tokenId);
+        vm.stopPrank();
+
+        address user = address(0x1234);
+        vm.deal(user, 10 ether);
+        vm.deal(address(0x12345), 1 ether);
+
+        vm.startPrank(address(0x12345));
+        deployerNft.setApprovalForAll(address(index), true);
+        index.stakeDeployerNft{value: pFee}();
+        vm.stopPrank();
+
+        vm.startPrank(address(0x12345));
+        vm.expectEmit(true, false, false, true);
+        emit DeployerNftUnstaked(address(0x12345), 1);
+        index.unstakeDeployerNft{value: pFee}();
+        vm.stopPrank();
+
+        tryAddDicountConfig();
+        nft.mint(user, 1);
+
+        vm.startPrank(user);
+        tryZapIn(address(0), 0.5 ether);
+        index.zapOut(address(0));
+        vm.stopPrank();
+
+        uint256[] memory _pendingCommissions = index.getPendingCommissions();
+        assertEq(_pendingCommissions[0], 0);
+        assertEq(_pendingCommissions[1], 0);
+        assertGe(_pendingCommissions[2], 0);
+        assertEq(index.commissionWallet(), address(0x0));
+        assertEq(deployerNft.ownerOf(tokenId), address(0x12345));
+    }
+
+    function test_failUnstakeDeployerNftInNotCommissionWallet() public {
+        assertEq(index.commissionWallet(), deployer);
+        uint256 pFee = index.performanceFee();
+
+        vm.startPrank(deployer);
+        uint256 tokenId = index.mintDeployerNft{value: pFee}();
+        deployerNft.safeTransferFrom(deployer, address(0x12345), tokenId);
+        vm.stopPrank();
+
+        address user = address(0x1234);
+        vm.deal(user, 10 ether);
+        vm.deal(address(0x12345), 1 ether);
+
+        vm.startPrank(address(0x12345));
+        deployerNft.setApprovalForAll(address(index), true);
+        index.stakeDeployerNft{value: pFee}();
+        vm.stopPrank();
+
+        vm.deal(address(0x1111), 1 ether);
+        vm.startPrank(address(0x1111));
+        vm.expectRevert("Caller is not the commission wallet");
+        index.unstakeDeployerNft{value: pFee}();
         vm.stopPrank();
     }
 }
