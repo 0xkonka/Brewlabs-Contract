@@ -66,9 +66,10 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
     constructor() {}
 
     function initialize(address impl, address token, uint256 price, address farmOwner) external initializer {
-        __Ownable_init();
-
+        require(impl != address(0x0), "Invalid implementation");
         require(token != address(0x0), "Invalid address");
+
+        __Ownable_init();
 
         payingToken = token;
         serviceFee = price;

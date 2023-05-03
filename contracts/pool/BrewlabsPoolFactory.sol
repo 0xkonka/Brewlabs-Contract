@@ -132,9 +132,9 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     constructor() {}
 
     function initialize(address token, uint256 price, address poolOwner) external initializer {
-        __Ownable_init();
-
         require(token != address(0x0), "Invalid address");
+
+        __Ownable_init();
 
         payingToken = token;
         serviceFee = price;

@@ -99,9 +99,11 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         uint256 _price,
         address _indexOwner
     ) external initializer {
-        __Ownable_init();
+        require(_impl != address(0x0), "Invalid implementation");
+        require(address(_indexNft) != address(0x0), "Invalid index NFT");
+        require(address(_deployerNft) != address(0x0), "Invalid deployer NFT");
 
-        require(_token != address(0x0), "Invalid address");
+        __Ownable_init();
 
         payingToken = _token;
         serviceFee = _price;
@@ -120,9 +122,11 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         payable
         returns (address index)
     {
+        require(implementation != address(0x0), "Not initialized yet");
+
         require(tokens.length <= 5, "Exceed token limit");
-        require(tokens.length == swapPaths.length, "Invalid config");
-        require(swapRouter != address(0x0), "Invalid address");
+        require(tokens.length == swapPaths.length, "Invalid token config");
+        require(swapRouter != address(0x0), "Invalid router");
         require(fee <= feeLimit, "Cannot exeed fee limit");
 
         if (!whitelist[msg.sender]) {
@@ -173,20 +177,20 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     }
 
     function setImplementation(address impl) external onlyOwner {
-        require(isContract(impl), "Not contract");
+        require(isContract(impl), "Invalid implementation");
         implementation = impl;
         version++;
         emit SetImplementation(impl, version);
     }
 
     function setIndexNft(IERC721 newNftAddr) external onlyOwner {
-        require(address(indexNft) != address(newNftAddr), "Same Nft address");
+        require(address(newNftAddr) != address(0x0), "Invalid NFT");
         indexNft = newNftAddr;
         emit SetIndexNft(address(newNftAddr));
     }
 
     function setDeployerNft(IERC721 newNftAddr) external onlyOwner {
-        require(address(deployerNft) != address(newNftAddr), "Same Nft address");
+        require(address(newNftAddr) != address(0x0), "Invalid NFT");
         deployerNft = newNftAddr;
         emit SetDeployerNft(address(newNftAddr));
     }
@@ -226,7 +230,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     }
 
     function setIndexOwner(address newOwner) external onlyOwner {
-        require(address(indexDefaultOwner) != address(newOwner), "Same owner address");
+        require(newOwner != address(0x0), "Invalid address");
         indexDefaultOwner = newOwner;
         emit SetIndexOwner(newOwner);
     }
