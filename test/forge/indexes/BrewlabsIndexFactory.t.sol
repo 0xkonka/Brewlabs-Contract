@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import {BrewlabsIndex, IERC20} from "../../../contracts/indexes/BrewlabsIndex.sol";
 import {BrewlabsIndexFactory} from "../../../contracts/indexes/BrewlabsIndexFactory.sol";
 import {BrewlabsIndexNft, IERC721} from "../../../contracts/indexes/BrewlabsIndexNft.sol";
-import {BrewlabsNftDiscountMgr} from "../../../contracts/BrewlabsNftDiscountMgr.sol";
+import {BrewlabsNftDiscountMgr} from "../../../contracts/indexes/BrewlabsNftDiscountMgr.sol";
 import {BrewlabsDeployerNft} from "../../../contracts/indexes/BrewlabsDeployerNft.sol";
 
 import {IBrewlabsIndex} from "../../../contracts/indexes/IBrewlabsIndex.sol";
