@@ -90,13 +90,13 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
     }
 
     function setAdmin(address newAdmin) external onlyOwner {
-        require(newAdmin != address(0x0), "invalid address");
+        require(newAdmin != address(0x0), "BrewlabsDeployerNft: invalid address");
         admin = newAdmin;
         emit SetAdminRole(newAdmin);
     }
 
     function setMinterRole(address minter, bool status) external onlyAdmin {
-        require(minter != address(0x0), "invalid address");
+        require(minter != address(0x0), "BrewlabsDeployerNft: invalid address");
         isMinter[minter] = status;
         emit SetMinterRole(minter, status);
     }
