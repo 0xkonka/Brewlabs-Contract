@@ -173,6 +173,56 @@ contract BrewlabsIndexTest is Test {
         vm.stopPrank();
     }
 
+    function test_zapInForWrappedIndex() public {
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = IERC20(WBNB);
+        tokens[1] = token1;
+
+        address[][] memory _paths = new address[][](2);
+        _paths[1] = new address[](2);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
+
+        vm.startPrank(deployer);
+        index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, swapRouter, _paths, 20)); // 0.2%
+        vm.stopPrank();
+
+        address user = address(0x1234);
+        vm.deal(user, 10 ether);
+
+        vm.startPrank(user);
+
+        uint256 price = index.getPriceFromChainlink();
+        uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
+        uint256 ethAmount = 0.5 ether;
+
+        uint256 brewsFee = (ethAmount * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
+        uint256 deployerFee = (ethAmount * index.fee() * discount) / FEE_DENOMINATOR ** 2;
+        uint256 _usdAmount = (ethAmount - (brewsFee + deployerFee)) * price / 1 ether;
+
+        uint256[] memory percents = new uint256[](2);
+        percents[0] = 5000;
+        percents[1] = 5000;
+
+        uint256[] memory _amounts = new uint256[](2);
+        {
+            uint256 _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[0] / FEE_DENOMINATOR;
+            _amounts[0] = _ethAmount;
+
+            _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[1] / FEE_DENOMINATOR;
+            uint256[] memory _amountOuts = IUniRouter02(swapRouter).getAmountsOut(_ethAmount, index.getSwapPath(1, true));
+            _amounts[1] = _amountOuts[_amountOuts.length - 1];
+        }
+
+        vm.expectEmit(true, false, false, true);
+        emit TokenZappedIn(
+            user, ethAmount - (brewsFee + deployerFee), percents, _amounts, _usdAmount, brewsFee + deployerFee
+            );
+        index.zapIn{value: ethAmount}(address(0), 0, percents);
+
+        vm.stopPrank();
+    }
+
     function trySwapUsdt(address user, uint256 amount) internal returns (uint256) {
         uint256 beforeAmt = IERC20(USDT).balanceOf(user);
 
@@ -229,7 +279,7 @@ contract BrewlabsIndexTest is Test {
 
         IERC20(USDT).approve(address(index), amountIn);
 
-        vm.expectEmit(true, false, false, true);
+        vm.expectEmit(true, false, false, false);
         emit TokenZappedIn(
             user, ethAmount - (brewsFee + deployerFee), percents, _amounts, _usdAmount, brewsFee + deployerFee
             );
@@ -358,6 +408,49 @@ contract BrewlabsIndexTest is Test {
         vm.stopPrank();
     }
 
+    function test_claimTokensForWrappedIndex() public {
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = IERC20(WBNB);
+        tokens[1] = token1;
+
+        address[][] memory _paths = new address[][](2);
+        _paths[1] = new address[](2);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
+
+        vm.startPrank(deployer);
+        index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, swapRouter, _paths, 20)); // 0.2%
+        vm.stopPrank();
+        
+        address user = address(0x1234);
+        vm.deal(user, 10 ether);
+
+        tryAddDicountConfig();
+        nft.mint(user, 1);
+
+        vm.startPrank(user);
+
+        tryZapIn(address(0), 0.5 ether);
+
+        (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
+        uint256 percent = 6300; // 63%
+
+        (uint256[] memory _claimAmounts, , uint256 commission) =
+            getClaimAmounts(user, percent);
+        uint256 claimedUsdAmount = (usdAmount * percent) / FEE_DENOMINATOR;
+
+        utils.mineBlocks(10);
+        vm.expectEmit(true, false, false, true);
+        emit TokenClaimed(user, _claimAmounts, claimedUsdAmount, commission);
+        index.claimTokens(percent);
+
+        (uint256[] memory _amounts, uint256 _usdAmount) = index.userInfo(user);
+        assertEq(_amounts[0], amounts[0] - _claimAmounts[0]);
+        assertEq(_amounts[1], amounts[1] - _claimAmounts[1]);
+        assertEq(_usdAmount, usdAmount - claimedUsdAmount);
+        vm.stopPrank();
+    }
+
     function tryBuyToken1(address user, uint256 amount) internal {
         address[] memory path = new address[](2);
         path[0] = WBNB;
@@ -368,7 +461,7 @@ contract BrewlabsIndexTest is Test {
         );
     }
 
-    function test_zapOutWithETH() public {
+    function test_zapOutWithBNB() public {
         address user = address(0x1234);
         vm.deal(user, 100 ether);
 
@@ -418,6 +511,56 @@ contract BrewlabsIndexTest is Test {
 
         assertEq(index.totalStaked(0), 0);
         assertEq(index.totalStaked(1), 0);
+
+        (amounts, usdAmount) = index.userInfo(user);
+        assertEq(amounts[0], 0);
+        assertEq(amounts[1], 0);
+        assertEq(usdAmount, 0);
+        vm.stopPrank();
+    }
+
+    function test_zapOutWithBNBForWrappedIndex() public {
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = IERC20(WBNB);
+        tokens[1] = token1;
+
+        address[][] memory _paths = new address[][](2);
+        _paths[1] = new address[](2);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
+
+        vm.startPrank(deployer);
+        index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, swapRouter, _paths, 20)); // 0.2%
+        vm.stopPrank();
+        
+        address user = address(0x1234);
+        vm.deal(user, 100 ether);
+
+        tryAddDicountConfig();
+        nft.mint(user, 0);
+
+        vm.startPrank(user);
+
+        tryZapIn(address(0), 0.5 ether);
+
+        (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
+        uint256 ethAmount = index.estimateEthforUser(user);
+
+        uint256 _fee = index.totalFee();
+        uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
+        uint256 price = index.getPriceFromChainlink();
+
+        uint256 commission = 0;
+        if ((ethAmount * price / 1 ether) > usdAmount) {
+            uint256 profit = ((ethAmount * price / 1 ether) - usdAmount) * 1e18 / price;
+
+            commission = (profit * _fee * discount) / FEE_DENOMINATOR ** 2;
+            ethAmount -= commission;
+        }
+
+        vm.expectEmit(true, false, false, true);
+        emit TokenZappedOut(user, amounts, ethAmount, commission);
+        index.zapOut(address(0));
 
         (amounts, usdAmount) = index.userInfo(user);
         assertEq(amounts[0], 0);

@@ -72,51 +72,53 @@ contract BrewlabsIndexFactoryTest is Test {
         discountMgr = new BrewlabsNftDiscountMgr();
 
         factory = new BrewlabsIndexFactory();
+        indexNft.setAdmin(address(factory));
+        deployerNft.setAdmin(address(factory));
+
+        BrewlabsIndex impl = new BrewlabsIndex();
+        factory.initialize(address(impl), indexNft, deployerNft, BUSD, 1 ether, indexOwner);
     }
 
     function test_initialize() public {
-        indexNft.setAdmin(address(factory));
-        deployerNft.setAdmin(address(factory));
+        BrewlabsIndexFactory _factory = new BrewlabsIndexFactory();
+        indexNft.setAdmin(address(_factory));
+        deployerNft.setAdmin(address(_factory));
 
         BrewlabsIndex impl = new BrewlabsIndex();
 
         vm.expectEmit(false, false, false, true);
         emit SetImplementation(address(impl), 1);
-        factory.initialize(address(impl), indexNft, deployerNft, BUSD, 1 ether, indexOwner);
+        _factory.initialize(address(impl), indexNft, deployerNft, BUSD, 1 ether, indexOwner);
 
-        assertEq(factory.implementation(), address(impl));
-        assertEq(factory.version(), 1);
-        assertEq(factory.indexCount(), 0);
+        assertEq(_factory.implementation(), address(impl));
+        assertEq(_factory.version(), 1);
+        assertEq(_factory.indexCount(), 0);
     }
 
     function test_failInitializeWithZeroImpl() public {
+        BrewlabsIndexFactory _factory = new BrewlabsIndexFactory();
+
         vm.expectRevert("Invalid implementation");
-        factory.initialize(address(0), indexNft, deployerNft, BUSD, 1 ether, indexOwner);
+        _factory.initialize(address(0), indexNft, deployerNft, BUSD, 1 ether, indexOwner);
     }
 
     function test_failInitializeWithNoIndexNft() public {
+        BrewlabsIndexFactory _factory = new BrewlabsIndexFactory();
+
         BrewlabsIndex impl = new BrewlabsIndex();
         vm.expectRevert("Invalid index NFT");
-        factory.initialize(address(impl), IERC721(address(0)), deployerNft, BUSD, 1 ether, indexOwner);
+        _factory.initialize(address(impl), IERC721(address(0)), deployerNft, BUSD, 1 ether, indexOwner);
     }
 
     function test_failInitializeWithNoDeployerNft() public {
+        BrewlabsIndexFactory _factory = new BrewlabsIndexFactory();
+
         BrewlabsIndex impl = new BrewlabsIndex();
         vm.expectRevert("Invalid deployer NFT");
-        factory.initialize(address(impl), indexNft, IERC721(address(0)), BUSD, 1 ether, indexOwner);
-    }
-
-    function tryInitialize() internal {
-        indexNft.setAdmin(address(factory));
-        deployerNft.setAdmin(address(factory));
-
-        BrewlabsIndex impl = new BrewlabsIndex();
-        factory.initialize(address(impl), indexNft, deployerNft, BUSD, 1 ether, indexOwner);
+        _factory.initialize(address(impl), indexNft, IERC721(address(0)), BUSD, 1 ether, indexOwner);
     }
 
     function test_setImplementation() public {
-        tryInitialize();
-
         vm.expectRevert("Invalid implementation");
         factory.setImplementation(address(0));
 
@@ -130,8 +132,6 @@ contract BrewlabsIndexFactoryTest is Test {
     }
 
     function test_setIndexNft() public {
-        tryInitialize();
-
         vm.expectRevert("Invalid NFT");
         factory.setIndexNft(IERC721(address(0)));
 
@@ -143,8 +143,6 @@ contract BrewlabsIndexFactoryTest is Test {
     }
 
     function test_setDeployerNft() public {
-        tryInitialize();
-
         vm.expectRevert("Invalid NFT");
         factory.setDeployerNft(IERC721(address(0)));
 
@@ -155,8 +153,97 @@ contract BrewlabsIndexFactoryTest is Test {
         factory.setDeployerNft(_nft);
     }
 
+    function test_setBrewlabsWallet() public {
+        vm.expectRevert("Invalid wallet");
+        factory.setBrewlabsWallet(address(0));
+
+        vm.expectEmit(false, false, false, true);
+        emit SetBrewlabsWallet(address(0x1));
+        factory.setBrewlabsWallet(address(0x1));
+    }
+
+    function test_setIndexOwner() public {
+        vm.expectRevert("Invalid address");
+        factory.setIndexOwner(address(0));
+
+        vm.expectEmit(false, false, false, true);
+        emit SetIndexOwner(address(0x1));
+        factory.setIndexOwner(address(0x1));
+    }
+
+    function test_setDiscountManager() public {
+        vm.expectRevert("Invalid discount manager");
+        factory.setDiscountManager(address(0x1));
+
+        vm.expectEmit(false, false, false, true);
+        emit SetDiscountMgr(address(discountMgr));
+        factory.setDiscountManager(address(discountMgr));
+        assertEq(factory.discountMgr(), address(discountMgr));
+        
+        factory.setDiscountManager(address(0x0));
+        assertEq(factory.discountMgr(), address(0x0));
+    }
+
+    function test_setBrewlabsFee() public {
+        vm.expectRevert("fee cannot exceed limit");
+        factory.setBrewlabsFee(1001);
+
+        vm.expectEmit(false, false, false, true);
+        emit SetBrewlabsFee(100);
+        factory.setBrewlabsFee(100);
+
+        assertEq(factory.brewlabsFee(), 100);
+    }
+
+    function test_setServiceFee() public {
+        vm.expectEmit(false, false, false, true);
+        emit SetPayingInfo(factory.payingToken(), 1 ether);
+        factory.setServiceFee(1 ether);
+    }
+
+    function test_setPayingToken() public {
+        vm.expectEmit(false, false, false, true);
+        emit SetPayingInfo(address(0x1), factory.serviceFee());
+        factory.setPayingToken(address(0x1));
+    }
+
+    function test_setAllowedToken() public {
+        vm.expectRevert("Invalid token");
+        factory.setAllowedToken(address(0x0), 1);
+
+        vm.expectEmit(false, false, false, true);
+        emit SetTokenConfig(address(0x1), 1);
+        factory.setAllowedToken(address(0x1), 1);
+
+        assertEq(factory.allowedTokens(address(0x1)), 1);
+    }
+
+    function test_addToWhitelist() public {
+        vm.expectEmit(true, false, false, true);
+        emit Whitelisted(address(0x1), true);
+        factory.addToWhitelist(address(0x1));
+
+        assertTrue(factory.whitelist(address(0x1)));
+    }
+
+    function test_removeFromWhitelist() public {
+        vm.expectEmit(true, false, false, true);
+        emit Whitelisted(address(0x1), false);
+        factory.removeFromWhitelist(address(0x1));
+
+        assertFalse(factory.whitelist(address(0x1)));
+    }
+
+    function test_setTreasury() public {
+        vm.expectRevert("Invalid address");
+        factory.setTreasury(address(0));
+
+        vm.expectEmit(true, false, false, true);
+        emit TreasuryChanged(address(0x1));
+        factory.setTreasury(address(0x1));
+    }
+
     function test_createBrewlabsIndexInETHfee() public {
-        tryInitialize();
         factory.setPayingToken(address(0));
 
         vm.deal(deployer, 10 ether);
@@ -194,7 +281,6 @@ contract BrewlabsIndexFactoryTest is Test {
     }
 
     function test_createBrewlabsIndexInTokenfee() public {
-        tryInitialize();
         MockErc20 payingToken = new MockErc20(18);
         factory.setPayingToken(address(payingToken));
 
@@ -223,6 +309,224 @@ contract BrewlabsIndexFactoryTest is Test {
         vm.expectEmit(false, false, false, true);
         emit IndexCreated(address(0), _tokens, address(indexNft), address(deployerNft), swapRouter, deployer);
         factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+    }
+
+    function test_createBrewlabsIndexInNoFee() public {
+        factory.setPayingToken(address(0));
+        factory.addToWhitelist(deployer);
+
+        vm.deal(deployer, 10 ether);
+
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = token0;
+        tokens[1] = token1;
+
+        address[][] memory _paths = new address[][](2);
+        _paths[0] = new address[](2);
+        _paths[1] = new address[](2);
+        _paths[0][0] = WBNB;
+        _paths[0][1] = address(token0);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
+
+        vm.startPrank(deployer);
+        address[] memory _tokens = new address[](2);
+        _tokens[0] = address(token0);
+        _tokens[1] = address(token1);
+
+        vm.expectEmit(false, false, false, true);
+        emit IndexCreated(address(0), _tokens, address(indexNft), address(deployerNft), swapRouter, deployer);
+        address index = factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+
+        assertEq(IBrewlabsIndex(index).deployer(), deployer);
+        assertEq(IBrewlabsIndex(index).owner(), indexOwner);
+
+        assertEq(IBrewlabsIndex(index).NUM_TOKENS(), 2);
+        assertEq(IBrewlabsIndex(index).totalFee(), 200 + factory.brewlabsFee());
+        vm.stopPrank();
+    }
+
+    function test_failCreateBrewlabsIndexInNoInitialized() public {
+        BrewlabsIndexFactory _factory = new BrewlabsIndexFactory();
+        
+        vm.deal(deployer, 10 ether);
+
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = token0;
+        tokens[1] = token1;
+
+        address[][] memory _paths = new address[][](2);
+        _paths[0] = new address[](2);
+        _paths[1] = new address[](2);
+        _paths[0][0] = WBNB;
+        _paths[0][1] = address(token0);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
+
+        vm.startPrank(deployer);
+        vm.expectRevert("Not initialized yet");
+        _factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+        vm.stopPrank();
+    }
+
+    function test_failCreateBrewlabsIndexInExceedTokenLength() public {
+        vm.deal(deployer, 10 ether);
+
+        IERC20[] memory tokens = new IERC20[](6);
+        tokens[0] = token0;
+        tokens[1] = token0;
+
+        address[][] memory _paths = new address[][](2);
+        _paths[0] = new address[](2);
+        _paths[1] = new address[](2);
+        _paths[0][0] = WBNB;
+        _paths[0][1] = address(token0);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
+
+        vm.startPrank(deployer);
+        vm.expectRevert("Exceed token limit");
+        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+        vm.stopPrank();
+    }
+
+    function test_failCreateBrewlabsIndexInInvalidConfig() public {
+        vm.deal(deployer, 10 ether);
+
+        IERC20[] memory tokens = new IERC20[](3);
+        tokens[0] = token0;
+        tokens[1] = token1;
+        tokens[2] = token0;
+
+        address[][] memory _paths = new address[][](2);
+        _paths[0] = new address[](2);
+        _paths[1] = new address[](2);
+        _paths[0][0] = WBNB;
+        _paths[0][1] = address(token0);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
+
+        vm.startPrank(deployer);
+        vm.expectRevert("Invalid token config");
+        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+        vm.stopPrank();
+    }
+
+    function test_failCreateBrewlabsIndexInInvalidRouter() public {
+        vm.deal(deployer, 10 ether);
+
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = token0;
+        tokens[1] = token1;
+
+        address[][] memory _paths = new address[][](2);
+        _paths[0] = new address[](2);
+        _paths[1] = new address[](2);
+        _paths[0][0] = WBNB;
+        _paths[0][1] = address(token0);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
+
+        vm.startPrank(deployer);
+        vm.expectRevert("Invalid router");
+        factory.createBrewlabsIndex(tokens, address(0x0), _paths, 200);
+        vm.stopPrank();
+    }
+    
+    function test_failCreateBrewlabsIndexInExceedFeeLimit() public {
+        vm.deal(deployer, 10 ether);
+
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = token0;
+        tokens[1] = token1;
+
+        address[][] memory _paths = new address[][](2);
+        _paths[0] = new address[](2);
+        _paths[1] = new address[](2);
+        _paths[0][0] = WBNB;
+        _paths[0][1] = address(token0);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
+
+        vm.startPrank(deployer);
+        vm.expectRevert("Cannot exeed fee limit");
+        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 2000);
+        vm.stopPrank();
+    }
+
+    function test_failCreateBrewlabsIndexInSameTokens() public {
+        vm.deal(deployer, 10 ether);
+
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = token0;
+        tokens[1] = token0;
+
+        address[][] memory _paths = new address[][](2);
+        _paths[0] = new address[](2);
+        _paths[1] = new address[](2);
+        _paths[0][0] = WBNB;
+        _paths[0][1] = address(token0);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
+
+        vm.startPrank(deployer);
+        vm.expectRevert("Cannot use same token");
+        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+        vm.stopPrank();
+    }
+
+    function test_failCreateBrewlabsIndexInValidToken() public {
+        vm.deal(deployer, 10 ether);
+
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = token0;
+        tokens[1] = IERC20(address(0x1));
+
+        address[][] memory _paths = new address[][](2);
+        _paths[0] = new address[](2);
+        _paths[1] = new address[](2);
+        _paths[0][0] = WBNB;
+        _paths[0][1] = address(token0);
+        _paths[1][0] = WBNB;
+        _paths[1][1] = address(token1);
+
+        vm.startPrank(deployer);
+        vm.expectRevert("Invalid token");
+        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+        vm.stopPrank();
+    }
+
+    function test_rescueTokensForEther() public {
+        vm.deal(address(factory), 0.02 ether);
+        factory.rescueTokens(address(0x0));
+        assertEq(address(factory).balance, 0);
+    }
+
+    function test_rescueTokensForErc20() public {
+        MockErc20 token = new MockErc20(18);
+        token.mint(address(factory), 1000 ether);
+        factory.rescueTokens(address(token));
+        assertEq(token.balanceOf(address(factory)), 0);
+    }
+
+    function test_rescueTokensAsOwner() public {
+        address owner = factory.owner();
+        uint256 prevBalance = owner.balance;
+
+        vm.deal(address(factory), 0.02 ether);
+        factory.rescueTokens(address(0x0));
+
+        assertEq(owner.balance, prevBalance + 0.02 ether);
+    }
+
+    function test_rescueTokensFailsAsNotOwner() public {
+        vm.startPrank(address(0x1));
+
+        vm.deal(address(factory), 0.02 ether);
+        vm.expectRevert("Ownable: caller is not the owner");
+        factory.rescueTokens(address(0x0));
+
+        vm.stopPrank();
     }
 
     receive() external payable {}

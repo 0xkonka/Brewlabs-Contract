@@ -129,6 +129,13 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         require(swapRouter != address(0x0), "Invalid router");
         require(fee <= feeLimit, "Cannot exeed fee limit");
 
+        for(uint256 i = 0; i < tokens.length; i++) {
+            require(isContract(address(tokens[i])), "Invalid token");
+            for(uint256 j = i + 1; j < tokens.length; j++) {
+                require(tokens[i] != tokens[j], "Cannot use same token");
+            }
+        }
+
         if (!whitelist[msg.sender]) {
             _transferServiceFee();
         }
@@ -236,6 +243,8 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     }
 
     function setDiscountManager(address addr) external onlyOwner {
+        require(addr == address(0x0) || isContract(addr), "Invalid discount manager");
+
         discountMgr = addr;
         emit SetDiscountMgr(addr);
     }
