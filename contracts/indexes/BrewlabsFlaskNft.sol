@@ -3,11 +3,12 @@ pragma solidity ^0.8.14;
 
 import {ERC721, ERC721Enumerable, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 
-contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable {
+contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilterer, Ownable {
     using SafeERC20 for IERC20;
     using Strings for uint256;
     using Strings for address;
@@ -35,14 +36,14 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
     event Whitelisted(address indexed account, uint256 count);
 
     modifier onlyMintable() {
-        require(mintAllowed, "Cannot mint");
+        require(mintAllowed, "Mint is disabled");
         _;
     }
 
     constructor() ERC721("Brewlabs Flask Nft", "BFL") {}
 
-    function mint() external payable returns (uint256) {
-        if (whitelist[msg.sender] > 0) {
+    function mint() external payable onlyMintable returns (uint256) {
+        if (whitelist[msg.sender] == 0) {
             require(msg.value >= ethMintFee, "Insufficient BNB fee");
 
             // process mint fee
@@ -51,21 +52,21 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
                 payable(msg.sender).transfer(msg.value - ethMintFee);
             }
             feeToken.safeTransferFrom(msg.sender, feeWallet, brewsMintFee);
-
+        } else {
             whitelist[msg.sender] = whitelist[msg.sender] - 1;
         }
 
         // mint NFT
         tokenIndex++;
-        rarities[tokenIndex] = _randomRarity();
+        rarities[tokenIndex] = _randomRarity(tokenIndex);
 
         _safeMint(msg.sender, tokenIndex);
         return tokenIndex;
     }
 
-    function _randomRarity() internal view returns (uint256) {
+    function _randomRarity(uint256 tokenId) internal view returns (uint256) {
         uint256 randomNum = uint256(
-            keccak256(abi.encode(msg.sender, tx.gasprice, block.number, block.timestamp, blockhash(block.number - 1)))
+            keccak256(abi.encode(msg.sender, tx.gasprice, block.number, block.timestamp, blockhash(block.number - 1), tokenId))
         );
 
         return randomNum % rarityNames.length;
@@ -80,7 +81,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
 
         uint256 newRarity = rarities[tokenIds[0]] + 1;
         for (uint256 i = 0; i < 3; i++) {
-            safeTransferFrom(msg.sender, address(this), tokenIds[i]);
+            _safeTransfer(msg.sender, address(this), tokenIds[i], "");
             _burn(tokenIds[i]);
         }
 
@@ -152,7 +153,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         );
 
         string memory attributes = '"attributes":[';
-        attributes = string(abi.encodePacked(attributes, '{"trait_type":"Rarity", "value":"', rarities[tokenId], '"}]'));
+        attributes = string(abi.encodePacked(attributes, '{"trait_type":"Rarity", "value":"', rarityNames[rarities[tokenId]], '"}]'));
 
         // If both are set, concatenate the baseURI (via abi.encodePacked).
         string memory metadata = string(
@@ -166,7 +167,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
                 ', "image": "',
                 base,
                 "/",
-                rarities[tokenId],
+                rarityNames[rarities[tokenId]],
                 ".png",
                 '", ',
                 attributes,
@@ -184,12 +185,13 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         emit MintEnabled();
     }
 
-    function setTokenBaseURI(string memory _uri) external onlyOwner {
+    function setTokenBaseUri(string memory _uri) external onlyOwner {
         _tokenBaseURI = _uri;
         emit BaseURIUpdated(_uri);
     }
 
     function setFeeToken(IERC20 token) external onlyOwner {
+        require(address(token) != address(0x0), "Invalid token");
         feeToken = token;
         emit SetFeeToken(address(token));
     }
@@ -214,6 +216,16 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
     function removeFromWhitelist(address _addr) external onlyOwner {
         whitelist[_addr] = 0;
         emit Whitelisted(_addr, 0);
+    }
+
+    function rescueTokens(address _token) external onlyOwner {
+        if (_token == address(0x0)) {
+            uint256 _ethAmount = address(this).balance;
+            payable(msg.sender).transfer(_ethAmount);
+        } else {
+            uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
+            IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
+        }
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -272,4 +284,20 @@ contract BrewlabsFlaskNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
 
         return result;
     }
+
+    /**
+     * onERC721Received(address operator, address from, uint256 tokenId, bytes data) → bytes4
+     * It must return its Solidity selector to confirm the token transfer.
+     * If any other value is returned or the interface is not implemented by the recipient, the transfer will be reverted.
+     */
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes memory data)
+        public
+        override
+        returns (bytes4)
+    {
+        require(msg.sender == address(this), "not enabled NFT");
+        return super.onERC721Received(operator, from, tokenId, data);
+    }
+
+    receive() external payable {}
 }
