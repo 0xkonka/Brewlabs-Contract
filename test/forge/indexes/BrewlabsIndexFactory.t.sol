@@ -224,4 +224,6 @@ contract BrewlabsIndexFactoryTest is Test {
         emit IndexCreated(address(0), _tokens, address(indexNft), address(deployerNft), swapRouter, deployer);
         factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
     }
+
+    receive() external payable {}
 }

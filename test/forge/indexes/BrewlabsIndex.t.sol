@@ -712,4 +712,6 @@ contract BrewlabsIndexTest is Test {
         index.unstakeDeployerNft{value: pFee}();
         vm.stopPrank();
     }
+    
+    receive() external payable {}
 }
