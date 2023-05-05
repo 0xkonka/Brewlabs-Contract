@@ -18,7 +18,6 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     uint256 private PERCENT_PRECISION;
     uint256 public PRECISION_FACTOR;
     uint256 public MAX_FEE;
-    // The precision factor
 
     // The staked token
     IERC20 public lpToken;
@@ -60,8 +59,8 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         uint256 rewardDebt; // Reward debt
         uint256 reflectionDebt; // Reflection debt
     }
-    // Info of each user that stakes lpToken
 
+    // Info of each user that stakes lpToken
     mapping(address => UserInfo) public userInfo;
 
     uint256 public totalStaked;
@@ -166,8 +165,8 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
 
         feeAddress = _deployer;
 
-        require(_depositFee < MAX_FEE, "Invalid deposit fee");
-        require(_withdrawFee < MAX_FEE, "Invalid withdraw fee");
+        require(_depositFee <= MAX_FEE, "Invalid deposit fee");
+        require(_withdrawFee <= MAX_FEE, "Invalid withdraw fee");
         depositFee = _depositFee;
         withdrawFee = _withdrawFee;
 
@@ -195,11 +194,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
 
                 pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
                 rewardToken.safeTransfer(address(msg.sender), pending);
-                if (totalEarned > pending) {
-                    totalEarned = totalEarned - pending;
-                } else {
-                    totalEarned = 0;
-                }
+                totalEarned = totalEarned > pending ? totalEarned - pending : 0;
                 emit Claim(msg.sender, pending);
             }
 
@@ -777,8 +772,8 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
 
     function setSettings(uint256 _depositFee, uint256 _withdrawFee, address _feeAddr) external onlyOwner {
         require(_feeAddr != address(0x0) || _feeAddr != feeAddress, "Invalid address");
-        require(_depositFee < MAX_FEE, "Invalid deposit fee");
-        require(_withdrawFee < MAX_FEE, "Invalid withdraw fee");
+        require(_depositFee <= MAX_FEE, "Invalid deposit fee");
+        require(_withdrawFee <= MAX_FEE, "Invalid withdraw fee");
 
         depositFee = _depositFee;
         withdrawFee = _withdrawFee;

@@ -16,54 +16,69 @@ interface WhiteList {
 contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    uint256 private PERCENT_PRECISION;
-    uint256 private BLOCKS_PER_DAY;
-
     // Whether it is initialized
     bool private isInitialized;
+
+    uint256 private PERCENT_PRECISION;
+    uint256 private BLOCKS_PER_DAY;
+    uint256 public PRECISION_FACTOR;
+    uint256 private MAX_STAKES;
+
+    // The staked token
+    IERC20 public stakingToken;
+    IERC20 public rewardToken;
+    // The dividend token of staking token
+    address public dividendToken;
+
     uint256 public duration; // 365 days
-
-    // Whether a limit is set for users
-    bool public hasUserLimit;
-    // The pool limit (0 if none)
-    uint256 public poolLimitPerUser;
-    address public whiteList;
-
     // The block number when staking starts.
     uint256 public startBlock;
     // The block number when staking ends.
     uint256 public bonusEndBlock;
+    // Accrued token per share
+    uint256 public accDividendPerShare;
+    // Whether a limit is set for users
+
+    address public walletA;
+    address public treasury;
+    uint256 public performanceFee;
+
+    address public factory;
+    address public deployer;
+    address public operator;
+
+    bool public hasUserLimit;
+    // The pool limit (0 if none)
+    uint256 public poolLimitPerUser;
+    address public whiteList;
 
     bool public activeEmergencyWithdraw;
 
     // swap router and path, slipPage
     uint256 public slippageFactor;
     uint256 public slippageFactorUL;
-
     address public uniRouterAddress;
     address[] public reflectionToStakedPath;
     address[] public earnedToStakedPath;
 
-    address public operator;
-    address public walletA;
-    address public treasury;
-    uint256 public performanceFee;
+    struct Stake {
+        uint8 stakeType;
+        uint256 amount; // amount to stake
+        uint256 duration; // the lockup duration of the stake
+        uint256 end; // when does the staking period end
+        uint256 rewardDebt; // Reward debt
+        uint256 reflectionDebt; // Reflection debt
+    }
+    struct UserInfo {
+        uint256 amount; // How many staked tokens the user has provided
+        uint256 locked;
+        uint256 available;
+        uint256 firstIndex;
+    }
+    mapping(address => Stake[]) public userStakes;
+    mapping(address => UserInfo) public userStaked;
 
-    // The precision factor
-    uint256 public PRECISION_FACTOR;
-    uint256 public PRECISION_FACTOR_REFLECTION;
-
-    // The staked token
-    IERC20 public stakingToken;
-    // The earned token
-    IERC20 public earnedToken;
-    // The dividend token of staking token
-    address public dividendToken;
-
-    // Accrued token per share
-    uint256 public accDividendPerShare;
     uint256 public totalStaked;
-
     uint256 private totalEarned;
     uint256 private totalReflections;
     uint256 private reflections;
@@ -82,27 +97,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         uint256 totalStaked;
         uint256 totalStakedLimit;
     }
-
-    struct UserInfo {
-        uint256 amount; // How many staked tokens the user has provided
-        uint256 locked;
-        uint256 available;
-    }
-
-    struct Stake {
-        uint8 stakeType;
-        uint256 amount; // amount to stake
-        uint256 duration; // the lockup duration of the stake
-        uint256 end; // when does the staking period end
-        uint256 rewardDebt; // Reward debt
-        uint256 reflectionDebt; // Reflection debt
-    }
-
-    uint256 private MAX_STAKES;
-
     Lockup[] public lockups;
-    mapping(address => Stake[]) public userStakes;
-    mapping(address => UserInfo) public userStaked;
 
     event Deposit(address indexed user, uint256 stakeType, uint256 amount);
     event Withdraw(address indexed user, uint256 stakeType, uint256 amount);
@@ -122,6 +117,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
     event ServiceInfoUpadted(address _addr, uint256 _fee);
     event DurationUpdated(uint256 _duration);
+    event OperatorTransferred(address oldOperator, address newOperator);
     event SetWhiteList(address _whitelist);
 
     event SetSettings(
@@ -138,23 +134,23 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     /**
      * @notice Initialize the contract
      * @param _stakingToken: staked token address
-     * @param _earnedToken: earned token address
+     * @param _rewardToken: earned token address
      * @param _dividendToken: reflection token address
      * @param _uniRouter: uniswap router address for swap tokens
      * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
      * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
      * @param _owner: owner address
-     * @param _operator: operator address
+     * @param _deployer: deployer address
      */
     function initialize(
         IERC20 _stakingToken,
-        IERC20 _earnedToken,
+        IERC20 _rewardToken,
         address _dividendToken,
         address _uniRouter,
         address[] memory _earnedToStakedPath,
         address[] memory _reflectionToStakedPath,
         address _owner,
-        address _operator
+        address _deployer
     ) external {
         require(!isInitialized, "Already initialized");
         require(owner() == address(0x0) || msg.sender == owner(), "Not allowed");
@@ -174,22 +170,17 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         performanceFee = 0.0035 ether;
 
         stakingToken = _stakingToken;
-        earnedToken = _earnedToken;
+        rewardToken = _rewardToken;
         dividendToken = _dividendToken;
 
-        walletA = _owner;
-        operator = _operator;
+        factory = msg.sender;
+        deployer = _deployer;
+        operator = _deployer;
+        walletA = _deployer;
 
-        uint256 decimalsRewardToken = uint256(IERC20Metadata(address(earnedToken)).decimals());
+        uint256 decimalsRewardToken = uint256(IERC20Metadata(address(rewardToken)).decimals());
         require(decimalsRewardToken < 30, "Must be inferior to 30");
         PRECISION_FACTOR = uint256(10 ** (40 - decimalsRewardToken));
-
-        uint256 decimalsdividendToken = 18;
-        if (address(dividendToken) != address(0x0)) {
-            decimalsdividendToken = uint256(IERC20Metadata(address(dividendToken)).decimals());
-            require(decimalsdividendToken < 30, "Must be inferior to 30");
-        }
-        PRECISION_FACTOR_REFLECTION = uint256(10 ** (40 - decimalsRewardToken));
 
         uniRouterAddress = _uniRouter;
         earnedToStakedPath = _earnedToStakedPath;
@@ -201,7 +192,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
     /**
      * @notice Deposit staked tokens and collect reward tokens (if any)
-     * @param _amount: amount to withdraw (in earnedToken)
+     * @param _amount: amount to withdraw (in rewardToken)
      * @param _stakeType: lockup index
      */
     function deposit(uint256 _amount, uint8 _stakeType) external payable nonReentrant {
@@ -229,24 +220,24 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
         uint256 pending = 0;
         uint256 pendingReflection = 0;
-        for (uint256 j = 0; j < stakes.length; j++) {
+        for (uint256 j = user.firstIndex; j < stakes.length; j++) {
             Stake storage stake = stakes[j];
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
 
             pendingReflection = pendingReflection
-                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt);
+                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
 
             uint256 _pending = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR - stake.rewardDebt;
             pending = pending + _pending;
 
             stake.rewardDebt = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR;
-            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR;
         }
 
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-            earnedToken.safeTransfer(address(msg.sender), pending);
+            rewardToken.safeTransfer(address(msg.sender), pending);
             _updateEarned(pending);
             paidRewards = paidRewards + pending;
             emit Claim(msg.sender, _stakeType, pending);
@@ -276,7 +267,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
             }
         }
 
-        _addStake(_stakeType, msg.sender, lockup.duration, realAmount);
+        _addStake(_stakeType, msg.sender, lockup.duration, realAmount, user.firstIndex);
 
         user.amount = user.amount + realAmount;
         lockup.totalStaked = lockup.totalStaked + realAmount;
@@ -285,7 +276,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         emit Deposit(msg.sender, _stakeType, realAmount);
     }
 
-    function _addStake(uint8 _stakeType, address _account, uint256 _duration, uint256 _amount) internal {
+    function _addStake(uint8 _stakeType, address _account, uint256 _duration, uint256 _amount, uint256 _firstIndex) internal {
         Stake[] storage stakes = userStakes[_account];
 
         uint256 end = block.timestamp + _duration * 1 days;
@@ -295,7 +286,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         stakes.push(); // grow the array
         // find the spot where we can insert the current stake
         // this should make an increasing list sorted by end
-        while (i != 0 && stakes[i - 1].end > end) {
+        while (i != 0 && stakes[i - 1].end > end && i >= _firstIndex) {
             // shift it back one
             stakes[i] = stakes[i - 1];
             i -= 1;
@@ -310,12 +301,12 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         newStake.end = end;
         newStake.amount = _amount;
         newStake.rewardDebt = (newStake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR;
-        newStake.reflectionDebt = (newStake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+        newStake.reflectionDebt = (newStake.amount * accDividendPerShare) / PRECISION_FACTOR;
     }
 
     /**
      * @notice Withdraw staked tokens and collect reward tokens
-     * @param _amount: amount to withdraw (in earnedToken)
+     * @param _amount: amount to withdraw (in rewardToken)
      * @param _stakeType: lockup index
      */
     function withdraw(uint256 _amount, uint8 _stakeType) external payable nonReentrant {
@@ -329,18 +320,22 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         Stake[] storage stakes = userStakes[msg.sender];
         Lockup storage lockup = lockups[_stakeType];
 
+        bool bUpdatable = true;
+        uint256 firstIndex = user.firstIndex;
+
         uint256 pending = 0;
         uint256 pendingReflection = 0;
         uint256 remained = _amount;
-        for (uint256 j = 0; j < stakes.length; j++) {
+        for (uint256 j = user.firstIndex; j < stakes.length; j++) {
             Stake storage stake = stakes[j];
+            if (bUpdatable && stake.amount == 0) firstIndex = j;
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
             if (remained == 0) break;
 
             uint256 _pending = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR - stake.rewardDebt;
             pendingReflection = pendingReflection
-                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt);
+                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
 
             pending = pending + _pending;
             if (stake.end < block.timestamp || bonusEndBlock < block.number) {
@@ -350,16 +345,19 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
                 } else {
                     remained = remained - stake.amount;
                     stake.amount = 0;
+                    if (bUpdatable) firstIndex = j;
                 }
             }
 
             stake.rewardDebt = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR;
-            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR;
+
+            if (stake.amount > 0) bUpdatable = false;
         }
 
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-            earnedToken.safeTransfer(address(msg.sender), pending);
+            rewardToken.safeTransfer(address(msg.sender), pending);
             _updateEarned(pending);
             paidRewards = paidRewards + pending;
             emit Claim(msg.sender, _stakeType, pending);
@@ -373,6 +371,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         }
 
         uint256 realAmount = _amount - remained;
+        user.firstIndex = firstIndex;
         user.amount = user.amount - realAmount;
         lockup.totalStaked = lockup.totalStaked - realAmount;
         totalStaked = totalStaked - realAmount;
@@ -397,11 +396,12 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         _transferPerformanceFee();
         _updatePool(_stakeType);
 
+        UserInfo storage user = userStaked[msg.sender];
         Stake[] storage stakes = userStakes[msg.sender];
         Lockup storage lockup = lockups[_stakeType];
 
         uint256 pending = 0;
-        for (uint256 j = 0; j < stakes.length; j++) {
+        for (uint256 j = user.firstIndex; j < stakes.length; j++) {
             Stake storage stake = stakes[j];
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
@@ -414,7 +414,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-            earnedToken.safeTransfer(address(msg.sender), pending);
+            rewardToken.safeTransfer(address(msg.sender), pending);
             _updateEarned(pending);
             paidRewards = paidRewards + pending;
             emit Claim(msg.sender, _stakeType, pending);
@@ -428,18 +428,19 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         _transferPerformanceFee();
         _updatePool(_stakeType);
 
+        UserInfo storage user = userStaked[msg.sender];
         Stake[] storage stakes = userStakes[msg.sender];
 
         uint256 pendingReflection = 0;
-        for (uint256 j = 0; j < stakes.length; j++) {
+        for (uint256 j = user.firstIndex; j < stakes.length; j++) {
             Stake storage stake = stakes[j];
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
 
             pendingReflection = pendingReflection
-                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt);
+                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
 
-            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR;
         }
 
         if (pendingReflection > 0) {
@@ -463,7 +464,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
         uint256 pending = 0;
         uint256 compounded = 0;
-        for (uint256 j = 0; j < stakes.length; j++) {
+        for (uint256 j = user.firstIndex; j < stakes.length; j++) {
             Stake storage stake = stakes[j];
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
@@ -471,7 +472,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
             uint256 _pending = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR - stake.rewardDebt;
             pending = pending + _pending;
 
-            if (address(stakingToken) != address(earnedToken) && _pending > 0) {
+            if (address(stakingToken) != address(rewardToken) && _pending > 0) {
                 uint256 _beforeAmount = stakingToken.balanceOf(address(this));
                 _safeSwap(_pending, earnedToStakedPath, address(this));
                 uint256 _afterAmount = stakingToken.balanceOf(address(this));
@@ -481,7 +482,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
             stake.amount = stake.amount + _pending;
             stake.rewardDebt = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR;
-            stake.reflectionDebt = stake.reflectionDebt + (_pending * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+            stake.reflectionDebt = stake.reflectionDebt + (_pending * accDividendPerShare) / PRECISION_FACTOR;
         }
 
         if (pending > 0) {
@@ -510,12 +511,12 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         Lockup storage lockup = lockups[_stakeType];
 
         uint256 compounded = 0;
-        for (uint256 j = 0; j < stakes.length; j++) {
+        for (uint256 j = user.firstIndex; j < stakes.length; j++) {
             Stake storage stake = stakes[j];
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
 
-            uint256 pending = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt;
+            uint256 pending = (stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt;
             uint256 _pending = estimateDividendAmount(pending);
             totalReflections = totalReflections - pending;
             emit CompoundDividend(msg.sender, _stakeType, _pending);
@@ -536,7 +537,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
             compounded = compounded + _pending;
             stake.amount = stake.amount + _pending;
             stake.rewardDebt += (_pending * lockup.accTokenPerShare) / PRECISION_FACTOR;
-            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR;
         }
 
         if (compounded > 0) {
@@ -569,22 +570,28 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         Stake[] storage stakes = userStakes[msg.sender];
         Lockup storage lockup = lockups[_stakeType];
 
+        uint256 firstIndex = user.firstIndex;
         uint256 amountToTransfer = 0;
-        for (uint256 j = 0; j < stakes.length; j++) {
+        for (uint256 j = user.firstIndex; j < stakes.length; j++) {
             Stake storage stake = stakes[j];
             if (stake.stakeType != _stakeType) continue;
-            if (stake.amount == 0) continue;
+            if (stake.amount == 0) {
+                firstIndex = j;
+                continue;
+            }
 
             amountToTransfer = amountToTransfer + stake.amount;
 
             stake.amount = 0;
             stake.rewardDebt = 0;
             stake.reflectionDebt = 0;
+            firstIndex = j;
         }
 
         if (amountToTransfer > 0) {
             stakingToken.safeTransfer(address(msg.sender), amountToTransfer);
 
+            user.firstIndex = firstIndex;
             user.amount = user.amount - amountToTransfer;
             lockup.totalStaked = lockup.totalStaked - amountToTransfer;
             totalStaked = totalStaked - amountToTransfer;
@@ -603,10 +610,10 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
      * @notice Available amount of reward token
      */
     function availableRewardTokens() public view returns (uint256) {
-        if (address(earnedToken) == address(dividendToken)) return totalEarned;
+        if (address(rewardToken) == address(dividendToken)) return totalEarned;
 
-        uint256 _amount = earnedToken.balanceOf(address(this));
-        if (address(earnedToken) == address(stakingToken)) {
+        uint256 _amount = rewardToken.balanceOf(address(this));
+        if (address(rewardToken) == address(stakingToken)) {
             if (_amount < totalStaked) return 0;
             return _amount - totalStaked;
         }
@@ -624,7 +631,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
         uint256 _amount = IERC20(dividendToken).balanceOf(address(this));
 
-        if (address(dividendToken) == address(earnedToken)) {
+        if (address(dividendToken) == address(rewardToken)) {
             if (_amount < totalEarned) return 0;
             _amount = _amount - totalEarned;
         }
@@ -725,12 +732,12 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
         uint256 sTokenBal = totalStaked;
         uint256 eTokenBal = availableRewardTokens();
-        if (address(stakingToken) == address(earnedToken)) {
+        if (address(stakingToken) == address(rewardToken)) {
             sTokenBal = sTokenBal + eTokenBal;
         }
 
         uint256 adjustedReflectionPerShare =
-            accDividendPerShare + ((reflectionAmount * PRECISION_FACTOR_REFLECTION) / sTokenBal);
+            accDividendPerShare + ((reflectionAmount * PRECISION_FACTOR) / sTokenBal);
 
         uint256 pendingReflection = 0;
         for (uint256 i = 0; i < stakes.length; i++) {
@@ -739,7 +746,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
             if (stake.amount == 0) continue;
 
             pendingReflection = pendingReflection
-                + ((stake.amount * adjustedReflectionPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt);
+                + ((stake.amount * adjustedReflectionPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
         }
         return pendingReflection;
     }
@@ -764,9 +771,9 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     function depositRewards(uint256 _amount) external onlyAdmin nonReentrant {
         require(_amount > 0, "invalid amount");
 
-        uint256 beforeAmt = earnedToken.balanceOf(address(this));
-        earnedToken.safeTransferFrom(msg.sender, address(this), _amount);
-        uint256 afterAmt = earnedToken.balanceOf(address(this));
+        uint256 beforeAmt = rewardToken.balanceOf(address(this));
+        rewardToken.safeTransferFrom(msg.sender, address(this), _amount);
+        uint256 afterAmt = rewardToken.balanceOf(address(this));
 
         totalEarned = totalEarned + afterAmt - beforeAmt;
     }
@@ -778,9 +785,9 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
         _updatePool(_stakeType);
 
-        uint256 beforeAmt = earnedToken.balanceOf(address(this));
-        earnedToken.safeTransferFrom(msg.sender, address(this), _amount);
-        uint256 afterAmt = earnedToken.balanceOf(address(this));
+        uint256 beforeAmt = rewardToken.balanceOf(address(this));
+        rewardToken.safeTransferFrom(msg.sender, address(this), _amount);
+        uint256 afterAmt = rewardToken.balanceOf(address(this));
 
         totalEarned = totalEarned + afterAmt - beforeAmt;
 
@@ -820,14 +827,8 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         require(block.number > bonusEndBlock, "Pool is running");
         require(availableRewardTokens() >= _amount, "Insufficient reward tokens");
 
-        earnedToken.safeTransfer(address(msg.sender), _amount);
-        if (totalEarned > 0) {
-            if (_amount > totalEarned) {
-                totalEarned = 0;
-            } else {
-                totalEarned = totalEarned - _amount;
-            }
-        }
+        rewardToken.safeTransfer(address(msg.sender), _amount);
+        totalEarned = totalEarned > _amount ? totalEarned - _amount : 0;
     }
 
     /**
@@ -837,7 +838,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
      * @dev This function is only callable by admin.
      */
     function rescueTokens(address _tokenAddress, uint256 _tokenAmount) external onlyOwner {
-        require(_tokenAddress != address(earnedToken) || _tokenAddress == dividendToken, "Cannot be reward token");
+        require(_tokenAddress != address(rewardToken) || _tokenAddress == dividendToken, "Cannot be reward token");
 
         if (_tokenAddress == address(stakingToken)) {
             uint256 tokenBal = stakingToken.balanceOf(address(this));
@@ -873,7 +874,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
             remainRewards = remainRewards - shouldTotalPaid;
-            earnedToken.transfer(msg.sender, remainRewards);
+            rewardToken.transfer(msg.sender, remainRewards);
             _updateEarned(remainRewards);
         }
 
@@ -917,8 +918,8 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     ) external onlyOwner {
         // require(block.number < startBlock, "Pool was already started");
         require(_stakeType < lockups.length, "Lockup Not found");
-        require(_depositFee < 2000, "Invalid deposit fee");
-        require(_withdrawFee < 2000, "Invalid withdraw fee");
+        require(_depositFee <= 2000, "Invalid deposit fee");
+        require(_withdrawFee <= 2000, "Invalid withdraw fee");
 
         _updatePool(_stakeType);
 
@@ -939,8 +940,8 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         uint256 _rate,
         uint256 _totalStakedLimit
     ) external onlyOwner {
-        require(_depositFee < 2000, "Invalid deposit fee");
-        require(_withdrawFee < 2000, "Invalid withdraw fee");
+        require(_depositFee <= 2000, "Invalid deposit fee");
+        require(_withdrawFee <= 2000, "Invalid withdraw fee");
 
         lockups.push();
 
@@ -979,6 +980,12 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
         duration = _duration;
         emit DurationUpdated(_duration);
+    }
+
+    function transferOperator(address _operator) external onlyAdmin {
+        require(_operator != address(0x0), "invalid address");
+        emit OperatorTransferred(operator, _operator);
+        operator = _operator;
     }
 
     function setSettings(
@@ -1020,11 +1027,11 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
             uint256 sTokenBal = totalStaked;
             uint256 eTokenBal = availableRewardTokens();
-            if (address(stakingToken) == address(earnedToken)) {
+            if (address(stakingToken) == address(rewardToken)) {
                 sTokenBal = sTokenBal + eTokenBal;
             }
 
-            accDividendPerShare += (reflectionAmount * PRECISION_FACTOR_REFLECTION) / sTokenBal;
+            accDividendPerShare += (reflectionAmount * PRECISION_FACTOR) / sTokenBal;
 
             reflections += (reflectionAmount * eTokenBal) / sTokenBal;
             totalReflections += reflectionAmount;
@@ -1077,11 +1084,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     }
 
     function _updateEarned(uint256 _amount) internal {
-        if (totalEarned > _amount) {
-            totalEarned = totalEarned - _amount;
-        } else {
-            totalEarned = 0;
-        }
+        totalEarned = totalEarned > _amount ? totalEarned - _amount : 0;
     }
 
     function _safeSwap(uint256 _amountIn, address[] memory _path, address _to) internal {
