@@ -25,6 +25,8 @@ contract BrewlabsFarmFactoryTest is Test {
 
     event FarmCreated(
         address indexed farm,
+        uint256 category,
+        uint256 version,
         address lpToken,
         address rewardToken,
         address dividendToken,
@@ -36,7 +38,7 @@ contract BrewlabsFarmFactoryTest is Test {
     );
     event SetFarmOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
-    event SetImplementation(address impl, uint256 version);
+    event SetImplementation(uint256 category, address impl, uint256 version);
     event TreasuryChanged(address addr);
     event Whitelisted(address indexed account, bool isWhitelisted);
 
@@ -56,11 +58,11 @@ contract BrewlabsFarmFactoryTest is Test {
         BrewlabsFarmImpl impl = new BrewlabsFarmImpl();
 
         vm.expectEmit(false, false, false, true);
-        emit SetImplementation(address(impl), 1);
+        emit SetImplementation(0, address(impl), 3);
         _factory.initialize(address(impl), BUSD, 1 ether, farmOwner);
 
-        assertEq(_factory.implementation(), address(impl));
-        assertEq(_factory.version(), 1);
+        assertEq(_factory.implementation(0), address(impl));
+        assertEq(_factory.version(0), 3);
         assertEq(_factory.farmCount(), 0);
     }
 
@@ -73,15 +75,15 @@ contract BrewlabsFarmFactoryTest is Test {
 
     function test_setImplementation() public {
         vm.expectRevert("Invalid implementation");
-        factory.setImplementation(address(0));
+        factory.setImplementation(0, address(0));
 
         BrewlabsFarmImpl impl = new BrewlabsFarmImpl();
         vm.expectEmit(false, false, false, true);
-        emit SetImplementation(address(impl), 2);
-        factory.setImplementation(address(impl));
+        emit SetImplementation(0, address(impl), 4);
+        factory.setImplementation(0, address(impl));
 
-        assertEq(factory.implementation(), address(impl));
-        assertEq(factory.version(), 2);
+        assertEq(factory.implementation(0), address(impl));
+        assertEq(factory.version(0), 4);
     }
 
     function test_setFarmOwner() public {
@@ -137,14 +139,14 @@ contract BrewlabsFarmFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Not enough fee");
-        factory.createBrewlabsFarm(lpToken, rewardToken, address(0), 1 ether, 100, 100, false);
+        factory.createBrewlabsFarm(address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false);
 
         vm.expectEmit(false, false, false, true);
         emit FarmCreated(
-            address(0), address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
+            address(0), 0, 3, address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
             );
         address farm =
-            factory.createBrewlabsFarm{value: 1 ether}(lpToken, rewardToken, address(0), 1 ether, 100, 100, false);
+            factory.createBrewlabsFarm{value: 1 ether}(address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false);
 
         assertEq(IBrewlabsFarm(farm).deployer(), deployer);
         assertEq(IBrewlabsFarm(farm).owner(), farmOwner);
@@ -162,9 +164,9 @@ contract BrewlabsFarmFactoryTest is Test {
 
         vm.expectEmit(false, false, false, true);
         emit FarmCreated(
-            address(0), address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
+            address(0), 0, 3, address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
             );
-        address farm = factory.createBrewlabsFarm(lpToken, rewardToken, address(0), 1 ether, 100, 100, false);
+        address farm = factory.createBrewlabsFarm(address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false);
 
         assertEq(IBrewlabsFarm(farm).deployer(), deployer);
         assertEq(IBrewlabsFarm(farm).owner(), farmOwner);
@@ -178,7 +180,7 @@ contract BrewlabsFarmFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Not initialized yet");
-        _factory.createBrewlabsFarm(lpToken, rewardToken, address(0), 1 ether, 100, 100, false);
+        _factory.createBrewlabsFarm(address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false);
         vm.stopPrank();
     }
 
@@ -187,7 +189,7 @@ contract BrewlabsFarmFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Invalid LP token");
-        factory.createBrewlabsFarm(IERC20(address(0)), rewardToken, address(0), 1 ether, 100, 100, false);
+        factory.createBrewlabsFarm(address(0), address(rewardToken), address(0), 1 ether, 100, 100, false);
         vm.stopPrank();
     }
 
@@ -196,7 +198,7 @@ contract BrewlabsFarmFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Invalid reward token");
-        factory.createBrewlabsFarm(lpToken, IERC20(address(0)), address(0), 1 ether, 100, 100, false);
+        factory.createBrewlabsFarm(address(lpToken), address(0), address(0), 1 ether, 100, 100, false);
         vm.stopPrank();
     }
 
@@ -205,7 +207,7 @@ contract BrewlabsFarmFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Invalid deposit fee");
-        factory.createBrewlabsFarm(lpToken, rewardToken, address(0), 1 ether, 2001, 100, false);
+        factory.createBrewlabsFarm(address(lpToken), address(rewardToken), address(0), 1 ether, 2001, 100, false);
         vm.stopPrank();
     }
 
@@ -214,7 +216,7 @@ contract BrewlabsFarmFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Invalid withdraw fee");
-        factory.createBrewlabsFarm(lpToken, rewardToken, address(0), 1 ether, 100, 2001, false);
+        factory.createBrewlabsFarm(address(lpToken), address(rewardToken), address(0), 1 ether, 100, 2001, false);
         vm.stopPrank();
     }
 

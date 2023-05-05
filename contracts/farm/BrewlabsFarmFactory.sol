@@ -5,25 +5,11 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-interface IBrewlabsFarm {
-    function initialize(
-        IERC20 _lpToken,
-        IERC20 _earnedToken,
-        address _dividendToken,
-        uint256 _rewardPerBlock,
-        uint256 _depositFee,
-        uint256 _withdrawFee,
-        bool _hasDividend,
-        address _owner,
-        address _deployer
-    ) external;
-}
-
 contract BrewlabsFarmFactory is OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
-    address public implementation;
-    uint256 public version;
+    mapping(uint256 => address) public implementation;
+    mapping(uint256 => uint256) public version;
 
     address public farmDefaultOwner;
 
@@ -34,6 +20,7 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
     struct FarmInfo {
         address farm;
+        uint256 category;
         uint256 version;
         address lpToken;
         address rewardToken;
@@ -43,11 +30,13 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
         uint256 createdAt;
     }
 
-    FarmInfo[] public farmList;
+    FarmInfo[] public farmInfo;
     mapping(address => bool) public whitelist;
 
     event FarmCreated(
         address indexed farm,
+        uint256 category,
+        uint256 version,
         address lpToken,
         address rewardToken,
         address dividendToken,
@@ -59,7 +48,7 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
     );
     event SetFarmOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
-    event SetImplementation(address impl, uint256 version);
+    event SetImplementation(uint256 category, address impl, uint256 version);
     event TreasuryChanged(address addr);
     event Whitelisted(address indexed account, bool isWhitelisted);
 
@@ -75,24 +64,27 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
         treasury = farmOwner;
         farmDefaultOwner = farmOwner;
 
-        implementation = impl;
-        version++;
-        emit SetImplementation(impl, version);
+        implementation[0] = impl;
+        version[0] = 3;
+
+        emit SetImplementation(0, impl, version[0]);
     }
 
     function createBrewlabsFarm(
-        IERC20 lpToken,
-        IERC20 rewardToken,
+        address lpToken,
+        address rewardToken,
         address dividendToken,
         uint256 rewardPerBlock,
         uint256 depositFee,
         uint256 withdrawFee,
         bool hasDividend
     ) external payable returns (address farm) {
-        require(implementation != address(0x0), "Not initialized yet");
+        uint256 category = 0;
 
-        require(address(lpToken) != address(0x0), "Invalid LP token");
-        require(address(rewardToken) != address(0x0), "Invalid reward token");
+        require(implementation[category] != address(0x0), "Not initialized yet");
+
+        require(isContract(lpToken), "Invalid LP token");
+        require(isContract(rewardToken), "Invalid reward token");
         require(depositFee <= 2000, "Invalid deposit fee");
         require(withdrawFee <= 2000, "Invalid withdraw fee");
 
@@ -100,27 +92,32 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
             _transferServiceFee();
         }
 
-        bytes32 salt = keccak256(abi.encodePacked(msg.sender, address(lpToken), address(rewardToken), block.timestamp));
+        bytes32 salt = keccak256(abi.encodePacked(msg.sender, lpToken, rewardToken, block.number, block.timestamp));
 
-        farm = Clones.cloneDeterministic(implementation, salt);
-        IBrewlabsFarm(farm).initialize(
-            lpToken,
-            rewardToken,
-            dividendToken,
-            rewardPerBlock,
-            depositFee,
-            withdrawFee,
-            hasDividend,
-            farmDefaultOwner,
-            msg.sender
+        farm = Clones.cloneDeterministic(implementation[category], salt);
+        (bool success,) = farm.call(
+            abi.encodeWithSignature(
+                "initialize(address,address,address,uint256,uint256,uint256,bool,address,address)",
+                lpToken,
+                rewardToken,
+                dividendToken,
+                rewardPerBlock,
+                depositFee,
+                withdrawFee,
+                hasDividend,
+                farmDefaultOwner,
+                msg.sender
+            )
         );
+        require(success, "Initialization failed");
 
-        farmList.push(
+        farmInfo.push(
             FarmInfo(
                 farm,
-                version,
-                address(lpToken),
-                address(rewardToken),
+                category,
+                version[category],
+                lpToken,
+                rewardToken,
                 dividendToken,
                 hasDividend,
                 msg.sender,
@@ -130,8 +127,10 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
         emit FarmCreated(
             farm,
-            address(lpToken),
-            address(rewardToken),
+            category,
+            version[category],
+            lpToken,
+            rewardToken,
             dividendToken,
             rewardPerBlock,
             depositFee,
@@ -139,19 +138,17 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
             hasDividend,
             msg.sender
             );
-
-        return farm;
     }
 
     function farmCount() external view returns (uint256) {
-        return farmList.length;
+        return farmInfo.length;
     }
 
-    function setImplementation(address impl) external onlyOwner {
+    function setImplementation(uint256 category, address impl) external onlyOwner {
         require(isContract(impl), "Invalid implementation");
-        implementation = impl;
-        version++;
-        emit SetImplementation(impl, version);
+        implementation[category] = impl;
+        version[category] = version[category] + 1;
+        emit SetImplementation(category, impl, version[category]);
     }
 
     function setFarmOwner(address newOwner) external onlyOwner {

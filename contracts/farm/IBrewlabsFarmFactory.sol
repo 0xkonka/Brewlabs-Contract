@@ -15,8 +15,8 @@ interface IBrewlabsFarmFactory {
         bool hasDividend
     ) external payable returns (address farm);
 
-    function version() external view returns (uint256);
-    function implementation() external view returns (address);
+    function version(uint256 category) external view returns (uint256);
+    function implementation(uint256 category) external view returns (address);
 
     function farmDefaultOwner() external view returns (address);
 
@@ -26,11 +26,12 @@ interface IBrewlabsFarmFactory {
     function treasury() external view returns (address);
 
     function farmCount() external view returns (uint256);
-    function farmList(uint256 idx)
+    function farmInfo(uint256 idx)
         external
         view
         returns (
             address farm,
+            uint256 category,
             uint256 version,
             address lpToken,
             address rewardToken,
@@ -41,7 +42,7 @@ interface IBrewlabsFarmFactory {
         );
     function whitelist(address addr) external view returns (bool);
 
-    function setImplementation(address impl) external;
+    function setImplementation(uint256 category, address impl) external;
     function setFarmOwner(address newOwner) external;
 
     function setServiceFee(uint256 fee) external;

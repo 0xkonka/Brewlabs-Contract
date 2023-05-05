@@ -9,7 +9,7 @@ interface IBrewlabsIndexFactory {
         address impl,
         IERC721 indexNft,
         IERC721 deployerNft,
-        address token,
+        IERC20 token,
         uint256 price,
         address indexOwner
     ) external;
@@ -18,8 +18,8 @@ interface IBrewlabsIndexFactory {
         payable
         returns (address index);
 
-    function version() external view returns (uint256);
-    function implementation() external view returns (address);
+    function version(uint256 category) external view returns (uint256);
+    function implementation(uint256 category) external view returns (address);
 
     function indexNft() external view returns (address);
     function deployerNft() external view returns (address);
@@ -42,9 +42,10 @@ interface IBrewlabsIndexFactory {
         view
         returns (
             address indexAddr,
-            IERC721 indexNft,
-            IERC721 deployerNft,
-            IERC20[] memory tokens,
+            uint256 category,
+            address indexNft,
+            address deployerNft,
+            address[] memory tokens,
             address swapRouter,
             address deployer,
             uint256 createdAt
@@ -52,7 +53,7 @@ interface IBrewlabsIndexFactory {
     function allowedTokens(address token) external view returns (uint8);
     function whitelist(address addr) external view returns (bool);
 
-    function setImplementation(address impl) external;
+    function setImplementation(uint256 category, address impl) external;
     function setIndexNft(IERC721 nft) external;
     function setDeployerNft(IERC721 nft) external;
     function setIndexOwner(address newOwner) external;
@@ -61,7 +62,7 @@ interface IBrewlabsIndexFactory {
     function setBrewlabsFee(uint256 fee) external;
     function setBrewlabsWallet(address wallet) external;
     function setIndexFeeLimit(uint256 limit) external;
-    function setAllowedToken(address token, uint8 flag) external;
+    function setAllowedToken(IERC20 token, uint8 flag) external;
 
     function setServiceFee(uint256 fee) external;
     function setPayingToken(address token) external;

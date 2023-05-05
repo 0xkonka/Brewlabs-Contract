@@ -44,7 +44,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         uint256 createdAt;
     }
 
-    IndexInfo[] private indexList;
+    IndexInfo[] private indexInfo;
     mapping(address => bool) public whitelist;
 
     /**
@@ -151,7 +151,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         IBrewlabsIndexNft(address(indexNft)).setMinterRole(index, true);
         IBrewlabsIndexNft(address(deployerNft)).setMinterRole(index, true);
 
-        indexList.push(
+        indexInfo.push(
             IndexInfo(
                 index,
                 curCategory,
@@ -178,7 +178,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     }
 
     function indexCount() external view returns (uint256) {
-        return indexList.length;
+        return indexInfo.length;
     }
 
     function getIndexInfo(uint256 idx)
@@ -186,16 +186,16 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         view
         returns (address, uint256, address, address, address[] memory, address, address, uint256)
     {
-        IndexInfo memory indexInfo = indexList[idx];
+        IndexInfo memory _indexInfo = indexInfo[idx];
         return (
-            indexInfo.index,
-            indexInfo.category,
-            indexInfo.indexNft,
-            indexInfo.deployerNft,
-            indexInfo.tokens,
-            indexInfo.swapRouter,
-            indexInfo.deployer,
-            indexInfo.createdAt
+            _indexInfo.index,
+            _indexInfo.category,
+            _indexInfo.indexNft,
+            _indexInfo.deployerNft,
+            _indexInfo.tokens,
+            _indexInfo.swapRouter,
+            _indexInfo.deployer,
+            _indexInfo.createdAt
         );
     }
 
