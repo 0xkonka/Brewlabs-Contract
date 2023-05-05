@@ -15,7 +15,7 @@ interface IBrewlabsFarm {
         uint256 _withdrawFee,
         bool _hasDividend,
         address _owner,
-        address _operator
+        address _deployer
     ) external;
 }
 
@@ -67,7 +67,6 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
     function initialize(address impl, address token, uint256 price, address farmOwner) external initializer {
         require(impl != address(0x0), "Invalid implementation");
-        require(token != address(0x0), "Invalid address");
 
         __Ownable_init();
 
@@ -90,8 +89,12 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
         uint256 withdrawFee,
         bool hasDividend
     ) external payable returns (address farm) {
-        require(depositFee < 2000, "Invalid deposit fee");
-        require(withdrawFee < 2000, "Invalid withdraw fee");
+        require(implementation != address(0x0), "Not initialized yet");
+
+        require(address(lpToken) != address(0x0), "Invalid LP token");
+        require(address(rewardToken) != address(0x0), "Invalid reward token");
+        require(depositFee <= 2000, "Invalid deposit fee");
+        require(withdrawFee <= 2000, "Invalid withdraw fee");
 
         if (!whitelist[msg.sender]) {
             _transferServiceFee();
@@ -145,14 +148,14 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
     }
 
     function setImplementation(address impl) external onlyOwner {
-        require(isContract(impl), "Not contract");
+        require(isContract(impl), "Invalid implementation");
         implementation = impl;
         version++;
         emit SetImplementation(impl, version);
     }
 
     function setFarmOwner(address newOwner) external onlyOwner {
-        require(address(farmDefaultOwner) != address(newOwner), "Same owner address");
+        require(newOwner != address(0x0), "Invalid address");
         farmDefaultOwner = newOwner;
         emit SetFarmOwner(newOwner);
     }

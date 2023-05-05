@@ -13,8 +13,7 @@ interface IBrewlabsIndex {
         address[][] memory paths,
         uint256 fee,
         address owner,
-        address deployer,
-        address factory
+        address deployer
     ) external;
 
     function factory() external view returns (address);

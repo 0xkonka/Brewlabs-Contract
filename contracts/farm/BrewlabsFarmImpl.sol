@@ -50,6 +50,9 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     address public treasury;
     uint256 public performanceFee;
     uint256 public rewardFee;
+
+    address public factory;
+    address public deployer;
     address public operator;
 
     struct UserInfo {
@@ -122,6 +125,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
      * @param _withdrawFee: withdraw fee
      * @param _hasDividend: reflection available flag
      * @param _owner: owner address
+     * @param _deployer: owner address
      */
     function initialize(
         IERC20 _lpToken,
@@ -132,7 +136,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         uint256 _withdrawFee,
         bool _hasDividend,
         address _owner,
-        address _operator
+        address _deployer
     ) external {
         require(!isInitialized, "Already initialized");
         require(owner() == address(0x0) || msg.sender == owner(), "Not allowed");
@@ -146,9 +150,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         PRECISION_FACTOR = 10 ** 18;
 
         duration = 365; // 365 days
-
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
-        feeAddress = _owner;
         performanceFee = 0.0035 ether;
 
         lpToken = _lpToken;
@@ -158,12 +160,16 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         hasDividend = _hasDividend;
         rewardPerBlock = _rewardPerBlock;
 
+        factory = msg.sender;
+        deployer = _deployer;
+        operator = _deployer;
+
+        feeAddress = _deployer;
+
         require(_depositFee < MAX_FEE, "Invalid deposit fee");
         require(_withdrawFee < MAX_FEE, "Invalid withdraw fee");
         depositFee = _depositFee;
         withdrawFee = _withdrawFee;
-
-        operator = _operator;
 
         _transferOwnership(_owner);
     }

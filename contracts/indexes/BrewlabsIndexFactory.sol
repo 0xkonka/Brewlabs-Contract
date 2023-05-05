@@ -15,8 +15,7 @@ interface IBrewlabsIndex {
         address[][] memory _paths,
         uint256 _fee,
         address _owner,
-        address _deployer,
-        address _factory
+        address _deployer
     ) external;
 }
 
@@ -144,7 +143,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
         index = Clones.cloneDeterministic(implementation, salt);
         IBrewlabsIndex(index).initialize(
-            tokens, indexNft, deployerNft, swapRouter, swapPaths, fee, indexDefaultOwner, msg.sender, address(this)
+            tokens, indexNft, deployerNft, swapRouter, swapPaths, fee, indexDefaultOwner, msg.sender
         );
         IBrewlabsIndexNft(address(indexNft)).setMinterRole(index, true);
         IBrewlabsIndexNft(address(deployerNft)).setMinterRole(index, true);

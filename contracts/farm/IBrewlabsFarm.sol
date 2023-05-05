@@ -13,7 +13,7 @@ interface IBrewlabsFarm {
         uint256 _withdrawFee,
         bool _hasDividend,
         address _owner,
-        address _operator
+        address _deployer
     ) external;
 
     function lpToken() external view returns (address);
@@ -37,7 +37,10 @@ interface IBrewlabsFarm {
     function performanceFee() external view returns (uint256);
     function rewardFee() external view returns (uint256);
 
+    function factory() external view returns (address);
+    function deployer() external view returns (address);
     function operator() external view returns (address);
+    function owner() external view returns (address);
 
     function userInfo() external view returns (uint256 amount, uint256 rewardDebt, uint256 reflectionDebt);
     function totalStaked() external view returns (uint256);

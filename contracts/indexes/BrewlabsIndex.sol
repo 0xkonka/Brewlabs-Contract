@@ -124,7 +124,6 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      * @param _fee: additional fee for deployer
      * @param _owner: index owner address
      * @param _deployer: index deployer address
-     * @param _factory: factory address
      */
     function initialize(
         IERC20[] memory _tokens,
@@ -134,8 +133,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         address[][] memory _paths,
         uint256 _fee,
         address _owner,
-        address _deployer,
-        address _factory
+        address _deployer
     ) external {
         require(!isInitialized, "Already initialized");
         require(owner() == address(0x0) || msg.sender == owner(), "Not allowed");
@@ -155,7 +153,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         deployer = _deployer;
         commissionWallet = _deployer;
 
-        factory = _factory;
+        factory = msg.sender;
 
         indexNft = _indexNft;
         deployerNft = _deployerNft;
