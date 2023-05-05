@@ -5,57 +5,6 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-interface IBrewlabsStaking {
-    function initialize(
-        IERC20 _stakingToken,
-        IERC20 _earnedToken,
-        address _dividendToken,
-        uint256 _rewardPerBlock,
-        uint256 _depositFee,
-        uint256 _withdrawFee,
-        address _uniRouter,
-        address[] memory _earnedToStakedPath,
-        address[] memory _reflectionToStakedPath,
-        bool _hasDividend,
-        address _owner,
-        address _deployer
-    ) external;
-}
-
-interface IBrewlabsLockup {
-    function initialize(
-        IERC20 _stakingToken,
-        IERC20 _earnedToken,
-        address _dividendToken,
-        address _uniRouter,
-        address[] memory _earnedToStakedPath,
-        address[] memory _reflectionToStakedPath,
-        address _owner,
-        address _deployer
-    ) external;
-    function addLockup(
-        uint256 duration,
-        uint256 depositFee,
-        uint256 withdrawFee,
-        uint256 rate,
-        uint256 totalStakedLimit
-    ) external;
-}
-
-interface IBrewlabsLockupPenalty {
-    function initialize(
-        address _stakingToken,
-        address _earnedToken,
-        address _dividendToken,
-        address _uniRouter,
-        address[] memory _earnedToStakedPath,
-        address[] memory _reflectionToStakedPath,
-        uint256 _penaltyFee,
-        address _owner,
-        address _deployer
-    ) external;
-}
-
 contract BrewlabsPoolFactory is OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
@@ -82,7 +31,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256 createdAt;
     }
 
-    PoolInfo[] public poolList;
+    PoolInfo[] public poolInfo;
     mapping(address => bool) public whitelist;
 
     event SinglePoolCreated(
@@ -164,28 +113,34 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         if (!whitelist[msg.sender]) {
             _transferServiceFee();
         }
+        {
+            bytes32 salt = keccak256(
+                abi.encodePacked(
+                    msg.sender, "0", address(stakingToken), address(rewardToken), hasDividend, block.timestamp
+                )
+            );
 
-        bytes32 salt = keccak256(
-            abi.encodePacked(msg.sender, "0", address(stakingToken), address(rewardToken), hasDividend, block.timestamp)
-        );
-
-        pool = Clones.cloneDeterministic(implementation[0], salt);
-        IBrewlabsStaking(pool).initialize(
-            stakingToken,
-            rewardToken,
-            dividendToken,
-            rewardPerBlock,
-            depositFee,
-            withdrawFee,
-            uniRouter,
-            earnedToStakedPath,
-            reflectionToStakedPath,
-            hasDividend,
-            poolDefaultOwner,
-            msg.sender
-        );
-
-        poolList.push(
+            pool = Clones.cloneDeterministic(implementation[0], salt);
+            (bool success,) = pool.call(
+                abi.encodeWithSignature(
+                    "initialize(address,address,address,uint256,uint256,uint256,address,address[],address[],bool,address,address)",
+                    stakingToken,
+                    rewardToken,
+                    dividendToken,
+                    rewardPerBlock,
+                    depositFee,
+                    withdrawFee,
+                    uniRouter,
+                    earnedToStakedPath,
+                    reflectionToStakedPath,
+                    hasDividend,
+                    poolDefaultOwner,
+                    msg.sender
+                )
+            );
+            require(success, "Initialization failed");
+        }
+        poolInfo.push(
             PoolInfo(
                 pool,
                 0,
@@ -215,8 +170,8 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     }
 
     function createBrewlabsLockupPools(
-        IERC20 stakingToken,
-        IERC20 rewardToken,
+        address stakingToken,
+        address rewardToken,
         address dividendToken,
         address uniRouter,
         address[] memory earnedToStakedPath,
@@ -227,32 +182,48 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256[] memory withdrawFees
     ) external payable returns (address pool) {
         require(implementation[1] != address(0x0), "No implementation");
+        require(isContract(stakingToken), "Invalid staking token");
+        require(isContract(rewardToken), "Invalid reward token");
+
         if (!whitelist[msg.sender]) {
             _transferServiceFee();
         }
+        {
+            bytes32 salt = keccak256(abi.encodePacked(msg.sender, "1", stakingToken, rewardToken, block.timestamp));
 
-        bytes32 salt =
-            keccak256(abi.encodePacked(msg.sender, "1", address(stakingToken), address(rewardToken), block.timestamp));
-
-        pool = Clones.cloneDeterministic(implementation[1], salt);
-        IBrewlabsLockup(pool).initialize(
-            stakingToken,
-            rewardToken,
-            dividendToken,
-            uniRouter,
-            earnedToStakedPath,
-            reflectionToStakedPath,
-            poolDefaultOwner,
-            msg.sender
-        );
-
+            pool = Clones.cloneDeterministic(implementation[1], salt);
+            (bool success,) = pool.call(
+                abi.encodeWithSignature(
+                    "initialize(address,address,address,address,address[],address[],address,address)",
+                    stakingToken,
+                    rewardToken,
+                    dividendToken,
+                    uniRouter,
+                    earnedToStakedPath,
+                    reflectionToStakedPath,
+                    poolDefaultOwner,
+                    msg.sender
+                )
+            );
+            require(success, "Initialization failed");
+        }
         for (uint256 i = 0; i < durations.length; i++) {
             require(depositFees[i] < 2000, "Invalid deposit fee");
             require(withdrawFees[i] < 2000, "Invalid withdraw fee");
-
-            IBrewlabsLockup(pool).addLockup(durations[i], depositFees[i], withdrawFees[i], rewardsPerBlock[i], 0);
-
-            poolList.push(
+            {
+                (bool success,) = pool.call(
+                    abi.encodeWithSignature(
+                        "addLockup(uint256,uint256,uint256,uint256,uint256)",
+                        durations[i],
+                        depositFees[i],
+                        withdrawFees[i],
+                        rewardsPerBlock[i],
+                        0
+                    )
+                );
+                require(success, "Adding lockup failed");
+            }
+            poolInfo.push(
                 PoolInfo(
                     pool,
                     1,
@@ -293,38 +264,54 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256[] memory durations,
         uint256[] memory rewardsPerBlock,
         uint256[] memory depositFees,
-        uint256[] memory withdrawFees
+        uint256[] memory withdrawFees,
+        uint256 penaltyFee
     ) external payable returns (address pool) {
         require(implementation[2] != address(0x0), "No implementation");
         if (!whitelist[msg.sender]) {
             _transferServiceFee();
         }
 
-        bytes32 salt =
-            keccak256(abi.encodePacked(msg.sender, "2", stakingToken, rewardToken, block.number, block.timestamp));
+        {
+            bytes32 salt =
+                keccak256(abi.encodePacked(msg.sender, "2", stakingToken, rewardToken, block.number, block.timestamp));
 
-        pool = Clones.cloneDeterministic(implementation[2], salt);
-        IBrewlabsLockupPenalty(pool).initialize(
-            stakingToken,
-            rewardToken,
-            dividendToken,
-            uniRouter,
-            earnedToStakedPath,
-            reflectionToStakedPath,
-            500,
-            poolDefaultOwner,
-            msg.sender
-        );
+            pool = Clones.cloneDeterministic(implementation[2], salt);
+            (bool success,) = pool.call(
+                abi.encodeWithSignature(
+                    "initialize(address,address,address,address,address[],address[],uint256,address,address)",
+                    stakingToken,
+                    rewardToken,
+                    dividendToken,
+                    uniRouter,
+                    earnedToStakedPath,
+                    reflectionToStakedPath,
+                    penaltyFee,
+                    poolDefaultOwner,
+                    msg.sender
+                )
+            );
+            require(success, "Initialization failed");
+        }
 
         for (uint256 i = 0; i < durations.length; i++) {
+            require(depositFees[i] < 2000, "Invalid deposit fee");
+            require(withdrawFees[i] < 2000, "Invalid withdraw fee");
             {
-                require(depositFees[i] < 2000, "Invalid deposit fee");
-                require(withdrawFees[i] < 2000, "Invalid withdraw fee");
-
-                IBrewlabsLockup(pool).addLockup(durations[i], depositFees[i], withdrawFees[i], rewardsPerBlock[i], 0);
+                (bool success,) = pool.call(
+                    abi.encodeWithSignature(
+                        "addLockup(uint256,uint256,uint256,uint256,uint256)",
+                        durations[i],
+                        depositFees[i],
+                        withdrawFees[i],
+                        rewardsPerBlock[i],
+                        0
+                    )
+                );
+                require(success, "Adding lockup failed");
             }
 
-            poolList.push(
+            poolInfo.push(
                 PoolInfo(
                     pool, 2, version[2], stakingToken, rewardToken, dividendToken, i, true, msg.sender, block.timestamp
                 )
@@ -347,7 +334,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     }
 
     function poolCount() external view returns (uint256) {
-        return poolList.length;
+        return poolInfo.length;
     }
 
     function setImplementation(uint256 category, address impl) external onlyOwner {
