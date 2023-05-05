@@ -65,9 +65,9 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
         farmDefaultOwner = farmOwner;
 
         implementation[0] = impl;
-        version[0] = 3;
+        version[0] = 1;
 
-        emit SetImplementation(0, impl, version[0]);
+        emit SetImplementation(0, impl, 1);
     }
 
     function createBrewlabsFarm(

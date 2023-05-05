@@ -58,11 +58,11 @@ contract BrewlabsFarmFactoryTest is Test {
         BrewlabsFarmImpl impl = new BrewlabsFarmImpl();
 
         vm.expectEmit(false, false, false, true);
-        emit SetImplementation(0, address(impl), 3);
+        emit SetImplementation(0, address(impl), 1);
         _factory.initialize(address(impl), BUSD, 1 ether, farmOwner);
 
         assertEq(_factory.implementation(0), address(impl));
-        assertEq(_factory.version(0), 3);
+        assertEq(_factory.version(0), 1);
         assertEq(_factory.farmCount(), 0);
     }
 
@@ -79,11 +79,11 @@ contract BrewlabsFarmFactoryTest is Test {
 
         BrewlabsFarmImpl impl = new BrewlabsFarmImpl();
         vm.expectEmit(false, false, false, true);
-        emit SetImplementation(0, address(impl), 4);
+        emit SetImplementation(0, address(impl), 2);
         factory.setImplementation(0, address(impl));
 
         assertEq(factory.implementation(0), address(impl));
-        assertEq(factory.version(0), 4);
+        assertEq(factory.version(0), 2);
     }
 
     function test_setFarmOwner() public {
@@ -143,7 +143,7 @@ contract BrewlabsFarmFactoryTest is Test {
 
         vm.expectEmit(false, false, false, true);
         emit FarmCreated(
-            address(0), 0, 3, address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
+            address(0), 0, 1, address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
             );
         address farm = factory.createBrewlabsFarm{value: 1 ether}(
             address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false
@@ -165,7 +165,7 @@ contract BrewlabsFarmFactoryTest is Test {
 
         vm.expectEmit(false, false, false, true);
         emit FarmCreated(
-            address(0), 0, 3, address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
+            address(0), 0, 1, address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
             );
         address farm =
             factory.createBrewlabsFarm(address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false);
