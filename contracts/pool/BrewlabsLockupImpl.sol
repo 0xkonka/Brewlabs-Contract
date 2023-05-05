@@ -69,12 +69,14 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         uint256 rewardDebt; // Reward debt
         uint256 reflectionDebt; // Reflection debt
     }
+
     struct UserInfo {
         uint256 amount; // How many staked tokens the user has provided
         uint256 locked;
         uint256 available;
         uint256 firstIndex;
     }
+
     mapping(address => Stake[]) public userStakes;
     mapping(address => UserInfo) public userStaked;
 
@@ -97,6 +99,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         uint256 totalStaked;
         uint256 totalStakedLimit;
     }
+
     Lockup[] public lockups;
 
     event Deposit(address indexed user, uint256 stakeType, uint256 amount);
@@ -225,8 +228,8 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
 
-            pendingReflection = pendingReflection
-                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
+            pendingReflection =
+                pendingReflection + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
 
             uint256 _pending = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR - stake.rewardDebt;
             pending = pending + _pending;
@@ -276,7 +279,9 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         emit Deposit(msg.sender, _stakeType, realAmount);
     }
 
-    function _addStake(uint8 _stakeType, address _account, uint256 _duration, uint256 _amount, uint256 _firstIndex) internal {
+    function _addStake(uint8 _stakeType, address _account, uint256 _duration, uint256 _amount, uint256 _firstIndex)
+        internal
+    {
         Stake[] storage stakes = userStakes[_account];
 
         uint256 end = block.timestamp + _duration * 1 days;
@@ -334,8 +339,8 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
             if (remained == 0) break;
 
             uint256 _pending = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR - stake.rewardDebt;
-            pendingReflection = pendingReflection
-                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
+            pendingReflection =
+                pendingReflection + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
 
             pending = pending + _pending;
             if (stake.end < block.timestamp || bonusEndBlock < block.number) {
@@ -437,8 +442,8 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
 
-            pendingReflection = pendingReflection
-                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
+            pendingReflection =
+                pendingReflection + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
 
             stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR;
         }
@@ -736,8 +741,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
             sTokenBal = sTokenBal + eTokenBal;
         }
 
-        uint256 adjustedReflectionPerShare =
-            accDividendPerShare + ((reflectionAmount * PRECISION_FACTOR) / sTokenBal);
+        uint256 adjustedReflectionPerShare = accDividendPerShare + ((reflectionAmount * PRECISION_FACTOR) / sTokenBal);
 
         uint256 pendingReflection = 0;
         for (uint256 i = 0; i < stakes.length; i++) {

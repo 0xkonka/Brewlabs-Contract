@@ -44,8 +44,8 @@ interface IBrewlabsLockup {
 
 interface IBrewlabsLockupPenalty {
     function initialize(
-        IERC20 _stakingToken,
-        IERC20 _earnedToken,
+        address _stakingToken,
+        address _earnedToken,
         address _dividendToken,
         address _uniRouter,
         address[] memory _earnedToStakedPath,
@@ -71,7 +71,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
 
     struct PoolInfo {
         address pool;
-        uint256 poolCategory; // 0 - core, 1 - lockup, 2 - lockup penalty
+        uint256 category; // 0 - core, 1 - lockup, 2 - lockup penalty
         uint256 version;
         address stakingToken;
         address rewardToken;
@@ -87,6 +87,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
 
     event SinglePoolCreated(
         address indexed pool,
+        uint256 version,
         address stakingToken,
         address rewardToken,
         address dividendToken,
@@ -99,6 +100,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
 
     event LockupPoolCreated(
         address indexed pool,
+        uint256 version,
         address stakingToken,
         address rewardToken,
         address dividendToken,
@@ -112,6 +114,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
 
     event LockupPenaltyPoolCreated(
         address indexed pool,
+        uint256 version,
         address stakingToken,
         address rewardToken,
         address dividendToken,
@@ -199,6 +202,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
 
         emit SinglePoolCreated(
             pool,
+            version[0],
             address(stakingToken),
             address(rewardToken),
             dividendToken,
@@ -208,8 +212,6 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             hasDividend,
             msg.sender
             );
-
-        return pool;
     }
 
     function createBrewlabsLockupPools(
@@ -267,6 +269,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
 
             emit LockupPoolCreated(
                 pool,
+                version[1],
                 address(stakingToken),
                 address(rewardToken),
                 dividendToken,
@@ -278,13 +281,11 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
                 msg.sender
                 );
         }
-
-        return pool;
     }
 
     function createBrewlabsLockupPoolsWithPenalty(
-        IERC20 stakingToken,
-        IERC20 rewardToken,
+        address stakingToken,
+        address rewardToken,
         address dividendToken,
         address uniRouter,
         address[] memory earnedToStakedPath,
@@ -292,8 +293,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256[] memory durations,
         uint256[] memory rewardsPerBlock,
         uint256[] memory depositFees,
-        uint256[] memory withdrawFees,
-        uint256 penaltyFee
+        uint256[] memory withdrawFees
     ) external payable returns (address pool) {
         require(implementation[2] != address(0x0), "No implementation");
         if (!whitelist[msg.sender]) {
@@ -301,7 +301,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         }
 
         bytes32 salt =
-            keccak256(abi.encodePacked(msg.sender, "2", address(stakingToken), address(rewardToken), block.timestamp));
+            keccak256(abi.encodePacked(msg.sender, "2", stakingToken, rewardToken, block.number, block.timestamp));
 
         pool = Clones.cloneDeterministic(implementation[2], salt);
         IBrewlabsLockupPenalty(pool).initialize(
@@ -311,37 +311,30 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             uniRouter,
             earnedToStakedPath,
             reflectionToStakedPath,
-            penaltyFee,
+            500,
             poolDefaultOwner,
             msg.sender
         );
 
         for (uint256 i = 0; i < durations.length; i++) {
-            require(depositFees[i] < 2000, "Invalid deposit fee");
-            require(withdrawFees[i] < 2000, "Invalid withdraw fee");
-            require(penaltyFee >= withdrawFees[i], "Penalty fee must be greater than withdraw fee");
+            {
+                require(depositFees[i] < 2000, "Invalid deposit fee");
+                require(withdrawFees[i] < 2000, "Invalid withdraw fee");
 
-            IBrewlabsLockup(pool).addLockup(durations[i], depositFees[i], withdrawFees[i], rewardsPerBlock[i], 0);
+                IBrewlabsLockup(pool).addLockup(durations[i], depositFees[i], withdrawFees[i], rewardsPerBlock[i], 0);
+            }
 
             poolList.push(
                 PoolInfo(
-                    pool,
-                    2,
-                    version[2],
-                    address(stakingToken),
-                    address(rewardToken),
-                    dividendToken,
-                    i,
-                    true,
-                    msg.sender,
-                    block.timestamp
+                    pool, 2, version[2], stakingToken, rewardToken, dividendToken, i, true, msg.sender, block.timestamp
                 )
             );
 
             emit LockupPenaltyPoolCreated(
                 pool,
-                address(stakingToken),
-                address(rewardToken),
+                version[2],
+                stakingToken,
+                rewardToken,
                 dividendToken,
                 i,
                 durations[i],
@@ -351,8 +344,6 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
                 msg.sender
                 );
         }
-
-        return pool;
     }
 
     function poolCount() external view returns (uint256) {

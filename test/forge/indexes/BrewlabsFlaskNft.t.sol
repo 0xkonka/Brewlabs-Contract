@@ -113,7 +113,7 @@ contract BrewlabsFlaskNftTest is Test {
 
         vm.stopPrank();
     }
-    
+
     function test_failMintWithInsufficientApproval() public {
         address user = address(0x12345);
         vm.deal(user, 10 ether);
@@ -130,7 +130,7 @@ contract BrewlabsFlaskNftTest is Test {
 
         vm.stopPrank();
     }
-    
+
     function test_failMintWithInsufficientToken() public {
         address user = address(0x12345);
         vm.deal(user, 10 ether);
@@ -147,7 +147,7 @@ contract BrewlabsFlaskNftTest is Test {
 
         vm.stopPrank();
     }
-    
+
     function test_failMintInMintNotEnabled() public {
         address user = address(0x12345);
         vm.deal(user, 10 ether);
@@ -174,22 +174,22 @@ contract BrewlabsFlaskNftTest is Test {
 
         uint256[3] memory tokenIds;
         uint256 count = 0;
-        for(uint256 i = 0; i < 100; i++) {
+        for (uint256 i = 0; i < 100; i++) {
             uint256 tokenId = nft.mint{value: ethMintFee}();
-            if(nft.rarityOf(tokenId) == 0) {
+            if (nft.rarityOf(tokenId) == 0) {
                 tokenIds[count] = tokenId;
                 count++;
-                if(count == 3) break;
+                if (count == 3) break;
             }
         }
-        if(count < 3) return;
+        if (count < 3) return;
 
         uint256 newTokenId = nft.upgradeItem(tokenIds);
         assertEq(nft.rarityOf(newTokenId), 1);
 
         vm.stopPrank();
     }
-    
+
     function test_failUpgradeItemWithUnsupportedItems() public {
         address user = address(0x12345);
         vm.deal(user, 100 ether);
@@ -203,20 +203,20 @@ contract BrewlabsFlaskNftTest is Test {
 
         uint256[3] memory tokenIds;
         uint256 count = 0;
-        for(uint256 i = 0; i < 100; i++) {
+        for (uint256 i = 0; i < 100; i++) {
             uint256 tokenId = nft.mint{value: ethMintFee}();
-            if(nft.rarityOf(tokenId) == 0 && count < 2) {
+            if (nft.rarityOf(tokenId) == 0 && count < 2) {
                 tokenIds[count] = tokenId;
                 count++;
 
-                if(tokenIds[0] > 2) break;
-            } else if(nft.rarityOf(tokenId) > 1) {
+                if (tokenIds[0] > 2) break;
+            } else if (nft.rarityOf(tokenId) > 1) {
                 tokenIds[0] = tokenId;
-                if(count == 2) break;
+                if (count == 2) break;
             }
         }
 
-        if(count < 2 || tokenIds[0] == 0) return;
+        if (count < 2 || tokenIds[0] == 0) return;
 
         vm.expectRevert("Only common or uncommon NFT can be upgraded");
         nft.upgradeItem(tokenIds);
@@ -235,13 +235,13 @@ contract BrewlabsFlaskNftTest is Test {
         vm.startPrank(user);
         feeToken.approve(address(nft), brewsMintFee * 100);
 
-        uint256[3] memory tokenIds;        
+        uint256[3] memory tokenIds;
         tokenIds[0] = nft.mint{value: ethMintFee}();
         tokenIds[1] = nft.mint{value: ethMintFee}();
-        
-        for(uint256 i = 0; i < 100; i++) {
+
+        for (uint256 i = 0; i < 100; i++) {
             uint256 tokenId = nft.mint{value: ethMintFee}();
-            if(nft.rarityOf(tokenId) != nft.rarityOf(tokenIds[0])) {
+            if (nft.rarityOf(tokenId) != nft.rarityOf(tokenIds[0])) {
                 tokenIds[2] = tokenId;
                 break;
             }
@@ -264,11 +264,11 @@ contract BrewlabsFlaskNftTest is Test {
         vm.startPrank(user);
         feeToken.approve(address(nft), brewsMintFee * 100);
 
-        uint256[3] memory tokenIds;        
+        uint256[3] memory tokenIds;
         tokenIds[0] = nft.mint{value: ethMintFee}();
         tokenIds[1] = tokenIds[0];
         tokenIds[2] = tokenIds[0];
-        
+
         vm.expectRevert("ERC721: invalid token ID");
         nft.upgradeItem(tokenIds);
 
@@ -306,7 +306,7 @@ contract BrewlabsFlaskNftTest is Test {
         feeToken.approve(address(nft), brewsMintFee * 2);
 
         uint256 slotBalance = stdstore.target(address(nft)).sig(nft.balanceOf.selector).with_key(user).find();
-        
+
         nft.mint{value: ethMintFee}();
         uint256 balanceFirstMint = uint256(vm.load(address(nft), bytes32(slotBalance)));
         assertEq(balanceFirstMint, 1);
@@ -381,7 +381,7 @@ contract BrewlabsFlaskNftTest is Test {
         emit BaseURIUpdated("uri");
         nft.setTokenBaseUri("uri");
     }
-    
+
     function test_addToWhitelist() public {
         vm.expectEmit(true, false, false, true);
         emit Whitelisted(address(0x123), 3);

@@ -16,8 +16,8 @@ import {Utils} from "../utils/Utils.sol";
 import "../../../contracts/libs/IUniRouter02.sol";
 
 contract BrewlabsIndexTest is Test {
-    IERC20 internal token0 = IERC20(0x2170Ed0880ac9A755fd29B2688956BD959F933F8);
-    IERC20 internal token1 = IERC20(0x3EE2200Efb3400fAbB9AacF31297cBdD1d435D47);
+    address internal token0 = 0x2170Ed0880ac9A755fd29B2688956BD959F933F8;
+    address internal token1 = 0x3EE2200Efb3400fAbB9AacF31297cBdD1d435D47;
 
     address swapRouter = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
     address internal WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
@@ -83,7 +83,7 @@ contract BrewlabsIndexTest is Test {
         indexNft.setAdmin(address(factory));
         deployerNft.setAdmin(address(factory));
 
-        IERC20[] memory tokens = new IERC20[](2);
+        address[] memory tokens = new address[](2);
         tokens[0] = token0;
         tokens[1] = token1;
 
@@ -91,9 +91,9 @@ contract BrewlabsIndexTest is Test {
         _paths[0] = new address[](2);
         _paths[1] = new address[](2);
         _paths[0][0] = WBNB;
-        _paths[0][1] = address(token0);
+        _paths[0][1] = token0;
         _paths[1][0] = WBNB;
-        _paths[1][1] = address(token1);
+        _paths[1][1] = token1;
 
         vm.startPrank(deployer);
         index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, swapRouter, _paths, 20)); // 0.2%
@@ -158,8 +158,8 @@ contract BrewlabsIndexTest is Test {
         (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
 
         assertEq(usdAmount, _usdAmount);
-        assertEq(token0.balanceOf(address(index)), amounts[0]);
-        assertEq(token1.balanceOf(address(index)), amounts[1]);
+        assertEq(IERC20(token0).balanceOf(address(index)), amounts[0]);
+        assertEq(IERC20(token1).balanceOf(address(index)), amounts[1]);
         assertEq(address(feeWallet).balance - feeWalletBalance, brewsFee);
         assertEq(address(index.deployer()).balance - deployerBalance, deployerFee);
 
@@ -174,14 +174,14 @@ contract BrewlabsIndexTest is Test {
     }
 
     function test_zapInForWrappedIndex() public {
-        IERC20[] memory tokens = new IERC20[](2);
-        tokens[0] = IERC20(WBNB);
+        address[] memory tokens = new address[](2);
+        tokens[0] = WBNB;
         tokens[1] = token1;
 
         address[][] memory _paths = new address[][](2);
         _paths[1] = new address[](2);
         _paths[1][0] = WBNB;
-        _paths[1][1] = address(token1);
+        _paths[1][1] = token1;
 
         vm.startPrank(deployer);
         index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, swapRouter, _paths, 20)); // 0.2%
@@ -210,7 +210,8 @@ contract BrewlabsIndexTest is Test {
             _amounts[0] = _ethAmount;
 
             _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[1] / FEE_DENOMINATOR;
-            uint256[] memory _amountOuts = IUniRouter02(swapRouter).getAmountsOut(_ethAmount, index.getSwapPath(1, true));
+            uint256[] memory _amountOuts =
+                IUniRouter02(swapRouter).getAmountsOut(_ethAmount, index.getSwapPath(1, true));
             _amounts[1] = _amountOuts[_amountOuts.length - 1];
         }
 
@@ -384,19 +385,19 @@ contract BrewlabsIndexTest is Test {
         (uint256[] memory _claimAmounts, uint256[] memory _claimFees, uint256 commission) =
             getClaimAmounts(user, percent);
         uint256 claimedUsdAmount = (usdAmount * percent) / FEE_DENOMINATOR;
-        uint256 prevBalanceForToken0 = token0.balanceOf(user);
-        uint256 prevBalanceForToken1 = token1.balanceOf(user);
+        uint256 prevBalanceForToken0 = IERC20(token0).balanceOf(user);
+        uint256 prevBalanceForToken1 = IERC20(token1).balanceOf(user);
 
         utils.mineBlocks(10);
         vm.expectEmit(true, false, false, true);
         emit TokenClaimed(user, _claimAmounts, claimedUsdAmount, commission);
         index.claimTokens(percent);
 
-        assertEq(_claimAmounts[0] - _claimFees[0], token0.balanceOf(user) - prevBalanceForToken0);
-        assertEq(_claimAmounts[1] - _claimFees[1], token1.balanceOf(user) - prevBalanceForToken1);
+        assertEq(_claimAmounts[0] - _claimFees[0], IERC20(token0).balanceOf(user) - prevBalanceForToken0);
+        assertEq(_claimAmounts[1] - _claimFees[1], IERC20(token1).balanceOf(user) - prevBalanceForToken1);
 
-        assertEq(token0.balanceOf(address(index)), amounts[0] - _claimAmounts[0]);
-        assertEq(token1.balanceOf(address(index)), amounts[1] - _claimAmounts[1]);
+        assertEq(IERC20(token0).balanceOf(address(index)), amounts[0] - _claimAmounts[0]);
+        assertEq(IERC20(token1).balanceOf(address(index)), amounts[1] - _claimAmounts[1]);
 
         assertEq(index.totalStaked(0), amounts[0] - _claimAmounts[0]);
         assertEq(index.totalStaked(1), amounts[1] - _claimAmounts[1]);
@@ -409,19 +410,19 @@ contract BrewlabsIndexTest is Test {
     }
 
     function test_claimTokensForWrappedIndex() public {
-        IERC20[] memory tokens = new IERC20[](2);
-        tokens[0] = IERC20(WBNB);
+        address[] memory tokens = new address[](2);
+        tokens[0] = WBNB;
         tokens[1] = token1;
 
         address[][] memory _paths = new address[][](2);
         _paths[1] = new address[](2);
         _paths[1][0] = WBNB;
-        _paths[1][1] = address(token1);
+        _paths[1][1] = token1;
 
         vm.startPrank(deployer);
         index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, swapRouter, _paths, 20)); // 0.2%
         vm.stopPrank();
-        
+
         address user = address(0x1234);
         vm.deal(user, 10 ether);
 
@@ -435,8 +436,7 @@ contract BrewlabsIndexTest is Test {
         (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
         uint256 percent = 6300; // 63%
 
-        (uint256[] memory _claimAmounts, , uint256 commission) =
-            getClaimAmounts(user, percent);
+        (uint256[] memory _claimAmounts,, uint256 commission) = getClaimAmounts(user, percent);
         uint256 claimedUsdAmount = (usdAmount * percent) / FEE_DENOMINATOR;
 
         utils.mineBlocks(10);
@@ -505,8 +505,8 @@ contract BrewlabsIndexTest is Test {
         emit TokenZappedOut(user, amounts, ethAmount, commission);
         index.zapOut(address(0));
 
-        assertEq(token0.balanceOf(address(index)), 0);
-        assertEq(token1.balanceOf(address(index)), 0);
+        assertEq(IERC20(token0).balanceOf(address(index)), 0);
+        assertEq(IERC20(token1).balanceOf(address(index)), 0);
         assertEq(user.balance - userBalance, ethAmount);
 
         assertEq(index.totalStaked(0), 0);
@@ -520,19 +520,19 @@ contract BrewlabsIndexTest is Test {
     }
 
     function test_zapOutWithBNBForWrappedIndex() public {
-        IERC20[] memory tokens = new IERC20[](2);
-        tokens[0] = IERC20(WBNB);
+        address[] memory tokens = new address[](2);
+        tokens[0] = WBNB;
         tokens[1] = token1;
 
         address[][] memory _paths = new address[][](2);
         _paths[1] = new address[](2);
         _paths[1][0] = WBNB;
-        _paths[1][1] = address(token1);
+        _paths[1][1] = token1;
 
         vm.startPrank(deployer);
         index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, swapRouter, _paths, 20)); // 0.2%
         vm.stopPrank();
-        
+
         address user = address(0x1234);
         vm.deal(user, 100 ether);
 
@@ -855,6 +855,6 @@ contract BrewlabsIndexTest is Test {
         index.unstakeDeployerNft{value: pFee}();
         vm.stopPrank();
     }
-    
+
     receive() external payable {}
 }

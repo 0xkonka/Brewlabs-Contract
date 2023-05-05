@@ -140,8 +140,11 @@ contract BrewlabsFarmFactoryTest is Test {
         factory.createBrewlabsFarm(lpToken, rewardToken, address(0), 1 ether, 100, 100, false);
 
         vm.expectEmit(false, false, false, true);
-        emit FarmCreated(address(0), address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer);
-        address farm = factory.createBrewlabsFarm{value: 1 ether}(lpToken, rewardToken, address(0), 1 ether, 100, 100, false);
+        emit FarmCreated(
+            address(0), address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
+            );
+        address farm =
+            factory.createBrewlabsFarm{value: 1 ether}(lpToken, rewardToken, address(0), 1 ether, 100, 100, false);
 
         assertEq(IBrewlabsFarm(farm).deployer(), deployer);
         assertEq(IBrewlabsFarm(farm).owner(), farmOwner);
@@ -158,7 +161,9 @@ contract BrewlabsFarmFactoryTest is Test {
         vm.startPrank(deployer);
 
         vm.expectEmit(false, false, false, true);
-        emit FarmCreated(address(0), address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer);
+        emit FarmCreated(
+            address(0), address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
+            );
         address farm = factory.createBrewlabsFarm(lpToken, rewardToken, address(0), 1 ether, 100, 100, false);
 
         assertEq(IBrewlabsFarm(farm).deployer(), deployer);
@@ -168,7 +173,7 @@ contract BrewlabsFarmFactoryTest is Test {
 
     function test_failcreateBrewlabsFarmInNoInitialized() public {
         BrewlabsFarmFactory _factory = new BrewlabsFarmFactory();
-        
+
         vm.deal(deployer, 10 ether);
 
         vm.startPrank(deployer);
@@ -194,7 +199,7 @@ contract BrewlabsFarmFactoryTest is Test {
         factory.createBrewlabsFarm(lpToken, IERC20(address(0)), address(0), 1 ether, 100, 100, false);
         vm.stopPrank();
     }
-    
+
     function test_failcreateBrewlabsFarmInvalidDepositFee() public {
         vm.deal(deployer, 10 ether);
 

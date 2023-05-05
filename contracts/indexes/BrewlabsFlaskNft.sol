@@ -66,7 +66,9 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
 
     function _randomRarity(uint256 tokenId) internal view returns (uint256) {
         uint256 randomNum = uint256(
-            keccak256(abi.encode(msg.sender, tx.gasprice, block.number, block.timestamp, blockhash(block.number - 1), tokenId))
+            keccak256(
+                abi.encode(msg.sender, tx.gasprice, block.number, block.timestamp, blockhash(block.number - 1), tokenId)
+            )
         );
 
         return randomNum % rarityNames.length;
@@ -153,7 +155,9 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         );
 
         string memory attributes = '"attributes":[';
-        attributes = string(abi.encodePacked(attributes, '{"trait_type":"Rarity", "value":"', rarityNames[rarities[tokenId]], '"}]'));
+        attributes = string(
+            abi.encodePacked(attributes, '{"trait_type":"Rarity", "value":"', rarityNames[rarities[tokenId]], '"}]')
+        );
 
         // If both are set, concatenate the baseURI (via abi.encodePacked).
         string memory metadata = string(
