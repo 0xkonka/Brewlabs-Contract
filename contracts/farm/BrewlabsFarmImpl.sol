@@ -94,8 +94,8 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     event EmergencyWithdraw(address indexed user, uint256 amount);
     event AdminTokenRecovered(address tokenRecovered, uint256 amount);
 
-    event NewStartAndEndBlocks(uint256 startBlock, uint256 endBlock);
     event NewRewardPerBlock(uint256 rewardPerBlock);
+    event RewardsStart(uint256 startBlock, uint256 endBlock);
     event RewardsStop(uint256 blockNumber);
     event EndBlockUpdated(uint256 blockNumber);
 
@@ -664,7 +664,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
         lastRewardBlock = startBlock;
 
-        emit NewStartAndEndBlocks(startBlock, bonusEndBlock);
+        emit RewardsStart(startBlock, bonusEndBlock);
     }
 
     function stopReward() external onlyAdmin {
@@ -717,11 +717,13 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         require(_duration >= 30, "lower limit reached");
 
         duration = _duration;
+        emit DurationUpdated(_duration);
+
         if (startBlock > 0) {
             bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
             require(bonusEndBlock > block.number, "invalid duration");
+            emit EndBlockUpdated(bonusEndBlock);
         }
-        emit DurationUpdated(_duration);
     }
 
     function setRewardFee(uint256 _fee) external onlyOwner {
