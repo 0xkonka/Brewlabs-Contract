@@ -18,7 +18,7 @@ interface IBrewlabsStaking {
         address[] memory _reflectionToStakedPath,
         bool _hasDividend,
         address _owner,
-        address _operator
+        address _deployer
     ) external;
 }
 
@@ -31,7 +31,7 @@ interface IBrewlabsLockup {
         address[] memory _earnedToStakedPath,
         address[] memory _reflectionToStakedPath,
         address _owner,
-        address _operator
+        address _deployer
     ) external;
     function addLockup(
         uint256 duration,
@@ -52,15 +52,15 @@ interface IBrewlabsLockupPenalty {
         address[] memory _reflectionToStakedPath,
         uint256 _penaltyFee,
         address _owner,
-        address _operator
+        address _deployer
     ) external;
 }
 
 contract BrewlabsPoolFactory is OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
-    address[3] public implementation;
-    uint256[3] public version;
+    mapping(uint256 => address) public implementation;
+    mapping(uint256 => uint256) public version;
 
     address public poolDefaultOwner;
 
@@ -292,7 +292,8 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256[] memory durations,
         uint256[] memory rewardsPerBlock,
         uint256[] memory depositFees,
-        uint256[] memory withdrawFees
+        uint256[] memory withdrawFees,
+        uint256 penaltyFee
     ) external payable returns (address pool) {
         require(implementation[2] != address(0x0), "No implementation");
         if (!whitelist[msg.sender]) {
@@ -310,7 +311,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             uniRouter,
             earnedToStakedPath,
             reflectionToStakedPath,
-            500,
+            penaltyFee,
             poolDefaultOwner,
             msg.sender
         );
@@ -318,6 +319,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         for (uint256 i = 0; i < durations.length; i++) {
             require(depositFees[i] < 2000, "Invalid deposit fee");
             require(withdrawFees[i] < 2000, "Invalid withdraw fee");
+            require(penaltyFee >= withdrawFees[i], "Penalty fee must be greater than withdraw fee");
 
             IBrewlabsLockup(pool).addLockup(durations[i], depositFees[i], withdrawFees[i], rewardsPerBlock[i], 0);
 
