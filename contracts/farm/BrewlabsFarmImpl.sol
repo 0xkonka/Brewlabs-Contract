@@ -194,7 +194,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
 
                 pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
                 rewardToken.safeTransfer(address(msg.sender), pending);
-                totalEarned = totalEarned > pending ? totalEarned - pending : 0;
+                totalEarned = (totalEarned > pending) ? totalEarned - pending : 0;
                 emit Claim(msg.sender, pending);
             }
 
@@ -252,11 +252,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
 
             pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
             rewardToken.safeTransfer(address(msg.sender), pending);
-            if (totalEarned > pending) {
-                totalEarned = totalEarned - pending;
-            } else {
-                totalEarned = 0;
-            }
+            totalEarned = (totalEarned > pending) ? totalEarned - pending : 0;
             emit Claim(msg.sender, pending);
         }
 
@@ -303,11 +299,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
 
             pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
             rewardToken.safeTransfer(msg.sender, pending);
-            if (totalEarned > pending) {
-                totalEarned = totalEarned - pending;
-            } else {
-                totalEarned = 0;
-            }
+            totalEarned = (totalEarned > pending) ? totalEarned - pending : 0;
             emit Claim(msg.sender, pending);
         }
 
@@ -351,11 +343,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
             paidRewards = paidRewards + pending;
 
             pending = (pending * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-            if (totalEarned > pending) {
-                totalEarned = totalEarned - pending;
-            } else {
-                totalEarned = 0;
-            }
+            totalEarned = (totalEarned > pending) ? totalEarned - pending : 0;
             emit Compound(msg.sender, pending);
 
             if (address(lpToken) != address(rewardToken)) {
@@ -460,12 +448,10 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         } else {
             totalStaked = totalStaked - _amount;
             if (address(lpToken) == address(rewardToken)) {
-                if (totalRewardStaked < _amount) totalRewardStaked = _amount;
-                totalRewardStaked = totalRewardStaked - _amount;
+                totalRewardStaked = (totalRewardStaked > _amount) ? totalRewardStaked - _amount : 0;
             }
             if (address(lpToken) == dividendToken) {
-                if (totalReflectionStaked < _amount) totalReflectionStaked = _amount;
-                totalReflectionStaked = totalReflectionStaked - _amount;
+                totalReflectionStaked = (totalReflectionStaked > _amount) ? totalReflectionStaked - _amount : 0;
             }
         }
     }
@@ -557,11 +543,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         UserInfo memory user = userInfo[_user];
 
         uint256 reflectionAmount = availableDividendTokens();
-        if (reflectionAmount > totalReflections) {
-            reflectionAmount -= totalReflections;
-        } else {
-            reflectionAmount = 0;
-        }
+        reflectionAmount = (reflectionAmount > totalReflections) ? reflectionAmount - totalReflections : 0;
 
         uint256 adjustedReflectionPerShare = accDividendPerShare + ((reflectionAmount * PRECISION_FACTOR) / totalStaked);
 
@@ -637,13 +619,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         if (_amount == 0) _amount = availableRewardTokens();
         rewardToken.safeTransfer(address(msg.sender), _amount);
 
-        if (totalEarned > 0) {
-            if (_amount > totalEarned) {
-                totalEarned = 0;
-            } else {
-                totalEarned = totalEarned - _amount;
-            }
-        }
+        totalEarned = (totalEarned > _amount) ? totalEarned - _amount : 0;
     }
 
     function emergencyWithdrawReflections() external onlyOwner {
@@ -699,11 +675,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
             remainRewards = remainRewards - shouldTotalPaid;
             rewardToken.transfer(msg.sender, remainRewards);
 
-            if (totalEarned > remainRewards) {
-                totalEarned = totalEarned - remainRewards;
-            } else {
-                totalEarned = 0;
-            }
+            totalEarned = (totalEarned > remainRewards) ? totalEarned - remainRewards : 0;
         }
 
         bonusEndBlock = block.number;
@@ -812,11 +784,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         // calc reflection rate
         if (totalStaked > 0 && hasDividend) {
             uint256 reflectionAmount = availableDividendTokens();
-            if (reflectionAmount > totalReflections) {
-                reflectionAmount -= totalReflections;
-            } else {
-                reflectionAmount = 0;
-            }
+            reflectionAmount = (reflectionAmount > totalReflections) ? reflectionAmount - totalReflections : 0;
 
             accDividendPerShare += (reflectionAmount * PRECISION_FACTOR) / totalStaked;
             totalReflections += reflectionAmount;
