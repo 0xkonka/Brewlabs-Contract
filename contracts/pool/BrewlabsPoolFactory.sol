@@ -15,7 +15,6 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
 
     address public payingToken;
     uint256 public serviceFee;
-    uint256 public performanceFee;
     address public treasury;
 
     struct PoolInfo {

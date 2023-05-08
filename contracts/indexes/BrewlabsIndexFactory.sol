@@ -24,7 +24,6 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
     address public payingToken;
     uint256 public serviceFee;
-    uint256 public performanceFee;
     address public treasury;
 
     address public discountMgr;
