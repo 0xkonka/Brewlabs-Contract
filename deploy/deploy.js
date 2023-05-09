@@ -21,6 +21,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             pairFreezer: false,
 
             configure: false,
+            nftTransfer: false,
 
             index: false,
             indexNft: false,
@@ -406,6 +407,27 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await hre.run("verify:verify", {
                 address: deployedAddress,
                 contract: "contracts/BrewlabsConfig.sol:BrewlabsConfig",
+                constructorArguments: [],
+            }) 
+        }
+
+
+        if(config.nftTransfer) {           
+            Utils.infoMsg("Deploying BrewlabsNftTransfer contract");
+            
+            let deployed = await deploy("BrewlabsNftTransfer", {
+                from: account,
+                args: [],
+                log: true,
+            });
+            let deployedAddress = deployed.address;
+            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+
+            // verify
+            await sleep(60);
+            await hre.run("verify:verify", {
+                address: deployedAddress,
+                contract: "contracts/BrewlabsNftTransfer.sol:BrewlabsNftTransfer",
                 constructorArguments: [],
             }) 
         }
