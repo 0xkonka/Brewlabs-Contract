@@ -2,10 +2,11 @@
 pragma solidity ^0.8.0;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC721, IERC165} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
-contract BrewlabsNftTransfer is Ownable {
+contract BrewlabsNftTransfer is Ownable, ReentrancyGuard {
     uint256 public transferLimit = 40;
 
     address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
@@ -30,7 +31,7 @@ contract BrewlabsNftTransfer is Ownable {
         address to,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external payable {
+    ) external payable nonReentrant {
         require(tokenIds.length > 0, "BrewlabsNftTransfer: Empty transfer");
 
         _transferPerformanceFee();
@@ -51,9 +52,9 @@ contract BrewlabsNftTransfer is Ownable {
         address[] memory to,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external payable {
+    ) external payable nonReentrant {
         require(to.length > 0, "BrewlabsNftTransfer: no receipt");
-        require(tokenIds.length == to.length, "Mismatch arguments for receipt and tokenId");
+        require(tokenIds.length == to.length, "BrewlabsNftTransfer: Mismatch arguments for receipt and tokenId");
 
         _transferPerformanceFee();
 
@@ -76,9 +77,11 @@ contract BrewlabsNftTransfer is Ownable {
         address to,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external payable {
+    ) external payable nonReentrant {
         require(nfts.length > 0, "BrewlabsNftTransfer: NFT not selected");
-        require(nfts.length == tokenIds.length && nfts.length == amounts.length, "Invalid arguments");
+        require(
+            nfts.length == tokenIds.length && nfts.length == amounts.length, "BrewlabsNftTransfer: Invalid arguments"
+        );
 
         _transferPerformanceFee();
 
@@ -97,11 +100,11 @@ contract BrewlabsNftTransfer is Ownable {
         address[] memory to,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external payable {
+    ) external payable nonReentrant {
         require(nfts.length > 0, "BrewlabsNftTransfer: NFT not selected");
         require(
             nfts.length == tokenIds.length && nfts.length == to.length && nfts.length == amounts.length,
-            "Invalid arguments"
+            "BrewlabsNftTransfer: Invalid arguments"
         );
 
         _transferPerformanceFee();
@@ -117,7 +120,7 @@ contract BrewlabsNftTransfer is Ownable {
     }
 
     function _transferPerformanceFee() internal {
-        require(msg.value >= performanceFee, "should pay small gas to compound or harvest");
+        require(msg.value >= performanceFee, "BrewlabsNftTransfer: should pay small gas");
 
         payable(treasury).transfer(performanceFee);
         if (msg.value > performanceFee) {

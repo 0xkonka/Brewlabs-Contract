@@ -412,7 +412,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         delete nfts[tokenId];
     }
 
-    function mintDeployerNft() external payable returns (uint256) {
+    function mintDeployerNft() external payable onlyInitialized nonReentrant returns (uint256) {
         require(msg.sender == deployer, "Caller is not the deployer");
         require(deployerNftMintable, "Already Mint");
 
@@ -425,7 +425,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         return deployerNftId;
     }
 
-    function stakeDeployerNft() external payable {
+    function stakeDeployerNft() external payable onlyInitialized nonReentrant {
         commissionWallet = msg.sender;
 
         _transferPerformanceFee();
