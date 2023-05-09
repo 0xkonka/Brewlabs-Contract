@@ -10,7 +10,7 @@ contract BrewlabsNftTransfer is Ownable, ReentrancyGuard {
     uint256 public transferLimit = 40;
 
     address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
-    uint256 public performanceFee;
+    uint256 public performanceFee = 0.0035 ether;
 
     event ServiceInfoChanged(address addr, uint256 fee);
     event TransferLimitChanged(uint256 limit);

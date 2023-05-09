@@ -7,18 +7,12 @@ import {BrewlabsNftTransfer, IERC1155, IERC721} from "../../contracts/BrewlabsNf
 import {MockErc721} from "../../contracts/mocks/MockErc721.sol";
 import {MockErc1155} from "../../contracts/mocks/MockErc1155.sol";
 
-import {Utils} from "./utils/Utils.sol";
-
 contract BrewlabsNftTransferTest is Test {
     BrewlabsNftTransfer internal nftTransferTool;
     MockErc721 internal erc721;
     MockErc1155 internal erc1155;
 
-    Utils internal utils;
-
     function setUp() public {
-        utils = new Utils();
-
         nftTransferTool = new BrewlabsNftTransfer();
 
         erc721 = new MockErc721();
@@ -36,7 +30,7 @@ contract BrewlabsNftTransferTest is Test {
 
         assertEq(erc721.balanceOf(user), 0);
         assertEq(erc721.balanceOf(receipt), 1);
-        assertEq(erc721.ownerOf(tokenId), receipt);       
+        assertEq(erc721.ownerOf(tokenId), receipt);
 
         vm.stopPrank();
     }
@@ -61,20 +55,23 @@ contract BrewlabsNftTransferTest is Test {
     function test_bulkTransferOfSingleNftToSameWalletForErc721() public {
         address user = address(0x123);
         address receipt = address(0x1234);
+        vm.deal(user, 1 ether);
+
+        uint256 pFee = nftTransferTool.performanceFee();
 
         uint256[] memory tokenIds = new uint256[](41);
         uint256[] memory amounts;
-        for(uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
             uint256 tokenId = erc721.mint(user);
             tokenIds[i] = tokenId;
         }
 
         vm.startPrank(user);
         vm.expectRevert("BrewlabsNftTransfer: Empty transfer");
-        nftTransferTool.bulkTransferOfSingleNftToSameWallet(address(erc721), receipt, amounts, amounts);
+        nftTransferTool.bulkTransferOfSingleNftToSameWallet{value: pFee}(address(erc721), receipt, amounts, amounts);
 
         erc721.setApprovalForAll(address(nftTransferTool), true);
-        nftTransferTool.bulkTransferOfSingleNftToSameWallet(address(erc721), receipt, tokenIds, amounts);
+        nftTransferTool.bulkTransferOfSingleNftToSameWallet{value: pFee}(address(erc721), receipt, tokenIds, amounts);
 
         assertEq(erc721.balanceOf(user), 1);
         assertEq(erc721.balanceOf(receipt), 40);
@@ -86,10 +83,13 @@ contract BrewlabsNftTransferTest is Test {
     function test_bulkTransferOfSingleNftToSameWalletForErc1155() public {
         address user = address(0x123);
         address receipt = address(0x1234);
-        
+        vm.deal(user, 1 ether);
+
+        uint256 pFee = nftTransferTool.performanceFee();
+
         uint256[] memory tokenIds = new uint256[](41);
         uint256[] memory amounts = new uint256[](41);
-        for(uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
             uint256 tokenId = erc1155.mint(user, 10);
             tokenIds[i] = tokenId;
             amounts[i] = 9;
@@ -99,9 +99,9 @@ contract BrewlabsNftTransferTest is Test {
         vm.startPrank(user);
         erc1155.setApprovalForAll(address(nftTransferTool), true);
         vm.expectRevert("BrewlabsNftTransfer: Invaild arguments");
-        nftTransferTool.bulkTransferOfSingleNftToSameWallet(address(erc1155), receipt, tokenIds, _amounts);
+        nftTransferTool.bulkTransferOfSingleNftToSameWallet{value: pFee}(address(erc1155), receipt, tokenIds, _amounts);
 
-        nftTransferTool.bulkTransferOfSingleNftToSameWallet(address(erc1155), receipt, tokenIds, amounts);
+        nftTransferTool.bulkTransferOfSingleNftToSameWallet{value: pFee}(address(erc1155), receipt, tokenIds, amounts);
         assertEq(erc1155.balanceOf(user, 3), 1);
         assertEq(erc1155.balanceOf(receipt, 8), 9);
 
@@ -110,11 +110,14 @@ contract BrewlabsNftTransferTest is Test {
 
     function test_bulkTransferOfSingleNftToDifferentWalletsForErc721() public {
         address user = address(0x123);
+        vm.deal(user, 1 ether);
+
+        uint256 pFee = nftTransferTool.performanceFee();
 
         address[] memory receipts = new address[](41);
         uint256[] memory tokenIds = new uint256[](41);
         uint256[] memory amounts;
-        for(uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
             receipts[i] = address(uint160(1234 + i));
             uint256 tokenId = erc721.mint(user);
             tokenIds[i] = tokenId;
@@ -123,10 +126,14 @@ contract BrewlabsNftTransferTest is Test {
 
         vm.startPrank(user);
         vm.expectRevert("BrewlabsNftTransfer: no receipt");
-        nftTransferTool.bulkTransferOfSingleNftToDifferentWallets(address(erc721), _receipts, tokenIds, amounts);
+        nftTransferTool.bulkTransferOfSingleNftToDifferentWallets{value: pFee}(
+            address(erc721), _receipts, tokenIds, amounts
+        );
 
         erc721.setApprovalForAll(address(nftTransferTool), true);
-        nftTransferTool.bulkTransferOfSingleNftToDifferentWallets(address(erc721), receipts, tokenIds, amounts);
+        nftTransferTool.bulkTransferOfSingleNftToDifferentWallets{value: pFee}(
+            address(erc721), receipts, tokenIds, amounts
+        );
 
         assertEq(erc721.balanceOf(user), 1);
         assertEq(erc721.balanceOf(receipts[0]), 1);
@@ -137,30 +144,38 @@ contract BrewlabsNftTransferTest is Test {
 
     function test_failBulkTransferOfSingleNftToDifferentWallets() public {
         address user = address(0x123);
+        vm.deal(user, 1 ether);
+
+        uint256 pFee = nftTransferTool.performanceFee();
 
         address[] memory receipts = new address[](40);
         uint256[] memory tokenIds = new uint256[](41);
         uint256[] memory amounts;
-        for(uint256 i = 0; i < tokenIds.length; i++) {
-            if(i < 40) receipts[i] = address(uint160(1234 + i));
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (i < 40) receipts[i] = address(uint160(1234 + i));
             uint256 tokenId = erc721.mint(user);
             tokenIds[i] = tokenId;
         }
 
         vm.startPrank(user);
         vm.expectRevert("BrewlabsNftTransfer: Mismatch arguments for receipt and tokenId");
-        nftTransferTool.bulkTransferOfSingleNftToDifferentWallets(address(erc721), receipts, tokenIds, amounts);
+        nftTransferTool.bulkTransferOfSingleNftToDifferentWallets{value: pFee}(
+            address(erc721), receipts, tokenIds, amounts
+        );
 
         vm.stopPrank();
     }
 
     function test_bulkTransferOfSingleNftToDifferentWalletsForErc1155() public {
         address user = address(0x123);
-        
+        vm.deal(user, 1 ether);
+
+        uint256 pFee = nftTransferTool.performanceFee();
+
         address[] memory receipts = new address[](41);
         uint256[] memory tokenIds = new uint256[](41);
         uint256[] memory amounts = new uint256[](41);
-        for(uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
             receipts[i] = address(uint160(1234 + i));
 
             uint256 tokenId = erc1155.mint(user, 10);
@@ -172,9 +187,13 @@ contract BrewlabsNftTransferTest is Test {
         vm.startPrank(user);
         erc1155.setApprovalForAll(address(nftTransferTool), true);
         vm.expectRevert("BrewlabsNftTransfer: Invaild arguments");
-        nftTransferTool.bulkTransferOfSingleNftToDifferentWallets(address(erc1155), receipts, tokenIds, _amounts);
+        nftTransferTool.bulkTransferOfSingleNftToDifferentWallets{value: pFee}(
+            address(erc1155), receipts, tokenIds, _amounts
+        );
 
-        nftTransferTool.bulkTransferOfSingleNftToDifferentWallets(address(erc1155), receipts, tokenIds, amounts);
+        nftTransferTool.bulkTransferOfSingleNftToDifferentWallets{value: pFee}(
+            address(erc1155), receipts, tokenIds, amounts
+        );
         assertEq(erc1155.balanceOf(user, 3), 1);
         assertEq(erc1155.balanceOf(receipts[7], 8), 9);
 
@@ -184,12 +203,15 @@ contract BrewlabsNftTransferTest is Test {
     function test_bulkTransferOfMultipleNftsToSameWallet() public {
         address user = address(0x123);
         address receipt = address(0x1234);
-        
+        vm.deal(user, 1 ether);
+
+        uint256 pFee = nftTransferTool.performanceFee();
+
         address[] memory nfts = new address[](41);
         uint256[] memory tokenIds = new uint256[](41);
         uint256[] memory amounts = new uint256[](41);
-        for(uint256 i = 0; i < tokenIds.length; i++) {
-            if(i % 2 == 0) {                
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (i % 2 == 0) {
                 MockErc721 nft = new MockErc721();
                 uint256 tokenId = nft.mint(user);
                 nfts[i] = address(nft);
@@ -206,13 +228,13 @@ contract BrewlabsNftTransferTest is Test {
         address[] memory _nfts;
 
         vm.startPrank(user);
-        for(uint256 i = 0; i < 41; i++) {
+        for (uint256 i = 0; i < 41; i++) {
             IERC721(nfts[i]).setApprovalForAll(address(nftTransferTool), true);
         }
         vm.expectRevert("BrewlabsNftTransfer: NFT not selected");
-        nftTransferTool.bulkTransferOfMultipleNftsToSameWallet(_nfts, receipt, tokenIds, amounts);
+        nftTransferTool.bulkTransferOfMultipleNftsToSameWallet{value: pFee}(_nfts, receipt, tokenIds, amounts);
 
-        nftTransferTool.bulkTransferOfMultipleNftsToSameWallet(nfts, receipt, tokenIds, amounts);
+        nftTransferTool.bulkTransferOfMultipleNftsToSameWallet{value: pFee}(nfts, receipt, tokenIds, amounts);
         assertEq(IERC1155(nfts[7]).balanceOf(user, 1), 1);
         assertEq(IERC1155(nfts[7]).balanceOf(receipt, 1), 9);
         assertEq(IERC721(nfts[8]).balanceOf(receipt), 1);
@@ -223,15 +245,18 @@ contract BrewlabsNftTransferTest is Test {
 
     function test_bulkTransferOfMultipleNftsToDifferentWallets() public {
         address user = address(0x123);
-        
+        vm.deal(user, 1 ether);
+
+        uint256 pFee = nftTransferTool.performanceFee();
+
         address[] memory nfts = new address[](41);
         address[] memory receipts = new address[](41);
         uint256[] memory tokenIds = new uint256[](41);
         uint256[] memory amounts = new uint256[](41);
-        for(uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
             receipts[i] = address(uint160(1234 + i));
 
-            if(i % 2 == 0) {                
+            if (i % 2 == 0) {
                 MockErc721 nft = new MockErc721();
                 uint256 tokenId = nft.mint(user);
 
@@ -249,14 +274,14 @@ contract BrewlabsNftTransferTest is Test {
         address[] memory _nfts;
 
         vm.startPrank(user);
-        for(uint256 i = 0; i < 41; i++) {
+        for (uint256 i = 0; i < 41; i++) {
             IERC721(nfts[i]).setApprovalForAll(address(nftTransferTool), true);
         }
 
         vm.expectRevert("BrewlabsNftTransfer: NFT not selected");
-        nftTransferTool.bulkTransferOfMultipleNftsToDifferentWallets(_nfts, receipts, tokenIds, amounts);
+        nftTransferTool.bulkTransferOfMultipleNftsToDifferentWallets{value: pFee}(_nfts, receipts, tokenIds, amounts);
 
-        nftTransferTool.bulkTransferOfMultipleNftsToDifferentWallets(nfts, receipts, tokenIds, amounts);
+        nftTransferTool.bulkTransferOfMultipleNftsToDifferentWallets{value: pFee}(nfts, receipts, tokenIds, amounts);
         assertEq(IERC1155(nfts[7]).balanceOf(user, 1), 1);
         assertEq(IERC1155(nfts[7]).balanceOf(receipts[7], 1), 9);
         assertEq(IERC721(nfts[8]).balanceOf(receipts[8]), 1);
