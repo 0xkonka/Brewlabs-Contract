@@ -30,8 +30,10 @@ contract BrewlabsNftTransfer is Ownable {
         address to,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external {
+    ) external payable {
         require(tokenIds.length > 0, "BrewlabsNftTransfer: Empty transfer");
+
+        _transferPerformanceFee();
 
         if (IERC165(nft).supportsInterface(type(IERC1155).interfaceId)) {
             require(tokenIds.length == amounts.length, "BrewlabsNftTransfer: Invaild arguments");
@@ -49,9 +51,11 @@ contract BrewlabsNftTransfer is Ownable {
         address[] memory to,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external {
+    ) external payable {
         require(to.length > 0, "BrewlabsNftTransfer: no receipt");
         require(tokenIds.length == to.length, "Mismatch arguments for receipt and tokenId");
+
+        _transferPerformanceFee();
 
         if (IERC165(nft).supportsInterface(type(IERC1155).interfaceId)) {
             require(tokenIds.length == amounts.length, "BrewlabsNftTransfer: Invaild arguments");
@@ -72,9 +76,11 @@ contract BrewlabsNftTransfer is Ownable {
         address to,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external {
+    ) external payable {
         require(nfts.length > 0, "BrewlabsNftTransfer: NFT not selected");
         require(nfts.length == tokenIds.length && nfts.length == amounts.length, "Invalid arguments");
+
+        _transferPerformanceFee();
 
         for (uint256 i = 0; i < tokenIds.length; i++) {
             if (i >= transferLimit) break;
@@ -91,12 +97,14 @@ contract BrewlabsNftTransfer is Ownable {
         address[] memory to,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external {
+    ) external payable {
         require(nfts.length > 0, "BrewlabsNftTransfer: NFT not selected");
         require(
             nfts.length == tokenIds.length && nfts.length == to.length && nfts.length == amounts.length,
             "Invalid arguments"
         );
+
+        _transferPerformanceFee();
 
         for (uint256 i = 0; i < tokenIds.length; i++) {
             if (i >= transferLimit) break;
