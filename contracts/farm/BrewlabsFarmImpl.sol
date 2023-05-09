@@ -502,7 +502,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         return _amount - totalReflectionStaked;
     }
 
-    function insufficientRewards() external view returns (uint256) {
+    function insufficientRewards() public view returns (uint256) {
         uint256 adjustedShouldTotalPaid = shouldTotalPaid;
         uint256 remainRewards = availableRewardTokens() + paidRewards;
 
@@ -659,6 +659,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
 
     function startReward() external onlyAdmin {
         require(startBlock == 0, "Pool was already started");
+        require(insufficientRewards() == 0, "All reward tokens have not been deposited");
 
         startBlock = block.number + 100;
         bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
@@ -696,7 +697,6 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
      * @param _rewardPerBlock: the reward per block
      */
     function updateEmissionRate(uint256 _rewardPerBlock) external onlyOwner {
-        // require(block.number < startBlock, "Pool was already started");
         _updatePool();
 
         rewardPerBlock = _rewardPerBlock;

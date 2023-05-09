@@ -62,6 +62,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
             farm.owner(),
             farm.owner()
         );
+        rewardToken.mint(address(farm), farm.insufficientRewards());
 
         farm.startReward();
         utils.mineBlocks(101);
@@ -93,6 +94,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
         _farm.deposit{value: performanceFee}(1 ether);
         vm.stopPrank();
 
+        rewardToken.mint(address(_farm), _farm.insufficientRewards());
         _farm.startReward();
         utils.mineBlocks(99);
 
@@ -142,8 +144,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
     }
 
     function test_notFirstDeposit() public {
-        uint256 rewards = farm.insufficientRewards();
-        rewardToken.mint(address(farm), rewards);
+        uint256 rewards = farm.availableRewardTokens();
         dividendToken.mint(address(farm), 0.1 ether);
 
         tryDeposit(address(0x1), 1 ether);
@@ -181,8 +182,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
     }
 
     function test_depositWhenRewardFeeIsGtZero() public {
-        uint256 rewards = farm.insufficientRewards();
-        rewardToken.mint(address(farm), rewards);
+        uint256 rewards = farm.availableRewardTokens();
         dividendToken.mint(address(farm), 0.1 ether);
         tryDeposit(address(0x1), 1 ether);
         tryDeposit(address(0x2), 1.2 ether);
@@ -278,7 +278,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
     }
 
     function test_withdraw() public {
-        uint256 rewards = farm.insufficientRewards();
+        uint256 rewards = farm.availableRewardTokens();
         uint256 ethFee = farm.performanceFee();
         dividendToken.mint(address(farm), 0.1 ether);
 
@@ -295,13 +295,6 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
         vm.deal(address(0x1), ethFee);
         vm.expectRevert(abi.encodePacked("Amount to withdraw too high"));
         farm.withdraw{value: ethFee}(amount + 10);
-
-        vm.startPrank(address(0x1));
-        vm.expectRevert(abi.encodePacked("Insufficient reward tokens"));
-        farm.withdraw{value: ethFee}(amount);
-        vm.stopPrank();
-
-        rewardToken.mint(address(farm), rewards);
 
         vm.startPrank(address(0x1));
         vm.expectEmit(true, false, false, true);
@@ -343,9 +336,8 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
     }
 
     function test_claimReward() public {
-        uint256 rewards = farm.insufficientRewards();
         uint256 ethFee = farm.performanceFee();
-
+        uint256 rewards = farm.availableRewardTokens();
         dividendToken.mint(address(farm), 0.1 ether);
 
         tryDeposit(address(0x1), 1 ether);
@@ -358,10 +350,6 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
         uint256 pending = farm.pendingRewards(address(0x1));
 
         vm.deal(address(0x1), ethFee);
-        vm.expectRevert(abi.encodePacked("Insufficient reward tokens"));
-        farm.claimReward{value: ethFee}();
-
-        rewardToken.mint(address(farm), rewards);
         farm.claimReward{value: ethFee}();
         assertEq(rewardToken.balanceOf(address(0x1)), pending);
 
@@ -376,10 +364,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
     }
 
     function test_claimDividend() public {
-        uint256 rewards = farm.insufficientRewards();
         uint256 ethFee = farm.performanceFee();
-
-        rewardToken.mint(address(farm), rewards);
         dividendToken.mint(address(farm), 0.1 ether);
 
         tryDeposit(address(0x1), 1 ether);
@@ -397,7 +382,6 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
 
         assertEq(farm.pendingReflections(address(0x1)), 0);
         assertEq(farm.availableDividendTokens(), 0.1 ether - pendingReflection);
-        assertEq(farm.availableRewardTokens(), rewards);
 
         vm.deal(address(0x1), ethFee);
         farm.claimDividend{value: ethFee}();
@@ -468,10 +452,9 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
     }
 
     function test_availableRewardTokens() public {
-        assertEq(farm.availableRewardTokens(), 0);
-
+        uint256 oldBalance = farm.availableRewardTokens();
         rewardToken.mint(address(farm), 10 ether);
-        assertEq(farm.availableRewardTokens(), 10 ether);
+        assertEq(farm.availableRewardTokens(), oldBalance + 10 ether);
     }
 
     function test_availableDividendTokens() public {
@@ -482,8 +465,11 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
     }
 
     function test_insufficientRewards() public {
+        uint256 rewards = farm.availableRewardTokens();
+        farm.updateEmissionRate(farm.rewardPerBlock() + 0.1 ether);
+
         uint256 expectedRewards = farm.rewardPerBlock() * 365 * 28800;
-        assertEq(farm.insufficientRewards(), expectedRewards);
+        assertLt(farm.insufficientRewards(), expectedRewards - rewards);
 
         rewardToken.mint(address(farm), farm.insufficientRewards() - 10000);
         assertEq(farm.insufficientRewards(), 10000);
@@ -565,6 +551,11 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
             _farm.owner()
         );
 
+        vm.expectRevert(abi.encodePacked("All reward tokens have not been deposited"));
+        _farm.startReward();
+
+        rewardToken.mint(address(_farm), _farm.insufficientRewards());
+
         _farm.startReward();
         assertEq(_farm.startBlock(), block.number + 100);
         assertEq(_farm.bonusEndBlock(), block.number + 365 * 28800 + 100);
@@ -578,30 +569,31 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
     }
 
     function test_depositRewards() public {
-        rewardToken.mint(farm.owner(), 100 ether);
+        uint256 rewards = farm.availableRewardTokens();
 
+        rewardToken.mint(farm.owner(), 100 ether);
         rewardToken.approve(address(farm), 100 ether);
 
         farm.depositRewards(100 ether);
-        assertEq(rewardToken.balanceOf(address(farm)), 100 ether);
-        assertEq(farm.availableRewardTokens(), 100 ether);
+        assertEq(rewardToken.balanceOf(address(farm)), rewards + 100 ether);
+        assertEq(farm.availableRewardTokens(), rewards + 100 ether);
 
         vm.expectRevert(abi.encodePacked("invalid amount"));
         farm.depositRewards(0);
     }
 
     function test_increaseEmissionRate() public {
-        uint256 amount = farm.insufficientRewards();
-        amount += 100 ether;
+        uint256 rewards = farm.availableRewardTokens();
+        uint256 amount = 100 ether;
 
         rewardToken.mint(farm.owner(), amount);
         rewardToken.approve(address(farm), amount);
 
         vm.roll(farm.startBlock());
         vm.expectEmit(true, false, false, true);
-        emit NewRewardPerBlock(amount / BLOCKS_PER_DAY / 365);
+        emit NewRewardPerBlock((amount + rewards) / BLOCKS_PER_DAY / 365);
         farm.increaseEmissionRate(amount);
-        assertEq(farm.rewardPerBlock(), amount / BLOCKS_PER_DAY / 365);
+        assertEq(farm.rewardPerBlock(), (amount + rewards) / BLOCKS_PER_DAY / 365);
 
         vm.expectRevert(abi.encodePacked("invalid amount"));
         farm.increaseEmissionRate(0);
@@ -679,13 +671,20 @@ contract BrewlabsFarmImplWithSameTest is BrewlabsFarmImplBase {
             farm.owner()
         );
 
+        uint256 rewards = farm.insufficientRewards();
+        rewardToken.mint(farm.owner(), rewards);
+        rewardToken.approve(address(farm), rewards);
+        farm.depositRewards(rewards);
+
         farm.startReward();
         utils.mineBlocks(101);
     }
 
     function test_availableRewardTokens() public {
+        uint256 rewards = farm.availableRewardTokens();
+
         rewardToken.mint(address(farm), 1 ether);
-        assertEq(farm.availableRewardTokens(), 0 ether);
+        assertEq(farm.availableRewardTokens(), rewards);
         assertEq(farm.availableDividendTokens(), 1 ether);
 
         rewardToken.mint(farm.owner(), 10 ether);
@@ -693,7 +692,7 @@ contract BrewlabsFarmImplWithSameTest is BrewlabsFarmImplBase {
         vm.startPrank(farm.owner());
         rewardToken.approve(address(farm), 10 ether);
         farm.depositRewards(10 ether);
-        assertEq(farm.availableRewardTokens(), 10 ether);
+        assertEq(farm.availableRewardTokens(), rewards + 10 ether);
         assertEq(farm.availableDividendTokens(), 1 ether);
 
         vm.stopPrank();
@@ -710,6 +709,8 @@ contract BrewlabsFarmImplWithETHReflectionTest is BrewlabsFarmImplBase {
         farm.initialize(
             lpToken, rewardToken, address(0x0), 1e18, DEPOSIT_FEE, WITHDRAW_FEE, true, farm.owner(), farm.owner()
         );
+
+        rewardToken.mint(address(farm), farm.insufficientRewards());
 
         farm.startReward();
         utils.mineBlocks(101);
@@ -763,9 +764,6 @@ contract BrewlabsFarmImplWithETHReflectionTest is BrewlabsFarmImplBase {
     function test_withdraw() public {
         address payable _user = utils.getNextUserAddress();
 
-        uint256 rewards = farm.insufficientRewards();
-        rewardToken.mint(address(farm), rewards);
-
         tryDeposit(address(_user), 1 ether);
         vm.deal(address(farm), 0.01 ether);
 
@@ -785,10 +783,7 @@ contract BrewlabsFarmImplWithETHReflectionTest is BrewlabsFarmImplBase {
     function test_claimDividend() public {
         address payable _user = utils.getNextUserAddress();
 
-        uint256 rewards = farm.insufficientRewards();
         uint256 ethFee = farm.performanceFee();
-
-        rewardToken.mint(address(farm), rewards);
 
         tryDeposit(address(_user), 1 ether);
         utils.mineBlocks(2);
