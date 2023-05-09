@@ -103,7 +103,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     event DeployerNftUnstaked(address indexed user, uint256 tokenId);
     event PendingCommissionClaimed(address indexed user);
 
-    event ServiceInfoUpadted(address addr, uint256 fee);
+    event ServiceInfoChanged(address addr, uint256 fee);
     event SetDeployerFee(uint256 fee);
     event SetSettings(address router, address[][] paths);
 
@@ -589,7 +589,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         treasury = _addr;
         performanceFee = _fee;
 
-        emit ServiceInfoUpadted(_addr, _fee);
+        emit ServiceInfoChanged(_addr, _fee);
     }
 
     /**

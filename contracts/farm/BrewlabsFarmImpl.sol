@@ -97,10 +97,10 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     event NewRewardPerBlock(uint256 rewardPerBlock);
     event RewardsStart(uint256 startBlock, uint256 endBlock);
     event RewardsStop(uint256 blockNumber);
-    event EndBlockUpdated(uint256 blockNumber);
+    event EndBlockChanged(uint256 blockNumber);
 
-    event ServiceInfoUpadted(address addr, uint256 fee);
-    event DurationUpdated(uint256 duration);
+    event ServiceInfoChanged(address addr, uint256 fee);
+    event DurationChanged(uint256 duration);
     event SetAutoAdjustableForRewardRate(bool status);
     event SetRewardFee(uint256 fee);
     event OperatorTransferred(address oldOperator, address newOperator);
@@ -688,7 +688,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         require(bonusEndBlock > block.number, "Pool was already finished");
         require(_endBlock > block.number && _endBlock > startBlock, "Invalid end block");
         bonusEndBlock = _endBlock;
-        emit EndBlockUpdated(_endBlock);
+        emit EndBlockChanged(_endBlock);
     }
 
     /**
@@ -710,19 +710,19 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         treasury = _treasury;
         performanceFee = _fee;
 
-        emit ServiceInfoUpadted(_treasury, _fee);
+        emit ServiceInfoChanged(_treasury, _fee);
     }
 
     function setDuration(uint256 _duration) external onlyOwner {
         require(_duration >= 30, "lower limit reached");
 
         duration = _duration;
-        emit DurationUpdated(_duration);
+        emit DurationChanged(_duration);
 
         if (startBlock > 0) {
             bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
             require(bonusEndBlock > block.number, "invalid duration");
-            emit EndBlockUpdated(bonusEndBlock);
+            emit EndBlockChanged(bonusEndBlock);
         }
     }
 

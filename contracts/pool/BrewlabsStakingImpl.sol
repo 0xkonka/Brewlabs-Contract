@@ -100,12 +100,12 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
     event NewStartAndEndBlocks(uint256 startBlock, uint256 endBlock);
     event NewRewardPerBlock(uint256 rewardPerBlock);
     event RewardsStop(uint256 blockNumber);
-    event EndBlockUpdated(uint256 blockNumber);
+    event EndBlockChanged(uint256 blockNumber);
     event UpdatePoolLimit(uint256 poolLimitPerUser, bool hasLimit);
 
-    event ServiceInfoUpadted(address _addr, uint256 _fee);
+    event ServiceInfoChanged(address _addr, uint256 _fee);
     event WalletAUpdated(address _addr);
-    event DurationUpdated(uint256 _duration);
+    event DurationChanged(uint256 _duration);
     event OperatorTransferred(address oldOperator, address newOperator);
     event SetAutoAdjustableForRewardRate(bool status);
     event SetWhiteList(address _whitelist);
@@ -739,7 +739,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         require(bonusEndBlock > block.number, "Pool was already finished");
         require(_endBlock > block.number && _endBlock > startBlock, "Invalid end block");
         bonusEndBlock = _endBlock;
-        emit EndBlockUpdated(_endBlock);
+        emit EndBlockChanged(_endBlock);
     }
 
     /**
@@ -780,7 +780,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         treasury = _treasury;
         performanceFee = _fee;
 
-        emit ServiceInfoUpadted(_treasury, _fee);
+        emit ServiceInfoChanged(_treasury, _fee);
     }
 
     function updateWalletA(address _walletA) external onlyOwner {
@@ -798,7 +798,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
             bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
             require(bonusEndBlock > block.number, "invalid duration");
         }
-        emit DurationUpdated(_duration);
+        emit DurationChanged(_duration);
     }
 
     function setAutoAdjustableForRewardRate(bool _status) external onlyOwner {

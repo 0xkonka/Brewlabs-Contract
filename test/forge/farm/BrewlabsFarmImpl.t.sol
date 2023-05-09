@@ -31,9 +31,9 @@ contract BrewlabsFarmImplBase is Test {
     event NewStartAndEndBlocks(uint256 startBlock, uint256 endBlock);
     event NewRewardPerBlock(uint256 rewardPerBlock);
     event RewardsStop(uint256 blockNumber);
-    event EndBlockUpdated(uint256 blockNumber);
+    event EndBlockChanged(uint256 blockNumber);
 
-    event ServiceInfoUpadted(address addr, uint256 fee);
+    event ServiceInfoChanged(address addr, uint256 fee);
     event DurationUpdated(uint256 duration);
     event SetAutoAdjustableForRewardRate(bool status);
     event SetRewardFee(uint256 fee);
@@ -501,7 +501,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
     function test_setServiceInfo() public {
         vm.startPrank(farm.treasury());
         vm.expectEmit(false, false, false, true);
-        emit ServiceInfoUpadted(farm.treasury(), 100);
+        emit ServiceInfoChanged(farm.treasury(), 100);
         farm.setServiceInfo(farm.treasury(), 100);
 
         vm.expectRevert(abi.encodePacked("Invalid address"));

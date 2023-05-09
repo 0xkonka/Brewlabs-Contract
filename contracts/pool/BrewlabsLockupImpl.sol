@@ -115,11 +115,11 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     event NewStartAndEndBlocks(uint256 startBlock, uint256 endBlock);
     event LockupUpdated(uint8 _type, uint256 _duration, uint256 _fee0, uint256 _fee1, uint256 _rate);
     event RewardsStop(uint256 blockNumber);
-    event EndBlockUpdated(uint256 blockNumber);
+    event EndBlockChanged(uint256 blockNumber);
     event UpdatePoolLimit(uint256 poolLimitPerUser, bool hasLimit);
 
-    event ServiceInfoUpadted(address _addr, uint256 _fee);
-    event DurationUpdated(uint256 _duration);
+    event ServiceInfoChanged(address _addr, uint256 _fee);
+    event DurationChanged(uint256 _duration);
     event OperatorTransferred(address oldOperator, address newOperator);
     event SetWhiteList(address _whitelist);
 
@@ -891,7 +891,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         require(bonusEndBlock > block.number, "Pool was already finished");
         require(_endBlock > block.number && _endBlock > startBlock, "Invalid end block");
         bonusEndBlock = _endBlock;
-        emit EndBlockUpdated(_endBlock);
+        emit EndBlockChanged(_endBlock);
     }
 
     /**
@@ -968,7 +968,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         treasury = _addr;
         performanceFee = _fee;
 
-        emit ServiceInfoUpadted(_addr, _fee);
+        emit ServiceInfoChanged(_addr, _fee);
     }
 
     function setEmergencyWithdraw(bool _status) external {
@@ -983,7 +983,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         require(_duration >= 30, "lower limit reached");
 
         duration = _duration;
-        emit DurationUpdated(_duration);
+        emit DurationChanged(_duration);
     }
 
     function transferOperator(address _operator) external onlyAdmin {
