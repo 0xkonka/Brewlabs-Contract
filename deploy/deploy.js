@@ -424,12 +424,12 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
             // verify
-            await sleep(60);
-            await hre.run("verify:verify", {
-                address: deployedAddress,
-                contract: "contracts/BrewlabsNftTransfer.sol:BrewlabsNftTransfer",
-                constructorArguments: [],
-            }) 
+            // await sleep(60);
+            // await hre.run("verify:verify", {
+            //     address: deployedAddress,
+            //     contract: "contracts/BrewlabsNftTransfer.sol:BrewlabsNftTransfer",
+            //     constructorArguments: [],
+            // }) 
         }
 
         if(config.oracle) {
