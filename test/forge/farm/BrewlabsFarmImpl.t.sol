@@ -58,6 +58,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
             1e18,
             DEPOSIT_FEE,
             WITHDRAW_FEE,
+            365,
             true,
             farm.owner(),
             farm.owner()
@@ -77,6 +78,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
             1e18,
             DEPOSIT_FEE,
             WITHDRAW_FEE,
+            365,
             true,
             _farm.owner(),
             _farm.owner()
@@ -546,6 +548,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
             1e18,
             DEPOSIT_FEE,
             WITHDRAW_FEE,
+            365,
             true,
             _farm.owner(),
             _farm.owner()
@@ -666,6 +669,7 @@ contract BrewlabsFarmImplWithSameTest is BrewlabsFarmImplBase {
             1e18,
             DEPOSIT_FEE,
             WITHDRAW_FEE,
+            365,
             true,
             farm.owner(),
             farm.owner()
@@ -707,7 +711,7 @@ contract BrewlabsFarmImplWithETHReflectionTest is BrewlabsFarmImplBase {
 
         farm = new BrewlabsFarmImpl();
         farm.initialize(
-            lpToken, rewardToken, address(0x0), 1e18, DEPOSIT_FEE, WITHDRAW_FEE, true, farm.owner(), farm.owner()
+            lpToken, rewardToken, address(0x0), 1e18, DEPOSIT_FEE, WITHDRAW_FEE, 365, true, farm.owner(), farm.owner()
         );
 
         rewardToken.mint(address(farm), farm.insufficientRewards());

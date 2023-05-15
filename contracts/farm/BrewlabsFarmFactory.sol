@@ -76,6 +76,7 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
         uint256 rewardPerBlock,
         uint256 depositFee,
         uint256 withdrawFee,
+        uint256 duration,
         bool hasDividend
     ) external payable returns (address farm) {
         uint256 category = 0;
@@ -91,18 +92,19 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
             _transferServiceFee();
         }
 
-        bytes32 salt = keccak256(abi.encodePacked(msg.sender, lpToken, rewardToken, block.number, block.timestamp));
+        bytes32 salt = keccak256(abi.encodePacked(msg.sender, lpToken, rewardToken, duration, block.number, block.timestamp));
 
         farm = Clones.cloneDeterministic(implementation[category], salt);
         (bool success,) = farm.call(
             abi.encodeWithSignature(
-                "initialize(address,address,address,uint256,uint256,uint256,bool,address,address)",
+                "initialize(address,address,address,uint256,uint256,uint256,uint256,bool,address,address)",
                 lpToken,
                 rewardToken,
                 dividendToken,
                 rewardPerBlock,
                 depositFee,
                 withdrawFee,
+                duration,
                 hasDividend,
                 farmDefaultOwner,
                 msg.sender

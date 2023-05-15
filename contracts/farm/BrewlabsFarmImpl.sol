@@ -133,6 +133,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         uint256 _rewardPerBlock,
         uint256 _depositFee,
         uint256 _withdrawFee,
+        uint256 _duration,
         bool _hasDividend,
         address _owner,
         address _deployer
@@ -148,7 +149,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
         MAX_FEE = 2000;
         PRECISION_FACTOR = 10 ** 18;
 
-        duration = 365; // 365 days
+        duration = _duration;
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         performanceFee = 0.0035 ether;
 

@@ -11,6 +11,7 @@ interface IBrewlabsFarm {
         uint256 _rewardPerBlock,
         uint256 _depositFee,
         uint256 _withdrawFee,
+        uint256 _duration,
         bool _hasDividend,
         address _owner,
         address _deployer

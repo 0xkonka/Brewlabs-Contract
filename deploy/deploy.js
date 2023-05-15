@@ -2,6 +2,9 @@ const path = require('path')
 const Utils = require('../Utils');
 const hre = require("hardhat")
 
+const {abi: FarmFactoryAbi} = require("artifacts/contracts/farm/BrewlabsFarmFactory.sol/BrewlabsFarmFactory.json")
+const {abi: IndexFactoryAbi} = require("artifacts/contracts/indexes/BrewlabsIndexFactory.sol/BrewlabsIndexFactory.json")
+
 const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay * 1000));
 
 module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
@@ -270,8 +273,17 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 200 // fee
             );
             res = await res.wait()
-            Utils.successMsg(`Contract Address: ${res.events[2].args[0]}`);
-            console.log(res.events[2].args)
+
+            const iface = new ethers.utils.Interface(IndexFactoryAbi);
+            for (let i = 0; i < res.logs.length; i++) {
+                try {
+                  const log = iface.parseLog(tx.logs[i]);
+                  if (log.name === "IndexCreated") {
+                    Utils.successMsg(`Contract Address: ${log.args.index}`);
+                    break;
+                  }
+                } catch (e) {}
+            }
         }
 
         if(config.flaskNft) {
@@ -379,7 +391,17 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 false // has dividend
             );
             res = await res.wait()
-            console.log(res.events)
+            
+            const iface = new ethers.utils.Interface(FarmFactoryAbi);
+            for (let i = 0; i < res.logs.length; i++) {
+                try {
+                  const log = iface.parseLog(tx.logs[i]);
+                  if (log.name === "FarmCreated") {
+                    Utils.successMsg(`Contract Address: ${log.args.farm}`);
+                    break;
+                  }
+                } catch (e) {}
+            }
         }
 
         if(config.configure) {           
