@@ -166,7 +166,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let implementation = ""
             let indexNft = ""
             let deployerNft = ""
-            let payingToken = ""
+            let payingToken = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
 
             if(implementation === "") {
                 Utils.successMsg(`Implementation was not set`);
@@ -201,7 +201,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                                     deployerNft,
                                     payingToken,
                                     ethers.utils.parseUnits("0", 18),
-                                    account, // default owner of indexes
+                                    "0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F", // default owner of indexes
                                 ],
                             }
                         },
@@ -312,8 +312,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         
         if(config.farmFactory) {
             Utils.infoMsg("Deploying BrewlabsFarmFactory contract");
-            let implementation = ""
-            let payingToken = ""
+            let implementation = "0xbE63223D022fdB97147Aa48D0De1F29868f34E5A"
+            let payingToken = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
 
             if(implementation === "") {
                 Utils.successMsg(`Implementation was not set`);
@@ -338,7 +338,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                                     implementation,
                                     payingToken,
                                     ethers.utils.parseUnits("0", 18),
-                                    account, // default owner of indexes
+                                    "0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F", // default owner of indexes
                                 ],
                             }
                         },
