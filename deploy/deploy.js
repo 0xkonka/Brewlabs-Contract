@@ -2,8 +2,8 @@ const path = require('path')
 const Utils = require('../Utils');
 const hre = require("hardhat")
 
-const {abi: FarmFactoryAbi} = require("artifacts/contracts/farm/BrewlabsFarmFactory.sol/BrewlabsFarmFactory.json")
-const {abi: IndexFactoryAbi} = require("artifacts/contracts/indexes/BrewlabsIndexFactory.sol/BrewlabsIndexFactory.json")
+const {abi: FarmFactoryAbi} = require("../artifacts/contracts/farm/BrewlabsFarmFactory.sol/BrewlabsFarmFactory.json")
+const {abi: IndexFactoryAbi} = require("../artifacts/contracts/indexes/BrewlabsIndexFactory.sol/BrewlabsIndexFactory.json")
 
 const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay * 1000));
 
@@ -324,7 +324,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         
         if(config.farmFactory) {
             Utils.infoMsg("Deploying BrewlabsFarmFactory contract");
-            let implementation = "0xbE63223D022fdB97147Aa48D0De1F29868f34E5A"
+            let implementation = "0x36886f4a115c1862E8ad946Adb0547F143BA305f"
             let payingToken = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
 
             if(implementation === "") {
