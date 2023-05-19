@@ -324,8 +324,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         
         if(config.farmFactory) {
             Utils.infoMsg("Deploying BrewlabsFarmFactory contract");
-            let implementation = "0x36886f4a115c1862E8ad946Adb0547F143BA305f"
-            let payingToken = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
+            let implementation = "0x4899e09444f18B04207b8f61beC101f1658D4e76"
+            let payingToken = "0x55d398326f99059fF775485246999027B3197955"
 
             if(implementation === "") {
                 Utils.successMsg(`Implementation was not set`);
@@ -349,7 +349,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                                 args: [
                                     implementation,
                                     payingToken,
-                                    ethers.utils.parseUnits("0", 18),
+                                    ethers.utils.parseUnits("1600", 18),
                                     "0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F", // default owner of indexes
                                 ],
                             }
@@ -374,7 +374,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.farm) {
-            let factory = ""
+            let factory = "0xe8F5d6E471CDd8Bc1Ec180DD2bf31cF16A8b72cc"
             if(factory === "") {
                 Utils.successMsg(`factory was not set`);
                 return
