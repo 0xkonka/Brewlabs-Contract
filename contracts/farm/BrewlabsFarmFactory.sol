@@ -13,9 +13,9 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
     address public farmDefaultOwner;
 
-    address public payingToken;
-    uint256 public serviceFee;
-    address public treasury;
+    address public payingToken = 0x55d398326f99059fF775485246999027B3197955;
+    uint256 public serviceFee = 1600 ether;
+    address public treasury = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
 
     struct FarmInfo {
         address farm;
