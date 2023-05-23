@@ -167,8 +167,9 @@ contract BrewlabsFarmFactoryTest is Test {
         emit FarmCreated(
             address(0), 0, 1, address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
             );
-        address farm =
-            factory.createBrewlabsFarm(address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, 365, false);
+        address farm = factory.createBrewlabsFarm(
+            address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, 365, false
+        );
 
         assertEq(IBrewlabsFarm(farm).deployer(), deployer);
         assertEq(IBrewlabsFarm(farm).owner(), farmOwner);

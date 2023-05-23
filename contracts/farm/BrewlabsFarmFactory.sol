@@ -92,7 +92,8 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
             _transferServiceFee();
         }
 
-        bytes32 salt = keccak256(abi.encodePacked(msg.sender, lpToken, rewardToken, duration, block.number, block.timestamp));
+        bytes32 salt =
+            keccak256(abi.encodePacked(msg.sender, lpToken, rewardToken, duration, block.number, block.timestamp));
 
         farm = Clones.cloneDeterministic(implementation[category], salt);
         (bool success,) = farm.call(
