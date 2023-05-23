@@ -9,10 +9,17 @@ interface IBrewlabsAggregator {
         address[] adapters;
     }
 
+    struct FormattedOffer {
+        uint256[] amounts;
+        address[] adapters;
+        address[] path;
+        uint256 gasEstimate;
+    }
+
     function findBestPath(uint256 _amountIn, address _tokenIn, address _tokenOut, uint256 _maxSteps)
         external
         view
-        returns (uint256[] memory amounts, address[] memory adapters, address[] memory path, uint256 gasEstimate);
+        returns (FormattedOffer memory);
 
     function swapNoSplit(Trade memory _trade, address _to) external;
     function swapNoSplitFromETH(Trade memory _trade, address _to) external payable;
