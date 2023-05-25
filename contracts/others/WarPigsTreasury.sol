@@ -47,6 +47,10 @@ contract WarPigsTreasury is Ownable {
     uint256 private sumWithdrawals = 0;
     uint256 private sumLiquidityWithdrawals = 0;
 
+    uint256 public performanceFee = 5000; // 50%
+    uint256 public performanceLpFee = 5000; // 50%
+    address public feeWallet = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
+
     address public brewlabsAggregator = 0xce7C5A34CC7aE17D3d17a9728ab9673f77724743;
     address public uniRouterAddress;
 
@@ -74,6 +78,7 @@ contract WarPigsTreasury is Ownable {
     event PeriodUpdated(uint256 duration);
     event LiquidityWithdrawLimitUpdated(uint256 percent);
     event WithdrawLimitUpdated(uint256 percent);
+    event ServiceInfoUpdated(address wallet, uint256 performanceFee, uint256 liquidityFee);
 
     constructor() {}
 
@@ -107,6 +112,11 @@ contract WarPigsTreasury is Ownable {
     function buyBack() external onlyOwner {
         uint256 ethAmt = address(this).balance;
         ethAmt = (ethAmt * buybackRate) / PERCENT_PRECISION;
+        uint256 _fee = (ethAmt * performanceFee) / PERCENT_PRECISION;
+        if (_fee > 0) {
+            payable(feeWallet).transfer(_fee);
+            ethAmt = ethAmt - _fee;
+        }
 
         if (ethAmt > 0) {
             uint256 _tokenAmt = _safeSwapEth(ethAmt, address(token), address(this));
@@ -120,6 +130,12 @@ contract WarPigsTreasury is Ownable {
     function buyBackStakeBNB(address _staking) external onlyOwner {
         uint256 ethAmt = address(this).balance;
         ethAmt = (ethAmt * buybackRate) / PERCENT_PRECISION;
+        uint256 _fee = (ethAmt * performanceFee) / PERCENT_PRECISION;
+        if (_fee > 0) {
+            payable(feeWallet).transfer(_fee);
+            ethAmt = ethAmt - _fee;
+        }
+
         if (ethAmt > 0) {
             uint256 _tokenAmt = _safeSwapEth(ethAmt, address(token), address(this));
             emit TokenBuyBack(ethAmt, _tokenAmt);
@@ -136,6 +152,12 @@ contract WarPigsTreasury is Ownable {
 
         uint256 reflections = IERC20(dividendToken).balanceOf(address(this));
         if (reflections > 0) {
+            uint256 _fee = (reflections * performanceFee) / PERCENT_PRECISION;
+            if (_fee > 0) {
+                token.safeTransfer(feeWallet, _fee);
+                reflections = reflections - _fee;
+            }
+
             uint256 _tokenAmt = _safeSwap(reflections, dividendToken, address(token), address(this));
             emit TokenBuyBackFromDividend(reflections, _tokenAmt);
 
@@ -151,6 +173,12 @@ contract WarPigsTreasury is Ownable {
 
         uint256 reflections = IERC20(dividendToken).balanceOf(address(this));
         if (reflections > 0) {
+            uint256 _fee = (reflections * performanceFee) / PERCENT_PRECISION;
+            if (_fee > 0) {
+                token.safeTransfer(feeWallet, _fee);
+                reflections = reflections - _fee;
+            }
+
             uint256 _tokenAmt = _safeSwap(reflections, dividendToken, address(token), address(this));
             emit TokenBuyBackFromDividend(reflections, _tokenAmt);
         }
@@ -161,7 +189,14 @@ contract WarPigsTreasury is Ownable {
      */
     function addLiquidity() external onlyOwner {
         uint256 ethAmt = address(this).balance;
-        ethAmt = (ethAmt * addLiquidityRate) / PERCENT_PRECISION / 2;
+        ethAmt = (ethAmt * addLiquidityRate) / PERCENT_PRECISION;
+
+        uint256 _fee = (ethAmt * performanceLpFee) / PERCENT_PRECISION;
+        if (_fee > 0) {
+            payable(feeWallet).transfer(_fee);
+            ethAmt = ethAmt - _fee;
+        }
+        ethAmt = ethAmt / 2;
 
         if (ethAmt > 0) {
             uint256 _tokenAmt = _safeSwapEth(ethAmt, address(token), address(this));
@@ -338,6 +373,18 @@ contract WarPigsTreasury is Ownable {
 
         buybackRate = _percent;
         emit BuybackRateUpdated(_percent);
+    }
+
+    function setServiceInfo(address _wallet, uint256 _fee) external {
+        require(msg.sender == feeWallet, "Invalid setter");
+        require(_wallet != feeWallet && _wallet != address(0x0), "Invalid new wallet");
+        require(_fee <= 5000, "invalid performance fee");
+
+        feeWallet = _wallet;
+        performanceFee = _fee;
+        performanceLpFee = _fee;
+
+        emit ServiceInfoUpdated(_wallet, performanceFee, performanceLpFee);
     }
 
     /**
