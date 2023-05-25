@@ -8,8 +8,9 @@ pragma solidity ^0.8.0;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../libs/IUniFactory.sol";
-import "../libs/IUniRouter02.sol";
+import {IBrewlabsAggregator} from "../libs/IBrewlabsAggregator.sol";
+import {IUniV2Factory} from "../libs/IUniFactory.sol";
+import {IUniRouter02} from "../libs/IUniRouter02.sol";
 
 interface IStaking {
     function performanceFee() external view returns (uint256);
@@ -30,6 +31,8 @@ contract WarPigsTreasury is Ownable {
     IERC20 public token;
     address public dividendToken;
     address public pair;
+
+    address private WBNB;
     address private constant USDC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
     address private constant BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
 
@@ -44,21 +47,10 @@ contract WarPigsTreasury is Ownable {
     uint256 private sumWithdrawals = 0;
     uint256 private sumLiquidityWithdrawals = 0;
 
+    address public brewlabsAggregator = 0xce7C5A34CC7aE17D3d17a9728ab9673f77724743;
     address public uniRouterAddress;
-    address[] public bnbToTokenPath;
-    address[] public bnbToDividendPath;
-    address[] public dividendToTokenPath;
-    uint256 public slippageFactor = 8300; // 17%
-    uint256 public constant slippageFactorUL = 9950;
 
-    event Initialized(
-        address token,
-        address dividendToken,
-        address router,
-        address[] bnbToTokenPath,
-        address[] bnbToDividendPath,
-        address[] dividendToTokenPath
-    );
+    event Initialized(address token, address dividendToken, address router);
 
     event TokenBuyBack(uint256 amountETH, uint256 amountToken);
     event TokenBuyBackFromDividend(uint256 amount, uint256 amountToken);
@@ -74,13 +66,7 @@ contract WarPigsTreasury is Ownable {
     event BusdHarvested(address to, uint256[] amounts);
     event UsdcHarvested(address to, uint256[] amounts);
 
-    event SetSwapConfig(
-        address router,
-        uint256 slipPage,
-        address[] bnbToTokenPath,
-        address[] bnbToDividendPath,
-        address[] dividendToTokenPath
-    );
+    event SetSwapConfig(address router, address aggregator);
     event TransferBuyBackWallet(address staking, address wallet);
     event AddLiquidityRateUpdated(uint256 percent);
     event BuybackRateUpdated(uint256 percent);
@@ -96,18 +82,8 @@ contract WarPigsTreasury is Ownable {
      * @param _token: token address
      * @param _dividendToken: reflection token address
      * @param _uniRouter: uniswap router address for swap tokens
-     * @param _bnbToTokenPath: swap path to buy Token
-     * @param _bnbToDividendPath: swap path to buy dividend token
-     * @param _dividendToTokenPath: swap path to buy Token with dividend token
      */
-    function initialize(
-        IERC20 _token,
-        address _dividendToken,
-        address _uniRouter,
-        address[] memory _bnbToTokenPath,
-        address[] memory _bnbToDividendPath,
-        address[] memory _dividendToTokenPath
-    ) external onlyOwner {
+    function initialize(IERC20 _token, address _dividendToken, address _uniRouter) external onlyOwner {
         require(!isInitialized, "Already initialized");
         require(_uniRouter != address(0x0), "invalid address");
         require(address(_token) != address(0x0), "invalid token address");
@@ -117,16 +93,12 @@ contract WarPigsTreasury is Ownable {
 
         token = _token;
         dividendToken = _dividendToken;
-        pair = IUniV2Factory(IUniRouter02(_uniRouter).factory()).getPair(_bnbToTokenPath[0], address(token));
+        WBNB = IUniRouter02(_uniRouter).WETH();
+        pair = IUniV2Factory(IUniRouter02(_uniRouter).factory()).getPair(WBNB, address(token));
 
         uniRouterAddress = _uniRouter;
-        bnbToTokenPath = _bnbToTokenPath;
-        bnbToDividendPath = _bnbToDividendPath;
-        dividendToTokenPath = _dividendToTokenPath;
 
-        emit Initialized(
-            address(_token), _dividendToken, _uniRouter, _bnbToTokenPath, _bnbToDividendPath, _dividendToTokenPath
-            );
+        emit Initialized(address(_token), _dividendToken, _uniRouter);
     }
 
     /**
@@ -137,7 +109,7 @@ contract WarPigsTreasury is Ownable {
         ethAmt = (ethAmt * buybackRate) / PERCENT_PRECISION;
 
         if (ethAmt > 0) {
-            uint256 _tokenAmt = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
+            uint256 _tokenAmt = _safeSwapEth(ethAmt, address(token), address(this));
             emit TokenBuyBack(ethAmt, _tokenAmt);
         }
     }
@@ -149,7 +121,7 @@ contract WarPigsTreasury is Ownable {
         uint256 ethAmt = address(this).balance;
         ethAmt = (ethAmt * buybackRate) / PERCENT_PRECISION;
         if (ethAmt > 0) {
-            uint256 _tokenAmt = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
+            uint256 _tokenAmt = _safeSwapEth(ethAmt, address(token), address(this));
             emit TokenBuyBack(ethAmt, _tokenAmt);
 
             token.safeTransfer(_staking, _tokenAmt * stakingRate / PERCENT_PRECISION);
@@ -164,7 +136,7 @@ contract WarPigsTreasury is Ownable {
 
         uint256 reflections = IERC20(dividendToken).balanceOf(address(this));
         if (reflections > 0) {
-            uint256 _tokenAmt = _safeSwap(reflections, dividendToTokenPath, address(this));
+            uint256 _tokenAmt = _safeSwap(reflections, dividendToken, address(token), address(this));
             emit TokenBuyBackFromDividend(reflections, _tokenAmt);
 
             token.safeTransfer(_staking, _tokenAmt * stakingRate / PERCENT_PRECISION);
@@ -179,7 +151,7 @@ contract WarPigsTreasury is Ownable {
 
         uint256 reflections = IERC20(dividendToken).balanceOf(address(this));
         if (reflections > 0) {
-            uint256 _tokenAmt = _safeSwap(reflections, dividendToTokenPath, address(this));
+            uint256 _tokenAmt = _safeSwap(reflections, dividendToken, address(token), address(this));
             emit TokenBuyBackFromDividend(reflections, _tokenAmt);
         }
     }
@@ -192,7 +164,7 @@ contract WarPigsTreasury is Ownable {
         ethAmt = (ethAmt * addLiquidityRate) / PERCENT_PRECISION / 2;
 
         if (ethAmt > 0) {
-            uint256 _tokenAmt = _safeSwapEth(ethAmt, bnbToTokenPath, address(this));
+            uint256 _tokenAmt = _safeSwapEth(ethAmt, address(token), address(this));
             emit TokenBuyBack(ethAmt, _tokenAmt);
 
             (uint256 amountToken, uint256 amountETH, uint256 liquidity) =
@@ -216,7 +188,7 @@ contract WarPigsTreasury is Ownable {
             }
         } else {
             if (ethAmt > 0) {
-                uint256 _tokenAmt = _safeSwapEth(ethAmt, bnbToDividendPath, address(this));
+                uint256 _tokenAmt = _safeSwapEth(ethAmt, dividendToken, address(this));
                 emit Swapped(dividendToken, ethAmt, _tokenAmt);
             }
 
@@ -242,12 +214,9 @@ contract WarPigsTreasury is Ownable {
 
         if (ethAmt == 0) return;
 
-        address[] memory path = new address[](2);
-        path[0] = IUniRouter02(uniRouterAddress).WETH();
-        path[1] = BUSD;
-
-        uint256[] memory amounts =
-            IUniRouter02(uniRouterAddress).swapExactETHForTokens{value: ethAmt}(0, path, _to, block.timestamp + 600);
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = ethAmt;
+        amounts[1] = _safeSwapEth(ethAmt, BUSD, _to);
 
         emit BusdHarvested(_to, amounts);
     }
@@ -259,12 +228,10 @@ contract WarPigsTreasury is Ownable {
 
         if (ethAmt == 0) return;
 
-        address[] memory path = new address[](2);
-        path[0] = IUniRouter02(uniRouterAddress).WETH();
-        path[1] = USDC;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = ethAmt;
+        amounts[1] = _safeSwapEth(ethAmt, USDC, _to);
 
-        uint256[] memory amounts =
-            IUniRouter02(uniRouterAddress).swapExactETHForTokens{value: ethAmt}(0, path, _to, block.timestamp + 600);
         emit UsdcHarvested(_to, amounts);
     }
 
@@ -398,28 +365,16 @@ contract WarPigsTreasury is Ownable {
     /**
      * @notice Set buyback wallet of farm contract
      * @param _uniRouter: dex router address
-     * @param _slipPage: slip page for swap
-     * @param _bnbToTokenPath: bnb-token swap path
-     * @param _bnbToDividendPath: bnb-token swap path
-     * @param _dividendToTokenPath: bnb-token swap path
+     * @param _aggregator: swap aggregator
      */
-    function setSwapSettings(
-        address _uniRouter,
-        uint256 _slipPage,
-        address[] memory _bnbToTokenPath,
-        address[] memory _bnbToDividendPath,
-        address[] memory _dividendToTokenPath
-    ) external onlyOwner {
-        require(_uniRouter != address(0x0), "invalid address");
-        require(_slipPage <= slippageFactorUL, "_slippage too high");
+    function setSwapSettings(address _uniRouter, address _aggregator) external onlyOwner {
+        require(_uniRouter != address(0x0), "invalid router");
+        require(_aggregator != address(0x0), "invalid aggregator");
 
         uniRouterAddress = _uniRouter;
-        slippageFactor = _slipPage;
-        bnbToTokenPath = _bnbToTokenPath;
-        bnbToDividendPath = _bnbToDividendPath;
-        dividendToTokenPath = _dividendToTokenPath;
+        brewlabsAggregator = _aggregator;
 
-        emit SetSwapConfig(_uniRouter, _slipPage, _bnbToTokenPath, _bnbToDividendPath, _dividendToTokenPath);
+        emit SetSwapConfig(_uniRouter, _aggregator);
     }
 
     /**
@@ -472,19 +427,22 @@ contract WarPigsTreasury is Ownable {
     /**
      * @notice get token from ETH via swap.
      * @param _amountIn: eth amount to swap
-     * @param _path: swap path
+     * @param _token: to token address
      * @param _to: receiver address
      */
-    function _safeSwapEth(uint256 _amountIn, address[] memory _path, address _to) internal returns (uint256) {
-        uint256[] memory amounts = IUniRouter02(uniRouterAddress).getAmountsOut(_amountIn, _path);
-        uint256 amountOut = amounts[amounts.length - 1];
+    function _safeSwapEth(uint256 _amountIn, address _token, address _to) internal returns (uint256) {
+        IBrewlabsAggregator.FormattedOffer memory query =
+            IBrewlabsAggregator(brewlabsAggregator).findBestPath(_amountIn, WBNB, _token, 2);
 
-        address _token = _path[_path.length - 1];
-        uint256 beforeAmt = IERC20(_token).balanceOf(address(this));
-        IUniRouter02(uniRouterAddress).swapExactETHForTokensSupportingFeeOnTransferTokens{value: _amountIn}(
-            (amountOut * slippageFactor) / PERCENT_PRECISION, _path, _to, block.timestamp + 600
-        );
-        uint256 afterAmt = IERC20(_token).balanceOf(address(this));
+        IBrewlabsAggregator.Trade memory _trade;
+        _trade.amountIn = _amountIn;
+        _trade.amountOut = query.amounts[query.amounts.length - 1];
+        _trade.adapters = query.adapters;
+        _trade.path = query.path;
+
+        uint256 beforeAmt = IERC20(_token).balanceOf(_to);
+        IBrewlabsAggregator(brewlabsAggregator).swapNoSplitFromETH{value: _amountIn}(_trade, _to);
+        uint256 afterAmt = IERC20(_token).balanceOf(_to);
 
         return afterAmt - beforeAmt;
     }
@@ -492,21 +450,28 @@ contract WarPigsTreasury is Ownable {
     /**
      * @notice swap token based on path.
      * @param _amountIn: token amount to swap
-     * @param _path: swap path
+     * @param _tokenIn: swap path
+     * @param _tokenOut: swap path
      * @param _to: receiver address
      */
-    function _safeSwap(uint256 _amountIn, address[] memory _path, address _to) internal returns (uint256) {
-        uint256[] memory amounts = IUniRouter02(uniRouterAddress).getAmountsOut(_amountIn, _path);
-        uint256 amountOut = amounts[amounts.length - 1];
+    function _safeSwap(uint256 _amountIn, address _tokenIn, address _tokenOut, address _to)
+        internal
+        returns (uint256)
+    {
+        IBrewlabsAggregator.FormattedOffer memory query =
+            IBrewlabsAggregator(brewlabsAggregator).findBestPath(_amountIn, _tokenIn, _tokenOut, 3);
 
-        IERC20(_path[0]).safeApprove(uniRouterAddress, _amountIn);
+        IBrewlabsAggregator.Trade memory _trade;
+        _trade.amountIn = _amountIn;
+        _trade.amountOut = query.amounts[query.amounts.length - 1];
+        _trade.adapters = query.adapters;
+        _trade.path = query.path;
 
-        address _token = _path[_path.length - 1];
-        uint256 beforeAmt = IERC20(_token).balanceOf(address(this));
-        IUniRouter02(uniRouterAddress).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            _amountIn, (amountOut * slippageFactor) / PERCENT_PRECISION, _path, _to, block.timestamp + 600
-        );
-        uint256 afterAmt = IERC20(_token).balanceOf(address(this));
+        IERC20(_tokenIn).safeApprove(brewlabsAggregator, _amountIn);
+
+        uint256 beforeAmt = IERC20(_tokenOut).balanceOf(_to);
+        IBrewlabsAggregator(brewlabsAggregator).swapNoSplitFromETH(_trade, _to);
+        uint256 afterAmt = IERC20(_tokenOut).balanceOf(_to);
 
         return afterAmt - beforeAmt;
     }
