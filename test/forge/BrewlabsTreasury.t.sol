@@ -27,8 +27,7 @@ contract BrewlabsTreasuryTest is Test {
         utils = new Utils();
 
         treasury = new BrewlabsTreasury();
-        address[] memory path;
-        treasury.initialize(IERC20(BREWLABS), BUSD, swapRouter, path, path, path);
+        treasury.initialize(IERC20(BREWLABS), BUSD, swapRouter);
     }
 
     function test_buyBack() public {

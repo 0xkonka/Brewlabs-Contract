@@ -47,7 +47,7 @@ contract BrewlabsTreasury is Ownable {
     uint256 private sumWithdrawals = 0;
     uint256 private sumLiquidityWithdrawals = 0;
 
-    address public brewlabsAggregator = 0x482ae8a4ffb3e63574ED838A09b194B4490A2907;
+    address public brewlabsAggregator = 0xce7C5A34CC7aE17D3d17a9728ab9673f77724743;
     address public uniRouterAddress;
 
     event Initialized(address token, address dividendToken, address router);

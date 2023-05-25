@@ -63,9 +63,9 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.other) {           
-            Utils.infoMsg("Deploying DarkTavernTreasury contract");
+            Utils.infoMsg("Deploying WarPigsTreasury contract");
 
-            let deployed = await deploy('DarkTavernTreasury', {
+            let deployed = await deploy('WarPigsTreasury', {
                 from: account,
                 args: [],
                 log: true,
@@ -75,24 +75,11 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
             
             await sleep(60)
-            let contractInstance = await ethers.getContractAt("DarkTavernTreasury", deployedAddress)
+            let contractInstance = await ethers.getContractAt("WarPigsTreasury", deployedAddress)
             const res = await contractInstance.initialize(
-                "0x4aeB2D0B318e5e8ac62D5A39EB3495974951f477", // _token
-                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", // _dividendToken
-                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
-                [
-                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x4aeB2D0B318e5e8ac62D5A39EB3495974951f477",
-                ],
-                [
-                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-                ],
-                [
-                    "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x4aeB2D0B318e5e8ac62D5A39EB3495974951f477",
-                ],
+                "0x8466BB37bde898E0820E0d9CFe2EB68fbB90cE9b", // _token
+                "0x0000000000000000000000000000000000000000", // _dividendToken
+                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2                
               )
               console.log('initialize BrewlabsTreasury', res)
 
@@ -100,7 +87,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await sleep(60);
             await hre.run("verify:verify", {
                 address: deployedAddress,
-                contract: "contracts/others/DarkTavernTreasury.sol:DarkTavernTreasury",
+                contract: "contracts/others/WarPigsTreasury.sol:WarPigsTreasury",
                 constructorArguments: [],
             }) 
         }
