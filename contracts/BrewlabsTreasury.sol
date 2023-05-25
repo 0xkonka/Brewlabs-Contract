@@ -47,7 +47,7 @@ contract BrewlabsTreasury is Ownable {
     uint256 private sumWithdrawals = 0;
     uint256 private sumLiquidityWithdrawals = 0;
 
-    address public brewlabsAggregator = 0xce7C5A34CC7aE17D3d17a9728ab9673f77724743;
+    IBrewlabsAggregator public swapAggregator = IBrewlabsAggregator(0xce7C5A34CC7aE17D3d17a9728ab9673f77724743);
     address public uniRouterAddress;
 
     event Initialized(address token, address dividendToken, address router);
@@ -372,7 +372,7 @@ contract BrewlabsTreasury is Ownable {
         require(_aggregator != address(0x0), "invalid aggregator");
 
         uniRouterAddress = _uniRouter;
-        brewlabsAggregator = _aggregator;
+        swapAggregator = IBrewlabsAggregator(_aggregator);
 
         emit SetSwapConfig(_uniRouter, _aggregator);
     }
@@ -431,8 +431,7 @@ contract BrewlabsTreasury is Ownable {
      * @param _to: receiver address
      */
     function _safeSwapEth(uint256 _amountIn, address _token, address _to) internal returns (uint256) {
-        IBrewlabsAggregator.FormattedOffer memory query =
-            IBrewlabsAggregator(brewlabsAggregator).findBestPath(_amountIn, WBNB, _token, 2);
+        IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(_amountIn, WBNB, _token, 2);
 
         IBrewlabsAggregator.Trade memory _trade;
         _trade.amountIn = _amountIn;
@@ -441,7 +440,7 @@ contract BrewlabsTreasury is Ownable {
         _trade.path = query.path;
 
         uint256 beforeAmt = IERC20(_token).balanceOf(_to);
-        IBrewlabsAggregator(brewlabsAggregator).swapNoSplitFromETH{value: _amountIn}(_trade, _to);
+        swapAggregator.swapNoSplitFromETH{value: _amountIn}(_trade, _to);
         uint256 afterAmt = IERC20(_token).balanceOf(_to);
 
         return afterAmt - beforeAmt;
@@ -458,8 +457,7 @@ contract BrewlabsTreasury is Ownable {
         internal
         returns (uint256)
     {
-        IBrewlabsAggregator.FormattedOffer memory query =
-            IBrewlabsAggregator(brewlabsAggregator).findBestPath(_amountIn, _tokenIn, _tokenOut, 3);
+        IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(_amountIn, _tokenIn, _tokenOut, 3);
 
         IBrewlabsAggregator.Trade memory _trade;
         _trade.amountIn = _amountIn;
@@ -467,10 +465,10 @@ contract BrewlabsTreasury is Ownable {
         _trade.adapters = query.adapters;
         _trade.path = query.path;
 
-        IERC20(_tokenIn).safeApprove(brewlabsAggregator, _amountIn);
+        IERC20(_tokenIn).safeApprove(address(swapAggregator), _amountIn);
 
         uint256 beforeAmt = IERC20(_tokenOut).balanceOf(_to);
-        IBrewlabsAggregator(brewlabsAggregator).swapNoSplitFromETH(_trade, _to);
+        swapAggregator.swapNoSplitFromETH(_trade, _to);
         uint256 afterAmt = IERC20(_tokenOut).balanceOf(_to);
 
         return afterAmt - beforeAmt;

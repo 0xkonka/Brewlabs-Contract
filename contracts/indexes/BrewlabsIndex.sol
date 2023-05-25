@@ -7,9 +7,9 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-import "../libs/AggregatorV3Interface.sol";
-import "../libs/IUniRouter02.sol";
-import "../libs/IWETH.sol";
+import {AggregatorV3Interface} from "../libs/AggregatorV3Interface.sol";
+import {IUniRouter02} from "../libs/IUniRouter02.sol";
+import {IWETH} from "../libs/IWETH.sol";
 
 interface IBrewlabsIndexFactory {
     function brewlabsFee() external view returns (uint256);
@@ -47,7 +47,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     address private PRICE_FEED;
     address public WBNB;
 
-    address public factory;
+    IBrewlabsIndexFactory public factory;
     IERC721 public indexNft;
     IERC721 public deployerNft;
     IERC20[] public tokens;
@@ -153,7 +153,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         deployer = _deployer;
         commissionWallet = _deployer;
 
-        factory = msg.sender;
+        factory = IBrewlabsIndexFactory(msg.sender);
 
         indexNft = _indexNft;
         deployerNft = _deployerNft;
@@ -189,8 +189,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
         // pay brewlabs fee
         uint256 discount = _getDiscount(msg.sender);
-        uint256 brewsFee = (ethAmount * IBrewlabsIndexFactory(factory).brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
-        payable(IBrewlabsIndexFactory(factory).brewlabsWallet()).transfer(brewsFee);
+        uint256 brewsFee = (ethAmount * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
+        payable(factory.brewlabsWallet()).transfer(brewsFee);
         // pay deployer fee
         uint256 deployerFee = (ethAmount * fee * discount) / FEE_DENOMINATOR ** 2;
         payable(deployer).transfer(deployerFee);
@@ -234,7 +234,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     function _beforeZapIn(address _token, uint256 _amount) internal returns (uint256 amount) {
         if (_token == address(0x0)) return msg.value;
 
-        uint8 allowedMethod = IBrewlabsIndexFactory(factory).allowedTokens(_token);
+        uint8 allowedMethod = factory.allowedTokens(_token);
         require(allowedMethod > 0, "Cannot zap in with unsupported token");
         require(_amount > 1000, "Not enough amount");
 
@@ -350,7 +350,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             return;
         }
 
-        uint8 allowedMethod = IBrewlabsIndexFactory(factory).allowedTokens(_token);
+        uint8 allowedMethod = factory.allowedTokens(_token);
         require(allowedMethod > 0, "Cannot zap out with this token");
 
         address[] memory _path = new address[](2);
@@ -547,7 +547,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     }
 
     function totalFee() public view returns (uint256) {
-        return IBrewlabsIndexFactory(factory).brewlabsFee() + fee;
+        return factory.brewlabsFee() + fee;
     }
 
     /**
@@ -570,7 +570,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      */
     function setFee(uint256 _fee) external {
         require(msg.sender == deployer || msg.sender == owner(), "Caller is not the deployer or owner");
-        require(_fee <= IBrewlabsIndexFactory(factory).feeLimit(), "Cannot exceed fee limit of factory");
+        require(_fee <= factory.feeLimit(), "Cannot exceed fee limit of factory");
 
         fee = _fee;
         emit SetDeployerFee(_fee);
@@ -642,7 +642,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     }
 
     function _getDiscount(address _user) internal view returns (uint256) {
-        address discountMgr = IBrewlabsIndexFactory(factory).discountMgr();
+        address discountMgr = factory.discountMgr();
         if (discountMgr == address(0x0)) return FEE_DENOMINATOR;
 
         return FEE_DENOMINATOR - IBrewlabsDiscountMgr(discountMgr).discountOf(_user);
