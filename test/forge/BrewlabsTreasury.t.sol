@@ -34,9 +34,9 @@ contract BrewlabsTreasuryTest is Test {
         vm.deal(address(treasury), 1 ether);
 
         uint256 _amountIn = 1 ether * treasury.buybackRate() / 10000;
-        emit log_address(address(treasury.brewlabsAggregator()));
+        emit log_address(address(treasury.swapAggregator()));
         IBrewlabsAggregator.FormattedOffer memory query =
-            treasury.brewlabsAggregator().findBestPath(_amountIn, WBNB, BREWLABS, 2);
+            treasury.swapAggregator().findBestPath(_amountIn, WBNB, BREWLABS, 2);
         emit log_named_uint("expected amount", query.amounts[query.amounts.length - 1]);
 
         treasury.buyBack();

@@ -47,8 +47,8 @@ contract BrewlabsTreasury is Ownable {
     uint256 private sumWithdrawals = 0;
     uint256 private sumLiquidityWithdrawals = 0;
 
+    address public swapRouter;
     IBrewlabsAggregator public swapAggregator = IBrewlabsAggregator(0xce7C5A34CC7aE17D3d17a9728ab9673f77724743);
-    address public uniRouterAddress;
 
     event Initialized(address token, address dividendToken, address router);
 
@@ -96,7 +96,7 @@ contract BrewlabsTreasury is Ownable {
         WBNB = IUniRouter02(_uniRouter).WETH();
         pair = IUniV2Factory(IUniRouter02(_uniRouter).factory()).getPair(WBNB, address(token));
 
-        uniRouterAddress = _uniRouter;
+        swapRouter = _uniRouter;
 
         emit Initialized(address(_token), _dividendToken, _uniRouter);
     }
@@ -371,7 +371,7 @@ contract BrewlabsTreasury is Ownable {
         require(_uniRouter != address(0x0), "invalid router");
         require(_aggregator != address(0x0), "invalid aggregator");
 
-        uniRouterAddress = _uniRouter;
+        swapRouter = _uniRouter;
         swapAggregator = IBrewlabsAggregator(_aggregator);
 
         emit SetSwapConfig(_uniRouter, _aggregator);
@@ -485,13 +485,13 @@ contract BrewlabsTreasury is Ownable {
         internal
         returns (uint256 amountToken, uint256 amountETH, uint256 liquidity)
     {
-        IERC20(_token).safeIncreaseAllowance(uniRouterAddress, _tokenAmt);
+        IERC20(_token).safeIncreaseAllowance(swapRouter, _tokenAmt);
 
-        (amountToken, amountETH, liquidity) = IUniRouter02(uniRouterAddress).addLiquidityETH{value: _ethAmt}(
+        (amountToken, amountETH, liquidity) = IUniRouter02(swapRouter).addLiquidityETH{value: _ethAmt}(
             address(_token), _tokenAmt, 0, 0, _to, block.timestamp + 600
         );
 
-        IERC20(_token).safeApprove(uniRouterAddress, uint256(0));
+        IERC20(_token).safeApprove(swapRouter, uint256(0));
     }
 
     receive() external payable {}
