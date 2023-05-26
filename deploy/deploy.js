@@ -237,26 +237,6 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                     "0x2170Ed0880ac9A755fd29B2688956BD959F933F8", // token1
                     "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82", // token1
                 ],
-                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
-                [
-                    [
-                        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                        "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-                        "0xAD6742A35fB341A9Cc6ad674738Dd8da98b94Fb1",
-                    ],
-                    [
-                        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                        "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c"
-                    ],
-                    [
-                        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                        "0x2170Ed0880ac9A755fd29B2688956BD959F933F8"
-                    ],
-                    [
-                        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                        "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82"
-                    ]
-                ],
                 200 // fee
             );
             res = await res.wait()
