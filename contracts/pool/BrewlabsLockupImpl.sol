@@ -6,8 +6,8 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../libs/IUniRouter02.sol";
-import "../libs/IWETH.sol";
+import {IBrewlabsAggregator} from "../libs/IBrewlabsAggregator.sol";
+import {IWETH} from "../libs/IWETH.sol";
 
 interface WhiteList {
     function whitelisted(address _address) external view returns (bool);
@@ -23,6 +23,8 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     uint256 private BLOCKS_PER_DAY;
     uint256 public PRECISION_FACTOR;
     uint256 private MAX_STAKES;
+
+    address public WNATIVE;
 
     // The staked token
     IERC20 public stakingToken;
@@ -54,12 +56,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
     bool public activeEmergencyWithdraw;
 
-    // swap router and path, slipPage
-    uint256 public slippageFactor;
-    uint256 public slippageFactorUL;
-    address public uniRouterAddress;
-    address[] public reflectionToStakedPath;
-    address[] public earnedToStakedPath;
+    IBrewlabsAggregator public swapAggregator;
 
     struct Stake {
         uint8 stakeType;
@@ -122,10 +119,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
     event DurationChanged(uint256 _duration);
     event OperatorTransferred(address oldOperator, address newOperator);
     event SetWhiteList(address _whitelist);
-
-    event SetSettings(
-        uint256 _slippageFactor, address _uniRouter, address[] _path0, address[] _path1, address _walletA
-    );
+    event SetSwapAggregator(address aggregator);
 
     modifier onlyAdmin() {
         require(msg.sender == owner() || msg.sender == operator, "caller is not owner or operator");
@@ -139,9 +133,6 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
      * @param _stakingToken: staked token address
      * @param _rewardToken: earned token address
      * @param _dividendToken: reflection token address
-     * @param _uniRouter: uniswap router address for swap tokens
-     * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
-     * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
      * @param _owner: owner address
      * @param _deployer: deployer address
      */
@@ -149,9 +140,6 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         IERC20 _stakingToken,
         IERC20 _rewardToken,
         address _dividendToken,
-        address _uniRouter,
-        address[] memory _earnedToStakedPath,
-        address[] memory _reflectionToStakedPath,
         address _owner,
         address _deployer
     ) external {
@@ -166,8 +154,6 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         MAX_STAKES = 256;
 
         duration = 365; // 365 days
-        slippageFactor = 8000; // 20% default slippage tolerance
-        slippageFactorUL = 9950;
 
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         performanceFee = 0.0035 ether;
@@ -185,10 +171,10 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         require(decimalsRewardToken < 30, "Must be inferior to 30");
         PRECISION_FACTOR = uint256(10 ** (40 - decimalsRewardToken));
 
-        uniRouterAddress = _uniRouter;
-        earnedToStakedPath = _earnedToStakedPath;
-        reflectionToStakedPath = _reflectionToStakedPath;
         whiteList = address(0x0);
+
+        swapAggregator = IBrewlabsAggregator(0xce7C5A34CC7aE17D3d17a9728ab9673f77724743);
+        WNATIVE = swapAggregator.WNATIVE();
 
         _transferOwnership(_owner);
     }
@@ -478,10 +464,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
             pending = pending + _pending;
 
             if (address(stakingToken) != address(rewardToken) && _pending > 0) {
-                uint256 _beforeAmount = stakingToken.balanceOf(address(this));
-                _safeSwap(_pending, earnedToStakedPath, address(this));
-                uint256 _afterAmount = stakingToken.balanceOf(address(this));
-                _pending = _afterAmount - _beforeAmount;
+                pending = _safeSwap(pending, address(rewardToken), address(stakingToken), address(this));
             }
             compounded = compounded + _pending;
 
@@ -528,15 +511,12 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
             if (address(stakingToken) != address(dividendToken) && _pending > 0) {
                 if (address(dividendToken) == address(0x0)) {
-                    address wethAddress = IUniRouter02(uniRouterAddress).WETH();
-                    IWETH(wethAddress).deposit{value: _pending}();
+                    IWETH(WNATIVE).deposit{value: pending}();
+
+                    _pending = _safeSwap(pending, WNATIVE, address(stakingToken), address(this));
+                } else {
+                    _pending = _safeSwap(pending, dividendToken, address(stakingToken), address(this));
                 }
-
-                uint256 _beforeAmount = stakingToken.balanceOf(address(this));
-                _safeSwap(_pending, reflectionToStakedPath, address(this));
-                uint256 _afterAmount = stakingToken.balanceOf(address(this));
-
-                _pending = _afterAmount - _beforeAmount;
             }
 
             compounded = compounded + _pending;
@@ -992,23 +972,17 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         operator = _operator;
     }
 
-    function setSettings(
-        uint256 _slippageFactor,
-        address _uniRouter,
-        address[] memory _earnedToStakedPath,
-        address[] memory _reflectionToStakedPath,
-        address _feeAddr
-    ) external onlyOwner {
-        require(_slippageFactor <= slippageFactorUL, "_slippageFactor too high");
-        require(_feeAddr != address(0x0), "Invalid Address");
+    /**
+     * @notice Update swap aggregator.
+     * @param _aggregator: swap Aggregator address
+     */
+    function setSwapAggregator(address _aggregator) external onlyOwner {
+        require(_aggregator != address(0x0), "Invalid address");
+        require(IBrewlabsAggregator(_aggregator).WNATIVE() != address(0x0), "Invalid swap aggregator");
 
-        slippageFactor = _slippageFactor;
-        uniRouterAddress = _uniRouter;
-        reflectionToStakedPath = _reflectionToStakedPath;
-        earnedToStakedPath = _earnedToStakedPath;
-        walletA = _feeAddr;
-
-        emit SetSettings(_slippageFactor, _uniRouter, _earnedToStakedPath, _reflectionToStakedPath, _feeAddr);
+        swapAggregator = IBrewlabsAggregator(_aggregator);
+        WNATIVE = IBrewlabsAggregator(_aggregator).WNATIVE();
+        emit SetSwapAggregator(_aggregator);
     }
 
     function setWhitelist(address _whitelist) external onlyOwner {
@@ -1091,14 +1065,26 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         totalEarned = totalEarned > _amount ? totalEarned - _amount : 0;
     }
 
-    function _safeSwap(uint256 _amountIn, address[] memory _path, address _to) internal {
-        uint256[] memory amounts = IUniRouter02(uniRouterAddress).getAmountsOut(_amountIn, _path);
-        uint256 amountOut = amounts[amounts.length - 1];
+    function _safeSwap(uint256 _amountIn, address _fromToken, address _toToken, address _to)
+        internal
+        returns (uint256)
+    {
+        IBrewlabsAggregator.FormattedOffer memory query =
+            swapAggregator.findBestPath(_amountIn, _fromToken, _toToken, 3);
 
-        IERC20(_path[0]).safeApprove(uniRouterAddress, _amountIn);
-        IUniRouter02(uniRouterAddress).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            _amountIn, (amountOut * slippageFactor) / PERCENT_PRECISION, _path, _to, block.timestamp + 600
-        );
+        IBrewlabsAggregator.Trade memory _trade;
+        _trade.amountIn = _amountIn;
+        _trade.amountOut = query.amounts[query.amounts.length - 1];
+        _trade.adapters = query.adapters;
+        _trade.path = query.path;
+
+        IERC20(_fromToken).safeApprove(address(swapAggregator), _amountIn);
+
+        uint256 beforeAmount = IERC20(_toToken).balanceOf(_to);
+        swapAggregator.swapNoSplit(_trade, _to);
+        uint256 afterAmount = IERC20(_toToken).balanceOf(_to);
+
+        return afterAmount - beforeAmount;
     }
 
     receive() external payable {}

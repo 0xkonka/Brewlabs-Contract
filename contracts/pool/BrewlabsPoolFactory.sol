@@ -100,9 +100,6 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256 rewardPerBlock,
         uint256 depositFee,
         uint256 withdrawFee,
-        address uniRouter,
-        address[] memory earnedToStakedPath,
-        address[] memory reflectionToStakedPath,
         bool hasDividend
     ) external payable returns (address pool) {
         require(implementation[0] != address(0x0), "No implementation");
@@ -122,16 +119,13 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             pool = Clones.cloneDeterministic(implementation[0], salt);
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
-                    "initialize(address,address,address,uint256,uint256,uint256,address,address[],address[],bool,address,address)",
+                    "initialize(address,address,address,uint256,uint256,uint256,bool,address,address)",
                     stakingToken,
                     rewardToken,
                     dividendToken,
                     rewardPerBlock,
                     depositFee,
                     withdrawFee,
-                    uniRouter,
-                    earnedToStakedPath,
-                    reflectionToStakedPath,
                     hasDividend,
                     poolDefaultOwner,
                     msg.sender
@@ -172,9 +166,6 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         address stakingToken,
         address rewardToken,
         address dividendToken,
-        address uniRouter,
-        address[] memory earnedToStakedPath,
-        address[] memory reflectionToStakedPath,
         uint256[] memory durations,
         uint256[] memory rewardsPerBlock,
         uint256[] memory depositFees,
@@ -193,13 +184,10 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             pool = Clones.cloneDeterministic(implementation[1], salt);
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
-                    "initialize(address,address,address,address,address[],address[],address,address)",
+                    "initialize(address,address,address,address,address)",
                     stakingToken,
                     rewardToken,
                     dividendToken,
-                    uniRouter,
-                    earnedToStakedPath,
-                    reflectionToStakedPath,
                     poolDefaultOwner,
                     msg.sender
                 )
@@ -257,9 +245,6 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         address stakingToken,
         address rewardToken,
         address dividendToken,
-        address uniRouter,
-        address[] memory earnedToStakedPath,
-        address[] memory reflectionToStakedPath,
         uint256[] memory durations,
         uint256[] memory rewardsPerBlock,
         uint256[] memory depositFees,
@@ -278,13 +263,10 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             pool = Clones.cloneDeterministic(implementation[2], salt);
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
-                    "initialize(address,address,address,address,address[],address[],uint256,address,address)",
+                    "initialize(address,address,address,uint256,address,address)",
                     stakingToken,
                     rewardToken,
                     dividendToken,
-                    uniRouter,
-                    earnedToStakedPath,
-                    reflectionToStakedPath,
                     penaltyFee,
                     poolDefaultOwner,
                     msg.sender

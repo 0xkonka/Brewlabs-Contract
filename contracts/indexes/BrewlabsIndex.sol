@@ -521,14 +521,15 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     }
 
     /**
-     * @notice Update swap router and paths for each token.
-     * @param _aggregator: list of swap path for each tokens
+     * @notice Update swap aggregator.
+     * @param _aggregator: swap Aggregator address
      */
     function setSwapAggregator(address _aggregator) external onlyOwner onlyInitialized {
         require(_aggregator != address(0x0), "Invalid address");
         require(IBrewlabsAggregator(_aggregator).WNATIVE() != address(0x0), "Invalid swap aggregator");
 
         swapAggregator = IBrewlabsAggregator(_aggregator);
+        WNATIVE = IBrewlabsAggregator(_aggregator).WNATIVE();
         emit SetSwapAggregator(_aggregator);
     }
 

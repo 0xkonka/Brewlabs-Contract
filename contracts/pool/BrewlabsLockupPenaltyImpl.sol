@@ -6,8 +6,8 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../libs/IUniRouter02.sol";
-import "../libs/IWETH.sol";
+import {IBrewlabsAggregator} from "../libs/IBrewlabsAggregator.sol";
+import {IWETH} from "../libs/IWETH.sol";
 
 interface WhiteList {
     function whitelisted(address _address) external view returns (bool);
@@ -16,12 +16,27 @@ interface WhiteList {
 contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    uint256 private PERCENT_PRECISION;
-    uint256 private BLOCKS_PER_DAY;
-
     // Whether it is initialized
     bool public isInitialized;
+    uint256 private PERCENT_PRECISION;
+    uint256 private BLOCKS_PER_DAY;
+    uint256 public PRECISION_FACTOR;
+    uint256 private MAX_STAKES;
+
+    address public WNATIVE;
+
+    IERC20 public stakingToken;
+    IERC20 public rewardToken;
+    // The dividend token of staking token
+    address public dividendToken;
+
     uint256 public duration; // 365 days
+    // The block number when staking starts.
+    uint256 public startBlock;
+    // The block number when staking ends.
+    uint256 public bonusEndBlock;
+    // Accrued token per share
+    uint256 public accDividendPerShare;
 
     // Whether a limit is set for users
     bool public hasUserLimit;
@@ -29,44 +44,40 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
     uint256 public poolLimitPerUser;
     address public whiteList;
 
-    // The block number when staking starts.
-    uint256 public startBlock;
-    // The block number when staking ends.
-    uint256 public bonusEndBlock;
+    bool public enablePenalty;
+    uint256 public penaltyFee;
 
     bool public activeEmergencyWithdraw;
 
-    // swap router and path, slipPage
-    uint256 public slippageFactor;
-    uint256 public slippageFactorUL;
+    IBrewlabsAggregator public swapAggregator;
 
-    address public uniRouterAddress;
-    address[] public reflectionToStakedPath;
-    address[] public earnedToStakedPath;
-
-    address public operator;
     address public walletA;
     address public treasury;
     uint256 public performanceFee;
 
-    bool public enablePenalty;
-    uint256 public penaltyFee;
+    address public factory;
+    address public deployer;
+    address public operator;
 
-    // The precision factor
-    uint256 public PRECISION_FACTOR;
-    uint256 public PRECISION_FACTOR_REFLECTION;
+    struct UserInfo {
+        uint256 amount; // How many staked tokens the user has provided
+        uint256 locked;
+        uint256 available;
+    }
 
-    // The staked token
-    IERC20 public stakingToken;
-    // The earned token
-    IERC20 public earnedToken;
-    // The dividend token of staking token
-    address public dividendToken;
+    struct Stake {
+        uint8 stakeType;
+        uint256 amount; // amount to stake
+        uint256 duration; // the lockup duration of the stake
+        uint256 end; // when does the staking period end
+        uint256 rewardDebt; // Reward debt
+        uint256 reflectionDebt; // Reflection debt
+    }
 
-    // Accrued token per share
-    uint256 public accDividendPerShare;
+    mapping(address => Stake[]) public userStakes;
+    mapping(address => UserInfo) public userStaked;
+
     uint256 public totalStaked;
-
     uint256 private totalEarned;
     uint256 private totalReflections;
     uint256 private reflections;
@@ -86,26 +97,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
         uint256 totalStakedLimit;
     }
 
-    struct UserInfo {
-        uint256 amount; // How many staked tokens the user has provided
-        uint256 locked;
-        uint256 available;
-    }
-
-    struct Stake {
-        uint8 stakeType;
-        uint256 amount; // amount to stake
-        uint256 duration; // the lockup duration of the stake
-        uint256 end; // when does the staking period end
-        uint256 rewardDebt; // Reward debt
-        uint256 reflectionDebt; // Reflection debt
-    }
-
-    uint256 private MAX_STAKES;
-
     Lockup[] public lockups;
-    mapping(address => Stake[]) public userStakes;
-    mapping(address => UserInfo) public userStaked;
 
     event Deposit(address indexed user, uint256 stakeType, uint256 amount);
     event Withdraw(address indexed user, uint256 stakeType, uint256 amount);
@@ -127,10 +119,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
     event DurationUpdated(uint256 _duration);
     event SetWhiteList(address _whitelist);
     event SetPenaltyStatus(bool status, uint256 fee);
-
-    event SetSettings(
-        uint256 _slippageFactor, address _uniRouter, address[] _path0, address[] _path1, address _walletA
-    );
+    event SetSwapAggregator(address aggregator);
 
     modifier onlyAdmin() {
         require(msg.sender == owner() || msg.sender == operator, "caller is not owner or operator");
@@ -144,23 +133,17 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
      * @param _stakingToken: staked token address
      * @param _earnedToken: earned token address
      * @param _dividendToken: reflection token address
-     * @param _uniRouter: uniswap router address for swap tokens
-     * @param _earnedToStakedPath: swap path to compound (earned -> staking path)
-     * @param _reflectionToStakedPath: swap path to compound (reflection -> staking path)
      * @param _penaltyFee: owner address
      * @param _owner: owner address
-     * @param _operator: operator address
+     * @param _deployer: deployer address
      */
     function initialize(
         IERC20 _stakingToken,
         IERC20 _earnedToken,
         address _dividendToken,
-        address _uniRouter,
-        address[] memory _earnedToStakedPath,
-        address[] memory _reflectionToStakedPath,
         uint256 _penaltyFee,
         address _owner,
-        address _operator
+        address _deployer
     ) external {
         require(!isInitialized, "Already initialized");
         require(owner() == address(0x0) || msg.sender == owner(), "Not allowed");
@@ -173,37 +156,30 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
         MAX_STAKES = 256;
 
         duration = 365; // 365 days
-        slippageFactor = 8000; // 20% default slippage tolerance
-        slippageFactorUL = 9950;
 
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         performanceFee = 0.0035 ether;
 
         stakingToken = _stakingToken;
-        earnedToken = _earnedToken;
+        rewardToken = _earnedToken;
         dividendToken = _dividendToken;
 
-        walletA = msg.sender;
-        operator = _operator;
+        factory = msg.sender;
+        deployer = _deployer;
+        operator = _deployer;
+        walletA = _deployer;
 
         enablePenalty = true;
         penaltyFee = _penaltyFee;
 
-        uint256 decimalsRewardToken = uint256(IERC20Metadata(address(earnedToken)).decimals());
+        uint256 decimalsRewardToken = uint256(IERC20Metadata(address(rewardToken)).decimals());
         require(decimalsRewardToken < 30, "Must be inferior to 30");
         PRECISION_FACTOR = uint256(10 ** (40 - decimalsRewardToken));
 
-        uint256 decimalsdividendToken = 18;
-        if (address(dividendToken) != address(0x0)) {
-            decimalsdividendToken = uint256(IERC20Metadata(address(dividendToken)).decimals());
-            require(decimalsdividendToken < 30, "Must be inferior to 30");
-        }
-        PRECISION_FACTOR_REFLECTION = uint256(10 ** (40 - decimalsRewardToken));
-
-        uniRouterAddress = _uniRouter;
-        earnedToStakedPath = _earnedToStakedPath;
-        reflectionToStakedPath = _reflectionToStakedPath;
         whiteList = address(0x0);
+
+        swapAggregator = IBrewlabsAggregator(0xce7C5A34CC7aE17D3d17a9728ab9673f77724743);
+        WNATIVE = swapAggregator.WNATIVE();
 
         _transferOwnership(_owner);
     }
@@ -243,19 +219,19 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
 
-            pendingReflection = pendingReflection
-                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt);
+            pendingReflection =
+                pendingReflection + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
 
             uint256 _pending = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR - stake.rewardDebt;
             pending = pending + _pending;
 
             stake.rewardDebt = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR;
-            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR;
         }
 
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-            earnedToken.safeTransfer(address(msg.sender), pending);
+            rewardToken.safeTransfer(address(msg.sender), pending);
             _updateEarned(pending);
             paidRewards = paidRewards + pending;
             emit Claim(msg.sender, _stakeType, pending);
@@ -319,7 +295,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
         newStake.end = end;
         newStake.amount = _amount;
         newStake.rewardDebt = (newStake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR;
-        newStake.reflectionDebt = (newStake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+        newStake.reflectionDebt = (newStake.amount * accDividendPerShare) / PRECISION_FACTOR;
     }
 
     /**
@@ -349,8 +325,8 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
             if (remained == 0) break;
 
             uint256 _pending = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR - stake.rewardDebt;
-            pendingReflection = pendingReflection
-                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt);
+            pendingReflection =
+                pendingReflection + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
 
             pending = pending + _pending;
             if (stake.end < block.timestamp || bonusEndBlock < block.number || enablePenalty) {
@@ -364,12 +340,12 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
             }
 
             stake.rewardDebt = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR;
-            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR;
         }
 
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-            earnedToken.safeTransfer(address(msg.sender), pending);
+            rewardToken.safeTransfer(address(msg.sender), pending);
             _updateEarned(pending);
             paidRewards = paidRewards + pending;
             emit Claim(msg.sender, _stakeType, pending);
@@ -429,7 +405,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
 
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-            earnedToken.safeTransfer(address(msg.sender), pending);
+            rewardToken.safeTransfer(address(msg.sender), pending);
             _updateEarned(pending);
             paidRewards = paidRewards + pending;
             emit Claim(msg.sender, _stakeType, pending);
@@ -451,10 +427,10 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
 
-            pendingReflection = pendingReflection
-                + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt);
+            pendingReflection =
+                pendingReflection + ((stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
 
-            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR;
         }
 
         if (pendingReflection > 0) {
@@ -486,17 +462,14 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
             uint256 _pending = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR - stake.rewardDebt;
             pending = pending + _pending;
 
-            if (address(stakingToken) != address(earnedToken) && _pending > 0) {
-                uint256 _beforeAmount = stakingToken.balanceOf(address(this));
-                _safeSwap(_pending, earnedToStakedPath, address(this));
-                uint256 _afterAmount = stakingToken.balanceOf(address(this));
-                _pending = _afterAmount - _beforeAmount;
+            if (address(stakingToken) != address(rewardToken) && _pending > 0) {
+                _pending = _safeSwap(pending, address(rewardToken), address(stakingToken), address(this));
             }
             compounded = compounded + _pending;
 
             stake.amount = stake.amount + _pending;
             stake.rewardDebt = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR;
-            stake.reflectionDebt = stake.reflectionDebt + (_pending * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+            stake.reflectionDebt = stake.reflectionDebt + (_pending * accDividendPerShare) / PRECISION_FACTOR;
         }
 
         if (pending > 0) {
@@ -530,28 +503,25 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
             if (stake.stakeType != _stakeType) continue;
             if (stake.amount == 0) continue;
 
-            uint256 pending = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt;
+            uint256 pending = (stake.amount * accDividendPerShare) / PRECISION_FACTOR - stake.reflectionDebt;
             uint256 _pending = estimateDividendAmount(pending);
             totalReflections = totalReflections - pending;
             emit CompoundDividend(msg.sender, _stakeType, _pending);
 
             if (address(stakingToken) != address(dividendToken) && _pending > 0) {
                 if (address(dividendToken) == address(0x0)) {
-                    address wethAddress = IUniRouter02(uniRouterAddress).WETH();
-                    IWETH(wethAddress).deposit{value: _pending}();
+                    IWETH(WNATIVE).deposit{value: pending}();
+
+                    _pending = _safeSwap(pending, WNATIVE, address(stakingToken), address(this));
+                } else {
+                    _pending = _safeSwap(pending, dividendToken, address(stakingToken), address(this));
                 }
-
-                uint256 _beforeAmount = stakingToken.balanceOf(address(this));
-                _safeSwap(_pending, reflectionToStakedPath, address(this));
-                uint256 _afterAmount = stakingToken.balanceOf(address(this));
-
-                _pending = _afterAmount - _beforeAmount;
             }
 
             compounded = compounded + _pending;
             stake.amount = stake.amount + _pending;
             stake.rewardDebt += (_pending * lockup.accTokenPerShare) / PRECISION_FACTOR;
-            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
+            stake.reflectionDebt = (stake.amount * accDividendPerShare) / PRECISION_FACTOR;
         }
 
         if (compounded > 0) {
@@ -618,10 +588,10 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
      * @notice Available amount of reward token
      */
     function availableRewardTokens() public view returns (uint256) {
-        if (address(earnedToken) == address(dividendToken)) return totalEarned;
+        if (address(rewardToken) == address(dividendToken)) return totalEarned;
 
-        uint256 _amount = earnedToken.balanceOf(address(this));
-        if (address(earnedToken) == address(stakingToken)) {
+        uint256 _amount = rewardToken.balanceOf(address(this));
+        if (address(rewardToken) == address(stakingToken)) {
             if (_amount < totalStaked) return 0;
             return _amount - totalStaked;
         }
@@ -639,7 +609,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
 
         uint256 _amount = IERC20(dividendToken).balanceOf(address(this));
 
-        if (address(dividendToken) == address(earnedToken)) {
+        if (address(dividendToken) == address(rewardToken)) {
             if (_amount < totalEarned) return 0;
             _amount = _amount - totalEarned;
         }
@@ -740,12 +710,11 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
 
         uint256 sTokenBal = totalStaked;
         uint256 eTokenBal = availableRewardTokens();
-        if (address(stakingToken) == address(earnedToken)) {
+        if (address(stakingToken) == address(rewardToken)) {
             sTokenBal = sTokenBal + eTokenBal;
         }
 
-        uint256 adjustedReflectionPerShare =
-            accDividendPerShare + ((reflectionAmount * PRECISION_FACTOR_REFLECTION) / sTokenBal);
+        uint256 adjustedReflectionPerShare = accDividendPerShare + ((reflectionAmount * PRECISION_FACTOR) / sTokenBal);
 
         uint256 pendingReflection = 0;
         for (uint256 i = 0; i < stakes.length; i++) {
@@ -754,7 +723,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
             if (stake.amount == 0) continue;
 
             pendingReflection = pendingReflection
-                + ((stake.amount * adjustedReflectionPerShare) / PRECISION_FACTOR_REFLECTION - stake.reflectionDebt);
+                + ((stake.amount * adjustedReflectionPerShare) / PRECISION_FACTOR - stake.reflectionDebt);
         }
         return pendingReflection;
     }
@@ -779,9 +748,9 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
     function depositRewards(uint256 _amount) external onlyOwner nonReentrant {
         require(_amount > 0, "invalid amount");
 
-        uint256 beforeAmt = earnedToken.balanceOf(address(this));
-        earnedToken.safeTransferFrom(msg.sender, address(this), _amount);
-        uint256 afterAmt = earnedToken.balanceOf(address(this));
+        uint256 beforeAmt = rewardToken.balanceOf(address(this));
+        rewardToken.safeTransferFrom(msg.sender, address(this), _amount);
+        uint256 afterAmt = rewardToken.balanceOf(address(this));
 
         totalEarned = totalEarned + afterAmt - beforeAmt;
     }
@@ -793,9 +762,9 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
 
         _updatePool(_stakeType);
 
-        uint256 beforeAmt = earnedToken.balanceOf(address(this));
-        earnedToken.safeTransferFrom(msg.sender, address(this), _amount);
-        uint256 afterAmt = earnedToken.balanceOf(address(this));
+        uint256 beforeAmt = rewardToken.balanceOf(address(this));
+        rewardToken.safeTransferFrom(msg.sender, address(this), _amount);
+        uint256 afterAmt = rewardToken.balanceOf(address(this));
 
         totalEarned = totalEarned + afterAmt - beforeAmt;
 
@@ -835,7 +804,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
         require(block.number > bonusEndBlock, "Pool is running");
         require(availableRewardTokens() >= _amount, "Insufficient reward tokens");
 
-        earnedToken.safeTransfer(address(msg.sender), _amount);
+        rewardToken.safeTransfer(address(msg.sender), _amount);
         if (totalEarned > 0) {
             if (_amount > totalEarned) {
                 totalEarned = 0;
@@ -852,7 +821,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
      * @dev This function is only callable by admin.
      */
     function recoverWrongTokens(address _tokenAddress, uint256 _tokenAmount) external onlyOwner {
-        require(_tokenAddress != address(earnedToken) || _tokenAddress == dividendToken, "Cannot be reward token");
+        require(_tokenAddress != address(rewardToken) || _tokenAddress == dividendToken, "Cannot be reward token");
 
         if (_tokenAddress == address(stakingToken)) {
             uint256 tokenBal = stakingToken.balanceOf(address(this));
@@ -888,7 +857,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
             remainRewards = remainRewards - shouldTotalPaid;
-            earnedToken.transfer(msg.sender, remainRewards);
+            rewardToken.transfer(msg.sender, remainRewards);
             _updateEarned(remainRewards);
         }
 
@@ -1009,23 +978,17 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
         emit DurationUpdated(_duration);
     }
 
-    function setSettings(
-        uint256 _slippageFactor,
-        address _uniRouter,
-        address[] memory _earnedToStakedPath,
-        address[] memory _reflectionToStakedPath,
-        address _feeAddr
-    ) external onlyOwner {
-        require(_slippageFactor <= slippageFactorUL, "_slippageFactor too high");
-        require(_feeAddr != address(0x0), "Invalid Address");
+    /**
+     * @notice Update swap aggregator.
+     * @param _aggregator: swap Aggregator address
+     */
+    function setSwapAggregator(address _aggregator) external onlyOwner {
+        require(_aggregator != address(0x0), "Invalid address");
+        require(IBrewlabsAggregator(_aggregator).WNATIVE() != address(0x0), "Invalid swap aggregator");
 
-        slippageFactor = _slippageFactor;
-        uniRouterAddress = _uniRouter;
-        reflectionToStakedPath = _reflectionToStakedPath;
-        earnedToStakedPath = _earnedToStakedPath;
-        walletA = _feeAddr;
-
-        emit SetSettings(_slippageFactor, _uniRouter, _earnedToStakedPath, _reflectionToStakedPath, _feeAddr);
+        swapAggregator = IBrewlabsAggregator(_aggregator);
+        WNATIVE = IBrewlabsAggregator(_aggregator).WNATIVE();
+        emit SetSwapAggregator(_aggregator);
     }
 
     function setWhitelist(address _whitelist) external onlyOwner {
@@ -1048,11 +1011,11 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
 
             uint256 sTokenBal = totalStaked;
             uint256 eTokenBal = availableRewardTokens();
-            if (address(stakingToken) == address(earnedToken)) {
+            if (address(stakingToken) == address(rewardToken)) {
                 sTokenBal = sTokenBal + eTokenBal;
             }
 
-            accDividendPerShare += (reflectionAmount * PRECISION_FACTOR_REFLECTION) / sTokenBal;
+            accDividendPerShare += (reflectionAmount * PRECISION_FACTOR) / sTokenBal;
 
             reflections += (reflectionAmount * eTokenBal) / sTokenBal;
             totalReflections += reflectionAmount;
@@ -1112,14 +1075,26 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
         }
     }
 
-    function _safeSwap(uint256 _amountIn, address[] memory _path, address _to) internal {
-        uint256[] memory amounts = IUniRouter02(uniRouterAddress).getAmountsOut(_amountIn, _path);
-        uint256 amountOut = amounts[amounts.length - 1];
+    function _safeSwap(uint256 _amountIn, address _fromToken, address _toToken, address _to)
+        internal
+        returns (uint256)
+    {
+        IBrewlabsAggregator.FormattedOffer memory query =
+            swapAggregator.findBestPath(_amountIn, _fromToken, _toToken, 3);
 
-        IERC20(_path[0]).safeApprove(uniRouterAddress, _amountIn);
-        IUniRouter02(uniRouterAddress).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            _amountIn, (amountOut * slippageFactor) / PERCENT_PRECISION, _path, _to, block.timestamp + 600
-        );
+        IBrewlabsAggregator.Trade memory _trade;
+        _trade.amountIn = _amountIn;
+        _trade.amountOut = query.amounts[query.amounts.length - 1];
+        _trade.adapters = query.adapters;
+        _trade.path = query.path;
+
+        IERC20(_fromToken).safeApprove(address(swapAggregator), _amountIn);
+
+        uint256 beforeAmount = IERC20(_toToken).balanceOf(_to);
+        swapAggregator.swapNoSplit(_trade, _to);
+        uint256 afterAmount = IERC20(_toToken).balanceOf(_to);
+
+        return afterAmount - beforeAmount;
     }
 
     receive() external payable {}
