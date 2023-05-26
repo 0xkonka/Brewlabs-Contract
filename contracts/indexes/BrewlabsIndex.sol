@@ -9,7 +9,6 @@ import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Hol
 
 import {AggregatorV3Interface} from "../libs/AggregatorV3Interface.sol";
 import {IBrewlabsAggregator} from "../libs/IBrewlabsAggregator.sol";
-import {IUniRouter02} from "../libs/IUniRouter02.sol";
 import {IWETH} from "../libs/IWETH.sol";
 
 interface IBrewlabsIndexFactory {
