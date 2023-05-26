@@ -16,6 +16,8 @@ interface IBrewlabsAggregator {
         uint256 gasEstimate;
     }
 
+    function WNATIVE() external view returns (address);
+    function BREWS_FEE() external view returns (uint256);
     function findBestPath(uint256 _amountIn, address _tokenIn, address _tokenOut, uint256 _maxSteps)
         external
         view

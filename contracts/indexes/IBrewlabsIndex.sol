@@ -9,8 +9,6 @@ interface IBrewlabsIndex {
         IERC20[] memory tokens,
         IERC721 indexNft,
         IERC721 deployerNft,
-        address router,
-        address[][] memory paths,
         uint256 fee,
         address owner,
         address deployer
@@ -33,8 +31,7 @@ interface IBrewlabsIndex {
     function treasury() external view returns (address);
     function commissionWallet() external view returns (address);
 
-    function swapRouter() external view returns (address);
-    function getSwapPath(uint256 index, bool isZapIn) external view returns (address[] memory);
+    function swapAggregator() external view returns (address);
 
     function userInfo(address user) external view returns (uint256[] memory amounts, uint256 usdAmount);
     function nftInfo(uint256 tokenId)

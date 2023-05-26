@@ -46,7 +46,6 @@ contract BrewlabsIndexFactoryTest is Test {
         address[] tokens,
         address indexNft,
         address deployerNft,
-        address swapRouter,
         address deployer
     );
     event SetIndexNft(address newNftAddr);
@@ -264,15 +263,15 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Not enough fee");
-        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+        factory.createBrewlabsIndex(tokens, 200);
 
         address[] memory _tokens = new address[](2);
         _tokens[0] = address(token0);
         _tokens[1] = address(token1);
 
         vm.expectEmit(false, false, false, true);
-        emit IndexCreated(address(0), 0, 1, _tokens, address(indexNft), address(deployerNft), swapRouter, deployer);
-        address index = factory.createBrewlabsIndex{value: 1 ether}(tokens, swapRouter, _paths, 200);
+        emit IndexCreated(address(0), 0, 1, _tokens, address(indexNft), address(deployerNft), deployer);
+        address index = factory.createBrewlabsIndex{value: 1 ether}(tokens, 200);
 
         assertEq(IBrewlabsIndex(index).deployer(), deployer);
         assertEq(IBrewlabsIndex(index).owner(), indexOwner);
@@ -309,8 +308,8 @@ contract BrewlabsIndexFactoryTest is Test {
         _tokens[1] = address(token1);
 
         vm.expectEmit(false, false, false, true);
-        emit IndexCreated(address(0), 0, 1, _tokens, address(indexNft), address(deployerNft), swapRouter, deployer);
-        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+        emit IndexCreated(address(0), 0, 1, _tokens, address(indexNft), address(deployerNft), deployer);
+        factory.createBrewlabsIndex(tokens, 200);
     }
 
     function test_createBrewlabsIndexInNoFee() public {
@@ -337,8 +336,8 @@ contract BrewlabsIndexFactoryTest is Test {
         _tokens[1] = address(token1);
 
         vm.expectEmit(false, false, false, true);
-        emit IndexCreated(address(0), 0, 1, _tokens, address(indexNft), address(deployerNft), swapRouter, deployer);
-        address index = factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+        emit IndexCreated(address(0), 0, 1, _tokens, address(indexNft), address(deployerNft), deployer);
+        address index = factory.createBrewlabsIndex(tokens, 200);
 
         assertEq(IBrewlabsIndex(index).deployer(), deployer);
         assertEq(IBrewlabsIndex(index).owner(), indexOwner);
@@ -367,7 +366,7 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Not initialized yet");
-        _factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+        _factory.createBrewlabsIndex(tokens, 200);
         vm.stopPrank();
     }
 
@@ -388,50 +387,7 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Exceed token limit");
-        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
-        vm.stopPrank();
-    }
-
-    function test_failCreateBrewlabsIndexInInvalidConfig() public {
-        vm.deal(deployer, 10 ether);
-
-        address[] memory tokens = new address[](3);
-        tokens[0] = token0;
-        tokens[1] = token1;
-        tokens[2] = token0;
-
-        address[][] memory _paths = new address[][](2);
-        _paths[0] = new address[](2);
-        _paths[1] = new address[](2);
-        _paths[0][0] = WBNB;
-        _paths[0][1] = token0;
-        _paths[1][0] = WBNB;
-        _paths[1][1] = token1;
-
-        vm.startPrank(deployer);
-        vm.expectRevert("Invalid token config");
-        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
-        vm.stopPrank();
-    }
-
-    function test_failCreateBrewlabsIndexInInvalidRouter() public {
-        vm.deal(deployer, 10 ether);
-
-        address[] memory tokens = new address[](2);
-        tokens[0] = token0;
-        tokens[1] = token1;
-
-        address[][] memory _paths = new address[][](2);
-        _paths[0] = new address[](2);
-        _paths[1] = new address[](2);
-        _paths[0][0] = WBNB;
-        _paths[0][1] = token0;
-        _paths[1][0] = WBNB;
-        _paths[1][1] = token1;
-
-        vm.startPrank(deployer);
-        vm.expectRevert("Invalid router");
-        factory.createBrewlabsIndex(tokens, address(0x0), _paths, 200);
+        factory.createBrewlabsIndex(tokens, 200);
         vm.stopPrank();
     }
 
@@ -452,7 +408,7 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Cannot exeed fee limit");
-        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 2000);
+        factory.createBrewlabsIndex(tokens, 2000);
         vm.stopPrank();
     }
 
@@ -473,7 +429,7 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Cannot use same token");
-        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+        factory.createBrewlabsIndex(tokens, 200);
         vm.stopPrank();
     }
 
@@ -494,7 +450,7 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Invalid token");
-        factory.createBrewlabsIndex(tokens, swapRouter, _paths, 200);
+        factory.createBrewlabsIndex(tokens, 200);
         vm.stopPrank();
     }
 
