@@ -196,7 +196,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             _withdrawFee,
             lastRewardBlock,
             lastRewardBlock + _duration * BLOCKS_PER_DAY
-            );
+        );
     }
 
     // Update the given pool's brews allocation point and deposit fee. Can only be called by the owner.
@@ -242,7 +242,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             _withdrawFee,
             poolInfo[_pid].startBlock,
             poolInfo[_pid].bonusEndBlock
-            );
+        );
     }
 
     // Update the given pool's compound parameters. Can only be called by the owner.

@@ -144,7 +144,7 @@ contract BrewlabsFarmFactoryTest is Test {
         vm.expectEmit(false, false, false, true);
         emit FarmCreated(
             address(0), 0, 1, address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
-            );
+        );
         address farm = factory.createBrewlabsFarm{value: 1 ether}(
             address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, 365, false
         );
@@ -166,7 +166,7 @@ contract BrewlabsFarmFactoryTest is Test {
         vm.expectEmit(false, false, false, true);
         emit FarmCreated(
             address(0), 0, 1, address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, false, deployer
-            );
+        );
         address farm = factory.createBrewlabsFarm(
             address(lpToken), address(rewardToken), address(0), 1 ether, 100, 100, 365, false
         );

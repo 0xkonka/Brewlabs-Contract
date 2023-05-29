@@ -155,7 +155,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
         emit IndexCreated(
             index, curCategory, version[curCategory], tokens, address(indexNft), address(deployerNft), msg.sender
-            );
+        );
     }
 
     function indexCount() external view returns (uint256) {

@@ -139,7 +139,7 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
             withdrawFee,
             hasDividend,
             msg.sender
-            );
+        );
     }
 
     function farmCount() external view returns (uint256) {

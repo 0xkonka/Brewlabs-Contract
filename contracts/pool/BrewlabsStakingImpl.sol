@@ -150,7 +150,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         MAX_FEE = 2000;
 
         duration = 365; // 365 days
-        if(_duration > 0) duration = _duration;
+        if (_duration > 0) duration = _duration;
 
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         performanceFee = 0.0035 ether;
@@ -515,7 +515,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         return _amount;
     }
 
-    function insufficientRewards() external view returns (uint256) {
+    function insufficientRewards() public view returns (uint256) {
         uint256 adjustedShouldTotalPaid = shouldTotalPaid;
         uint256 remainRewards = availableRewardTokens() + paidRewards;
 
@@ -682,6 +682,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
 
     function startReward() external onlyAdmin {
         require(startBlock == 0, "Pool was already started");
+        require(insufficientRewards() == 0, "All reward tokens have not been deposited");
 
         startBlock = block.number + 100;
         bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;

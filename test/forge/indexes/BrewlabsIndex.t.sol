@@ -86,14 +86,6 @@ contract BrewlabsIndexTest is Test {
         tokens[0] = token0;
         tokens[1] = token1;
 
-        address[][] memory _paths = new address[][](2);
-        _paths[0] = new address[](2);
-        _paths[1] = new address[](2);
-        _paths[0][0] = WBNB;
-        _paths[0][1] = token0;
-        _paths[1][0] = WBNB;
-        _paths[1][1] = token1;
-
         vm.startPrank(deployer);
         index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, 20)); // 0.2%
         vm.stopPrank();
@@ -156,7 +148,7 @@ contract BrewlabsIndexTest is Test {
         vm.expectEmit(true, false, false, false);
         emit TokenZappedIn(
             user, ethAmount - (brewsFee + deployerFee), percents, _amounts, _usdAmount, brewsFee + deployerFee
-            );
+        );
         index.zapIn{value: ethAmount}(address(0), 0, percents);
 
         (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
@@ -221,7 +213,7 @@ contract BrewlabsIndexTest is Test {
         vm.expectEmit(true, false, false, false);
         emit TokenZappedIn(
             user, ethAmount - (brewsFee + deployerFee), percents, _amounts, _usdAmount, brewsFee + deployerFee
-            );
+        );
         index.zapIn{value: ethAmount}(address(0), 0, percents);
 
         vm.stopPrank();
@@ -259,12 +251,12 @@ contract BrewlabsIndexTest is Test {
         percents[3] = 2000;
         percents[4] = 2000;
 
-        uint256[] memory _amounts = new uint256[](5);        
+        uint256[] memory _amounts = new uint256[](5);
 
         vm.expectEmit(true, false, false, false);
         emit TokenZappedIn(
             user, ethAmount - (brewsFee + deployerFee), percents, _amounts, _usdAmount, brewsFee + deployerFee
-            );
+        );
         index.zapIn{value: ethAmount}(address(0), 0, percents);
 
         vm.stopPrank();
@@ -335,7 +327,7 @@ contract BrewlabsIndexTest is Test {
         vm.expectEmit(true, false, false, false);
         emit TokenZappedIn(
             user, ethAmount - (brewsFee + deployerFee), percents, _amounts, _usdAmount, brewsFee + deployerFee
-            );
+        );
         index.zapIn(USDT, amountIn, percents);
         vm.stopPrank();
     }

@@ -161,7 +161,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             withdrawFee,
             hasDividend,
             msg.sender
-            );
+        );
     }
 
     function createBrewlabsLockupPools(
@@ -241,7 +241,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
                 depositFees[i],
                 withdrawFees[i],
                 msg.sender
-                );
+            );
         }
     }
 
@@ -316,7 +316,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
                 depositFees[i],
                 withdrawFees[i],
                 msg.sender
-                );
+            );
         }
     }
 

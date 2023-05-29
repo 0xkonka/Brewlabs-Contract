@@ -51,7 +51,7 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
 
     function setApprovalForAll(address operator, bool approved)
         public
-        override (ERC721, IERC721)
+        override(ERC721, IERC721)
         onlyAllowedOperatorApproval(operator)
     {
         super.setApprovalForAll(operator, approved);
@@ -59,7 +59,7 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
 
     function approve(address operator, uint256 tokenId)
         public
-        override (ERC721, IERC721)
+        override(ERC721, IERC721)
         onlyAllowedOperatorApproval(operator)
     {
         super.approve(operator, tokenId);
@@ -67,7 +67,7 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
 
     function transferFrom(address from, address to, uint256 tokenId)
         public
-        override (ERC721, IERC721)
+        override(ERC721, IERC721)
         onlyAllowedOperator(from)
     {
         super.transferFrom(from, to, tokenId);
@@ -75,7 +75,7 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
 
     function safeTransferFrom(address from, address to, uint256 tokenId)
         public
-        override (ERC721, IERC721)
+        override(ERC721, IERC721)
         onlyAllowedOperator(from)
     {
         super.safeTransferFrom(from, to, tokenId);
@@ -83,7 +83,7 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
 
     function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data)
         public
-        override (ERC721, IERC721)
+        override(ERC721, IERC721)
         onlyAllowedOperator(from)
     {
         super.safeTransferFrom(from, to, tokenId, data);

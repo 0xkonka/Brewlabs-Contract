@@ -126,7 +126,7 @@ contract BrewlabsTreasury is Ownable {
 
         emit Initialized(
             address(_token), _dividendToken, _uniRouter, _bnbToTokenPath, _bnbToDividendPath, _dividendToTokenPath
-            );
+        );
     }
 
     /**

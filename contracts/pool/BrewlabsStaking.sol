@@ -812,7 +812,7 @@ contract BrewlabsStaking is Ownable, ReentrancyGuard {
 
         emit SetSettings(
             _depositFee, _withdrawFee, _slippageFactor, _uniRouter, _earnedToStakedPath, _reflectionToStakedPath
-            );
+        );
     }
 
     function setWhitelist(address _whitelist) external onlyOwner {

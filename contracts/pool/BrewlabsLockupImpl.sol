@@ -155,7 +155,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         MAX_STAKES = 256;
 
         duration = 365; // 365 days
-        if(_duration > 0) duration = _duration;
+        if (_duration > 0) duration = _duration;
 
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         performanceFee = 0.0035 ether;
@@ -801,7 +801,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
                 lockups[_stakeType].depositFee,
                 lockups[_stakeType].withdrawFee,
                 lockups[_stakeType].rate
-                );
+            );
         }
     }
 

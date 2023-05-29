@@ -130,7 +130,7 @@ contract MetaMerceLockerTest is Test {
         vm.expectEmit(true, false, false, true);
         emit UpdateDistribution(
             distributor, allocAmt, locker.lockDuration(), block.number + locker.lockDuration() * 28800
-            );
+        );
         locker.updateDistribution(distributor, allocation + 1);
 
         (, uint256 amount,,) = locker.distributions(distributor);

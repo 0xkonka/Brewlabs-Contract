@@ -779,7 +779,7 @@ contract BrewlabsLockupPenalty is Ownable, ReentrancyGuard {
                 lockups[_stakeType].depositFee,
                 lockups[_stakeType].withdrawFee,
                 lockups[_stakeType].rate
-                );
+            );
         }
     }
 
