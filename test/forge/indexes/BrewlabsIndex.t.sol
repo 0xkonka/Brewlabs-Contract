@@ -66,8 +66,7 @@ contract BrewlabsIndexTest is Test {
     event SetSettings(address router, address[][] paths);
 
     function setUp() public {
-        mainnetFork = vm.createFork(MAINNET_RPC_URL);
-        vm.selectFork(mainnetFork);
+        mainnetFork = vm.createSelectFork(MAINNET_RPC_URL);
 
         utils = new Utils();
         nft = new MockErc721();
@@ -183,11 +182,6 @@ contract BrewlabsIndexTest is Test {
         tokens[0] = WBNB;
         tokens[1] = token1;
 
-        address[][] memory _paths = new address[][](2);
-        _paths[1] = new address[](2);
-        _paths[1][0] = WBNB;
-        _paths[1][1] = token1;
-
         vm.startPrank(deployer);
         index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, 20)); // 0.2%
         vm.stopPrank();
@@ -223,6 +217,49 @@ contract BrewlabsIndexTest is Test {
             _amounts[1] = query.amounts[query.amounts.length - 1];
             if (fee > 0) _amounts[1] = _amounts[1] * (10000 - fee) / 10000;
         }
+
+        vm.expectEmit(true, false, false, false);
+        emit TokenZappedIn(
+            user, ethAmount - (brewsFee + deployerFee), percents, _amounts, _usdAmount, brewsFee + deployerFee
+            );
+        index.zapIn{value: ethAmount}(address(0), 0, percents);
+
+        vm.stopPrank();
+    }
+
+    function test_zapInForFiveTokens() public {
+        address[] memory tokens = new address[](5);
+        tokens[0] = address(0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82); // cake
+        tokens[1] = address(0xbA2aE424d960c26247Dd6c32edC70B295c744C43); // DOGE
+        tokens[2] = address(0x7083609fCE4d1d8Dc0C979AAb8c869Ea2C873402); // DOT
+        tokens[3] = address(0xbF7c81FFF98BbE61B40Ed186e4AfD6DDd01337fe); // EGLD
+        tokens[4] = address(0x045c4324039dA91c52C55DF5D785385Aab073DcF); // bCFX
+
+        vm.startPrank(deployer);
+        index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, 20)); // 0.2%
+        vm.stopPrank();
+
+        address user = address(0x1234);
+        vm.deal(user, 10 ether);
+
+        vm.startPrank(user);
+
+        uint256 price = index.getPriceFromChainlink();
+        uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
+        uint256 ethAmount = 0.5 ether;
+
+        uint256 brewsFee = (ethAmount * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
+        uint256 deployerFee = (ethAmount * index.fee() * discount) / FEE_DENOMINATOR ** 2;
+        uint256 _usdAmount = (ethAmount - (brewsFee + deployerFee)) * price / 1 ether;
+
+        uint256[] memory percents = new uint256[](5);
+        percents[0] = 2000;
+        percents[1] = 2000;
+        percents[2] = 2000;
+        percents[3] = 2000;
+        percents[4] = 2000;
+
+        uint256[] memory _amounts = new uint256[](5);        
 
         vm.expectEmit(true, false, false, false);
         emit TokenZappedIn(
@@ -497,7 +534,7 @@ contract BrewlabsIndexTest is Test {
 
         uint256 ethAmount = index.estimateEthforUser(user);
         emit log_named_uint("Estimated ETH", ethAmount);
-        uint256 userBalance = user.balance;
+        // uint256 userBalance = user.balance;
 
         uint256 _fee = index.totalFee();
         uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
@@ -598,7 +635,7 @@ contract BrewlabsIndexTest is Test {
         (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
 
         uint256 ethAmount = index.estimateEthforUser(user);
-        uint256 userBalance = IERC20(USDT).balanceOf(user);
+        // uint256 userBalance = IERC20(USDT).balanceOf(user);
 
         uint256 _fee = index.totalFee();
         uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);

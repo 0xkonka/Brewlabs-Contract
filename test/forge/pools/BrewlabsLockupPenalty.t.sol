@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 // import "forge-std/console.sol";       // use like hardhat console.log
-import {MockErc20} from "../../contracts/mocks/MockErc20.sol";
-import {BrewlabsLockupPenalty, IERC20} from "../../contracts/pool/BrewlabsLockupPenalty.sol";
-import {Utils} from "./utils/Utils.sol";
+import {MockErc20} from "../../../contracts/mocks/MockErc20.sol";
+import {BrewlabsLockupPenalty, IERC20} from "../../../contracts/pool/BrewlabsLockupPenalty.sol";
+import {Utils} from "../utils/Utils.sol";
 
 contract BrewlabsLockupPenaltyBase is Test {
     MockErc20 internal token;
