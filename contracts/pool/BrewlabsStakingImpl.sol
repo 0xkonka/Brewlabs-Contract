@@ -131,6 +131,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         IERC20 _stakingToken,
         IERC20 _rewardToken,
         address _dividendToken,
+        uint256 _duration,
         uint256 _rewardPerBlock,
         uint256 _depositFee,
         uint256 _withdrawFee,
@@ -149,6 +150,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         MAX_FEE = 2000;
 
         duration = 365; // 365 days
+        if(_duration > 0) duration = _duration;
 
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         performanceFee = 0.0035 ether;

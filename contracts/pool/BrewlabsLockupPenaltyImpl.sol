@@ -141,6 +141,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
         IERC20 _stakingToken,
         IERC20 _earnedToken,
         address _dividendToken,
+        uint256 _duration,
         uint256 _penaltyFee,
         address _owner,
         address _deployer
@@ -156,6 +157,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
         MAX_STAKES = 256;
 
         duration = 365; // 365 days
+        if(_duration > 0) duration = _duration;
 
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         performanceFee = 0.0035 ether;

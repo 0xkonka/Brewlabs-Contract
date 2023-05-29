@@ -97,6 +97,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         IERC20 stakingToken,
         IERC20 rewardToken,
         address dividendToken,
+        uint256 duration,
         uint256 rewardPerBlock,
         uint256 depositFee,
         uint256 withdrawFee,
@@ -119,10 +120,11 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             pool = Clones.cloneDeterministic(implementation[0], salt);
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
-                    "initialize(address,address,address,uint256,uint256,uint256,bool,address,address)",
+                    "initialize(address,address,address,uint256,uint256,uint256,uint256,bool,address,address)",
                     stakingToken,
                     rewardToken,
                     dividendToken,
+                    duration,
                     rewardPerBlock,
                     depositFee,
                     withdrawFee,
@@ -166,7 +168,8 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         address stakingToken,
         address rewardToken,
         address dividendToken,
-        uint256[] memory durations,
+        uint256 duration,
+        uint256[] memory lockDurations,
         uint256[] memory rewardsPerBlock,
         uint256[] memory depositFees,
         uint256[] memory withdrawFees
@@ -184,24 +187,25 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             pool = Clones.cloneDeterministic(implementation[1], salt);
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
-                    "initialize(address,address,address,address,address)",
+                    "initialize(address,address,address,uint256,address,address)",
                     stakingToken,
                     rewardToken,
                     dividendToken,
+                    duration,
                     poolDefaultOwner,
                     msg.sender
                 )
             );
             require(success, "Initialization failed");
         }
-        for (uint256 i = 0; i < durations.length; i++) {
+        for (uint256 i = 0; i < lockDurations.length; i++) {
             require(depositFees[i] < 2000, "Invalid deposit fee");
             require(withdrawFees[i] < 2000, "Invalid withdraw fee");
             {
                 (bool success,) = pool.call(
                     abi.encodeWithSignature(
                         "addLockup(uint256,uint256,uint256,uint256,uint256)",
-                        durations[i],
+                        lockDurations[i],
                         depositFees[i],
                         withdrawFees[i],
                         rewardsPerBlock[i],
@@ -232,7 +236,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
                 address(rewardToken),
                 dividendToken,
                 i,
-                durations[i],
+                lockDurations[i],
                 rewardsPerBlock[i],
                 depositFees[i],
                 withdrawFees[i],
@@ -245,7 +249,8 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         address stakingToken,
         address rewardToken,
         address dividendToken,
-        uint256[] memory durations,
+        uint256 duration,
+        uint256[] memory lockDurations,
         uint256[] memory rewardsPerBlock,
         uint256[] memory depositFees,
         uint256[] memory withdrawFees,
@@ -263,10 +268,11 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             pool = Clones.cloneDeterministic(implementation[2], salt);
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
-                    "initialize(address,address,address,uint256,address,address)",
+                    "initialize(address,address,address,uint256,uint256,address,address)",
                     stakingToken,
                     rewardToken,
                     dividendToken,
+                    duration,
                     penaltyFee,
                     poolDefaultOwner,
                     msg.sender
@@ -275,14 +281,14 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             require(success, "Initialization failed");
         }
 
-        for (uint256 i = 0; i < durations.length; i++) {
+        for (uint256 i = 0; i < lockDurations.length; i++) {
             require(depositFees[i] < 2000, "Invalid deposit fee");
             require(withdrawFees[i] < 2000, "Invalid withdraw fee");
             {
                 (bool success,) = pool.call(
                     abi.encodeWithSignature(
                         "addLockup(uint256,uint256,uint256,uint256,uint256)",
-                        durations[i],
+                        lockDurations[i],
                         depositFees[i],
                         withdrawFees[i],
                         rewardsPerBlock[i],
@@ -305,7 +311,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
                 rewardToken,
                 dividendToken,
                 i,
-                durations[i],
+                lockDurations[i],
                 rewardsPerBlock[i],
                 depositFees[i],
                 withdrawFees[i],
