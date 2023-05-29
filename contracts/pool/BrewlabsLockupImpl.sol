@@ -860,7 +860,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
             remainRewards = remainRewards - shouldTotalPaid;
-            rewardToken.transfer(msg.sender, remainRewards);
+            rewardToken.safeTransfer(msg.sender, remainRewards);
             _updateEarned(remainRewards);
         }
 
@@ -1059,7 +1059,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         if (_token == address(0x0)) {
             payable(_to).transfer(_amount);
         } else {
-            IERC20(_token).transfer(_to, _amount);
+            IERC20(_token).safeTransfer(_to, _amount);
         }
     }
 

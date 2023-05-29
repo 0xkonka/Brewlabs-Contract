@@ -696,7 +696,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
             remainRewards = remainRewards - shouldTotalPaid;
-            rewardToken.transfer(msg.sender, remainRewards);
+            rewardToken.safeTransfer(msg.sender, remainRewards);
 
             if (totalEarned > remainRewards) {
                 totalEarned = totalEarned - remainRewards;
