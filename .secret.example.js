@@ -5,6 +5,7 @@ module.exports = {
     mainnet: "xxxx",
     bsc: "xxxx",
     polygon: "xxxx",
+    arbitrum: "xxxx",
     test: 'xxxx'
   },
 
