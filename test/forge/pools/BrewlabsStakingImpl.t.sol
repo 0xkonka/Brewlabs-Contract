@@ -80,7 +80,7 @@ contract BrewlabsStakingImplTest is Test {
         );
         stakingToken.mint(address(pool), pool.insufficientRewards());
         pool.startReward();
-        
+
         utils.mineBlocks(101);
 
         vm.stopPrank();
@@ -99,8 +99,90 @@ contract BrewlabsStakingImplTest is Test {
         swapAggregator.swapNoSplitFromETH(_trade, to);
     }
 
-    function test_aaa() public {
-        console.log("###########");
+    function tryDeposit(address _user, uint256 _amount) internal {
+        stakingToken.mint(_user, _amount);
+        vm.deal(_user, pool.performanceFee());
+
+        vm.startPrank(_user);
+        stakingToken.approve(address(pool), _amount);
+
+        pool.deposit{value: pool.performanceFee()}(_amount);
+        vm.stopPrank();
+    }
+
+    function test_firstDeposit() public {
+        uint256 treasuryVal = address(pool.treasury()).balance;
+
+        address _user = address(0x1);
+        uint256 _amount = 1 ether;
+        uint256 performanceFee = pool.performanceFee();
+        stakingToken.mint(_user, _amount);
+        vm.deal(_user, performanceFee);
+
+        vm.startPrank(_user);
+        stakingToken.approve(address(pool), _amount);
+
+        uint256 _depositFee = _amount * DEPOSIT_FEE / 10000;
+        vm.expectEmit(true, true, false, true);
+        emit Deposit(_user, _amount - _depositFee);
+        pool.deposit{value: performanceFee}(_amount);
+
+        (uint256 amount, uint256 rewardDebt, uint256 reflectionDebt) = pool.userInfo(address(0x1));
+        assertEq(amount, 1 ether - _depositFee);
+        assertEq(stakingToken.balanceOf(pool.walletA()), _depositFee);
+        assertEq(pool.totalStaked(), 1 ether - _depositFee);
+        assertEq(rewardDebt, 0);
+        assertEq(reflectionDebt, 0);
+        assertEq(address(pool.treasury()).balance - treasuryVal, performanceFee);
+
+        vm.expectRevert(abi.encodePacked("Amount should be greator than 0"));
+        pool.deposit(0);
+        vm.stopPrank();        
+    }
+
+    function test_notFirstDeposit() public {
+        dividendToken.mint(address(pool), 0.1 ether);
+        uint256 rewards = pool.availableRewardTokens();
+
+        tryDeposit(address(0x1), 1 ether);
+
+        utils.mineBlocks(100);
+        
+        (uint256 amount,,) = pool.userInfo(address(0x1));
+        uint256 _reward = 100 * pool.rewardPerBlock();
+        uint256 accTokenPerShare = (_reward * pool.PRECISION_FACTOR()) / amount;
+
+        uint256 pending = pool.pendingReward(address(0x1));
+        uint256 pendingReflection = pool.pendingDividends(address(0x1));
+        assertEq(pending, amount * accTokenPerShare / pool.PRECISION_FACTOR());
+
+        tryDeposit(address(0x1), 1 ether);
+        assertEq(stakingToken.balanceOf(address(0x1)), pending);
+        assertEq(dividendToken.balanceOf(address(0x1)), pendingReflection);
+
+        assertEq(pool.availableDividendTokens(), 0.1 ether - pendingReflection);
+        assertEq(pool.availableRewardTokens(), rewards - pending);
+        assertEq(pool.paidRewards(), pending);
+    }
+
+    function testFailed_depositInNotStaredPool() public {
+        BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
+            payable(
+                factory.createBrewlabsSinglePool(
+                    stakingToken, rewardToken, address(0x0), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, false
+                )
+            )
+        );
+
+
+        stakingToken.mint(address(0x1), 1 ether);
+        vm.deal(address(0x1), _pool.performanceFee());
+
+        vm.startPrank(address(0x1));
+        stakingToken.approve(address(_pool), 1 ether);
+
+        pool.deposit{value: _pool.performanceFee()}(1 ether);
+        vm.stopPrank();
     }
 
     receive() external payable {}
