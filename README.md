@@ -50,9 +50,7 @@ yarn install
 ```
 
 2. Install forge
-You will need the Rust compiler and Cargo, the Rust package manager. The easiest way to install both is with [**Rust Compiler**](https://rustup.rs/).
-
-On Windows, you will also need a recent version of Visual Studio, installed with the "Desktop Development With C++" Workloads option.
+You will need the Rust compiler and Cargo, the Rust package manager. The easiest way to install both is with [**Rust Compiler**](https://rustup.rs/). On Windows, you will also need a recent version of Visual Studio, installed with the "Desktop Development With C++" Workloads option.
 
 ```sh
 cargo install --git https://github.com/foundry-rs/foundry --profile local --force foundry-cli anvil chisel
