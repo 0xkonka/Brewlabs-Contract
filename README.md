@@ -1,53 +1,50 @@
-# Brewlabs Staking
-Smart Contracts for Brewlabs Staking
+# Brewlabs Contracts
+This repository includes all smart contracts for Brewlabs products.
 
-## Pools
-### Brewlabs Pool A
+## Architecture
+```ml
+airdrop
+├─ BrewlabsAirdrop           — "Airdrop contract for Brewlabs Airdrop Tool"
+├─ BrewlabsAirdropNft        — "NFT Airdrop contract for Brewlabs Airdrop Tool"
+farm
+├─ BrewlabsFarm              — "Normal farm contract"
+├─ BrewlabsFarmFactory       — "Factory for farm auto deployment"
+├─ BrewlabsFarmImpl          — "Farm implementation for farm factory"
+indexes
+├─ BrewlabsDeployNft         — "NFT that holds commission of Brewlabs Index"
+├─ BrewlabsFlaskNft          — "Brewlabs NFT series"
+├─ BrewlabsIndex             — "Brewlabs Index logic implementation"
+├─ BrewlabsIndexFactory      — "Factory contract for Brewlabs Index"
+├─ BrewlabsIndexNft          — "NFT that holds index tokens"
+├─ BrewlabsNftDiscountMgr    — "NFT discount manager"
+libs
+├─ ...                       — "Libraries that are used in contracts"
+mocks
+├─ ...                       — "Mock contracts for unit test"
+others
+├─ ...                       — "Includes contracts for external services"
+pool
+├─ BrewlabsLockup            — "Normal lockup staking pool"
+├─ BrewlabsLockupFee         — "Lockup staking pool with fee"
+├─ BrewlabsLockupFixed       — "Lockup staking pool with fixed reward rate"
+├─ BrewlabsLockupMulti       — "Lockup staking pool for token with multiple reflections"
+├─ BrewlabsLockupPenalty     — "Lockup staking pool with penalty fee"
+├─ BrewlabsStaking           — "Normal staking pool"
+├─ BrewlabsPoolFactory       — "Factory contract that can deploy single staking or lockup staking automatically"
+├─ BrewlabsStakingImpl       — "Single staking implementation"
+├─ BrewlabsLockupImpl        — "Lockup staking implementation"
+├─ BrewlabsLockupPenaltyImpl — "Lockup penalty implementation"
+BrewlabsConfig               — "Farm, Pool registrerar"
+BrewlabsLiquidity            — "Liquidity manager. Users can add/remove liquidity via a contract"
+...
+```
 
-Stake Brewlabs Earn Brewlabs + reflections (compound and harvest options)
+## Development
 
-- Duration 365 Days
-- Liquidity 2%
-- 2% deposit fee
-    - 2% send to "Address A"
-- 4% withdrawal fee 
-    - 3% send to "Address A"
-    - 1% sent to burn address
+### Setup
 
-### Brewlabs Pool B
+### Build
 
-Stake Brewlabs Earn Brewlabs + relfections (compound and harvest options) lock up 30 days
+### Run tests
 
-- Duration 365 Days
-- Liquidity 1%
-- No deposit fees
-- 2% withdrawal fee 
-    - 2% send to "Address A"
-
-### Brewlabs Pool C
-
-Stake Brewlabs Earn Brewlabs + relfections (compound and harvest options) lock up 90 days
-
-- Duration 365 Days
-- Liquidity 1.5%
-- No deposit fees
-- 1% withdrawal fee 
-    - 1% send to "Address A"
-
-### Brewlabs Pool D
-
-Stake Brewlabs Earn Brewlabs + relfections (compound and harvest options) lock up 180 days
-    
-- Duration 365 Days
-- Liquidity 2%
-- No deposit fees
-- No withdrawal fees
-
-### Brewlabs Pool E (KODI)
-
-Stake Brewlabs Earn Brewlabs + reflections (compound and harvest options)
-    
-- Duration 60 Days
-- Liquidity 2%
-- No deposit fees
-- No withdrawal fees
+### Contract deployment

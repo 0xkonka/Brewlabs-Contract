@@ -16,6 +16,7 @@ contract BrewlabsStakingImplTest is Test {
 
     address internal poolOwner = address(0x111);
     address internal deployer = address(0x123);
+
     uint256 internal FEE_DENOMINATOR = 10000;
     uint256 internal DEPOSIT_FEE = 10;
     uint256 internal WITHDRAW_FEE = 20;
