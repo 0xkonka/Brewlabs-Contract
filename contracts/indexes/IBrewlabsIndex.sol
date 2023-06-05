@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
+import {IBrewlabsAggregator} from "../libs/IBrewlabsAggregator.sol";
+
 interface IBrewlabsIndex {
     function initialize(
         IERC20[] memory tokens,
@@ -46,8 +48,11 @@ interface IBrewlabsIndex {
     function getPendingCommissions() external view returns (uint256[] memory);
     function totalCommissions() external view returns (uint256);
 
-    function zapIn(address token, uint256 amount, uint256[] memory percents) external payable;
-    function zapOut(address token) external;
+    function precomputeZapIn(address _token, uint256 _amount, uint256[] memory _percents) external view returns( IBrewlabsAggregator.FormattedOffer[] memory queries);
+    function precomputeZapOut(address _token) external view returns( IBrewlabsAggregator.FormattedOffer[] memory queries);
+
+    function zapIn(address token, uint256 amount, uint256[] memory percents, IBrewlabsAggregator.Trade[] memory _trades) external payable;
+    function zapOut(address token, IBrewlabsAggregator.Trade[] memory _trades) external;
     function claimTokens(uint256 percent) external;
     function mintNft() external payable returns (uint256);
     function stakeNft(uint256 tokenId) external payable;
@@ -57,7 +62,7 @@ interface IBrewlabsIndex {
     function unstakeDeployerNft() external payable;
 
     function setFee(uint256 fee) external;
-    function setSwapSettings(address router, address[][] memory paths) external;
+    function setSwapAggregator(address aggregator) external;
 
     function setServiceInfo(address treasury, uint256 fee) external;
     function rescueTokens(address token) external;

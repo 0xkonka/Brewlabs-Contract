@@ -163,24 +163,47 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         _transferOwnership(_owner);
     }
 
+    function precomputeZapIn(address _token, uint256 _amount, uint256[] memory _percents) external view returns( IBrewlabsAggregator.FormattedOffer[] memory queries){
+        queries = new IBrewlabsAggregator.FormattedOffer[](NUM_TOKENS + 1);
+        uint256 ethAmount = _amount;
+        if(_token != address(0x0)) {
+            queries[0] = swapAggregator.findBestPath(_amount, _token, WNATIVE, 3);
+            ethAmount = queries[0].amounts[queries[0].amounts.length - 1];
+        }
+
+        for (uint8 i = 0; i < NUM_TOKENS; i++) {
+            uint256 amountIn;
+            if( i < _percents.length ) {
+                amountIn = (ethAmount * _percents[i]) / FEE_DENOMINATOR;
+            }
+            if (amountIn == 0) continue;
+            if (address(tokens[i]) == WNATIVE) continue;
+            
+            queries[i + 1] = swapAggregator.findBestPath(amountIn, WNATIVE, address(tokens[i]), 3);
+        }
+    }
+
     /**
      * @notice Buy tokens by paying ETH and lock tokens in contract.
      *         When buy tokens, should pay processing fee(brewlabs fixed fee + deployer fee).
      * @param _percents: list of ETH allocation points to buy tokens
      */
-    function zapIn(address _token, uint256 _amount, uint256[] memory _percents)
+    function zapIn(address _token, uint256 _amount, uint256[] memory _percents, IBrewlabsAggregator.Trade[] memory _trades)
         external
         payable
         onlyInitialized
         nonReentrant
     {
+        require(_percents.length == NUM_TOKENS, "Invalid percents");
+        require(_trades.length == NUM_TOKENS + 1, "Invalid trade config");
+
         uint256 totalPercentage = 0;
         for (uint8 i = 0; i < NUM_TOKENS; i++) {
             totalPercentage += _percents[i];
         }
         require(totalPercentage <= FEE_DENOMINATOR, "Total percentage cannot exceed 10000");
 
-        uint256 ethAmount = _beforeZapIn(_token, _amount);
+        uint256 ethAmount = _beforeZapIn(_token, _amount, _trades[0]);
 
         // pay brewlabs fee
         uint256 discount = _getDiscount(msg.sender);
@@ -204,7 +227,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
                 IWETH(WNATIVE).deposit{value: amountIn}();
                 amountOuts[i] = amountIn;
             } else {
-                amountOuts[i] = _safeSwapEth(amountIn, address(tokens[i]), address(this));
+                amountOuts[i] = _safeSwapEth(amountIn, address(tokens[i]), address(this), _trades[i + 1]);
             }
 
             if (user.amounts.length == 0) {
@@ -226,7 +249,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         }
     }
 
-    function _beforeZapIn(address _token, uint256 _amount) internal returns (uint256 amount) {
+    function _beforeZapIn(address _token, uint256 _amount, IBrewlabsAggregator.Trade memory _trade) internal returns (uint256 amount) {
         if (_token == address(0x0)) return msg.value;
 
         uint8 allowedMethod = factory.allowedTokens(_token);
@@ -234,7 +257,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         require(_amount > 1000, "Not enough amount");
 
         IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
-        amount = _safeSwapForETH(_amount, _token);
+        amount = _safeSwapForETH(_amount, _token, _trade);
     }
 
     /**
@@ -287,26 +310,49 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         emit TokenClaimed(msg.sender, amounts, claimedUsdAmount, commission);
     }
 
+    function precomputeZapOut(address _token) external view returns( IBrewlabsAggregator.FormattedOffer[] memory queries){
+        queries = new IBrewlabsAggregator.FormattedOffer[](NUM_TOKENS + 1);
+
+        uint256 ethAmount = 0;
+        UserInfo memory user = users[msg.sender];
+        for (uint256 i = 0; i < NUM_TOKENS; i++) {
+            if(user.amounts[i] == 0) continue;
+            if (address(tokens[i]) == WNATIVE) {
+                ethAmount += user.amounts[i];
+                continue;
+            }
+
+            queries[i] = swapAggregator.findBestPath(user.amounts[i], address(tokens[i]), WNATIVE, 3);
+            ethAmount += queries[i].amounts[queries[i].amounts.length - 1];
+        }
+
+        if(_token != address(0x0)) {
+            queries[NUM_TOKENS] = swapAggregator.findBestPath(ethAmount, WNATIVE, _token, 3);
+        }
+    }
+
     /**
      * @notice Sale tokens from contract and claim ETH.
      *         If the user exits the index in a loss then there is no fee.
      *         If the user exists the index in a profit, processing fee will be applied.
      */
-    function zapOut(address _token) external onlyInitialized nonReentrant {
+    function zapOut(address _token, IBrewlabsAggregator.Trade[] memory _trades) external onlyInitialized nonReentrant {
         UserInfo storage user = users[msg.sender];
         require(user.usdAmount > 0, "No available tokens");
+        require(_trades.length == NUM_TOKENS + 1, "Invalid trade config");
 
         uint256 ethAmount;
         for (uint256 i = 0; i < NUM_TOKENS; i++) {
             uint256 claimAmount = user.amounts[i];
             totalStaked[i] -= claimAmount;
+            if(user.amounts[i] == 0) continue;
 
             uint256 amountOut;
             if (address(tokens[i]) == WNATIVE) {
                 amountOut = claimAmount;
                 IWETH(WNATIVE).withdraw(amountOut);
             } else {
-                amountOut = _safeSwapForETH(claimAmount, address(tokens[i]));
+                amountOut = _safeSwapForETH(claimAmount, address(tokens[i]), _trades[i]);
             }
             ethAmount += amountOut;
         }
@@ -331,10 +377,10 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         emit TokenZappedOut(msg.sender, user.amounts, ethAmount, commission);
         delete users[msg.sender];
 
-        _afterZapOut(_token, msg.sender, ethAmount);
+        _afterZapOut(_token, msg.sender, ethAmount, _trades[NUM_TOKENS]);
     }
 
-    function _afterZapOut(address _token, address _to, uint256 _amount) internal {
+    function _afterZapOut(address _token, address _to, uint256 _amount, IBrewlabsAggregator.Trade memory _trade) internal {
         if (_token == address(0x0)) {
             payable(_to).transfer(_amount);
             return;
@@ -343,7 +389,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         uint8 allowedMethod = factory.allowedTokens(_token);
         require(allowedMethod > 0, "Cannot zap out with this token");
 
-        _safeSwapEth(_amount, _token, _to);
+        _safeSwapEth(_amount, _token, _to, _trade);
     }
 
     /**
@@ -628,14 +674,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      * @param _token: to token
      * @param _to: receiver address
      */
-    function _safeSwapEth(uint256 _amountIn, address _token, address _to) internal returns (uint256) {
-        IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(_amountIn, WNATIVE, _token, 3);
-
-        IBrewlabsAggregator.Trade memory _trade;
+    function _safeSwapEth(uint256 _amountIn, address _token, address _to, IBrewlabsAggregator.Trade memory _trade) internal returns (uint256) {
         _trade.amountIn = _amountIn;
-        _trade.amountOut = query.amounts[query.amounts.length - 1];
-        _trade.adapters = query.adapters;
-        _trade.path = query.path;
 
         uint256 beforeAmt = IERC20(_token).balanceOf(_to);
         swapAggregator.swapNoSplitFromETH{value: _amountIn}(_trade, _to);
@@ -649,14 +689,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      * @param _amountIn: token amount to swap
      * @param _token: from token
      */
-    function _safeSwapForETH(uint256 _amountIn, address _token) internal returns (uint256) {
-        IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(_amountIn, _token, WNATIVE, 3);
-
-        IBrewlabsAggregator.Trade memory _trade;
+    function _safeSwapForETH(uint256 _amountIn, address _token, IBrewlabsAggregator.Trade memory _trade) internal returns (uint256) {
         _trade.amountIn = _amountIn;
-        _trade.amountOut = query.amounts[query.amounts.length - 1];
-        _trade.adapters = query.adapters;
-        _trade.path = query.path;
 
         IERC20(_token).safeApprove(address(swapAggregator), _amountIn);
 

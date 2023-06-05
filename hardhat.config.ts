@@ -67,7 +67,7 @@ module.exports = {
         url: `https://arb1.arbitrum.io/rpc`,
         chainId: 42161,
         //gasPrice: 20000000000,
-        accounts: [`0x${accountPrivateKey}`],
+        accounts: [accountPrivateKey["bsc"]],
     },
 
     bsc_mainnet: {
