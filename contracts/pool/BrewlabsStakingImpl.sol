@@ -373,13 +373,24 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
     }
 
-    function precomputeCompoundReward() external view returns (IBrewlabsAggregator.FormattedOffer memory offer) {
-        if (address(stakingToken) == address(rewardToken)) return offer;
+    function precomputeCompound(bool isDividend)
+        external
+        view
+        returns (IBrewlabsAggregator.FormattedOffer memory offer)
+    {
+        if (!isDividend && address(stakingToken) == address(rewardToken)) return offer;
+        if (isDividend && address(stakingToken) == dividendToken) return offer;
 
-        uint256 pending = pendingReward(msg.sender);
+        uint256 pending = isDividend ? pendingDividends(msg.sender) : pendingReward(msg.sender);
         if (pending == 0) return offer;
 
-        offer = swapAggregator.findBestPath(pending, address(rewardToken), address(stakingToken), 3);
+        if (!isDividend) {
+            offer = swapAggregator.findBestPath(pending, address(rewardToken), address(stakingToken), 3);
+        } else {
+            offer = swapAggregator.findBestPath(
+                pending, dividendToken == address(0x0) ? WNATIVE : dividendToken, address(stakingToken), 3
+            );
+        }
     }
 
     function compoundReward(IBrewlabsAggregator.Trade memory _trade) external payable nonReentrant {
@@ -417,19 +428,6 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         }
 
         user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
-    }
-
-    function precomputeCompoundDividend() external view returns (IBrewlabsAggregator.FormattedOffer memory offer) {
-        if (address(stakingToken) == dividendToken || !hasDividend) return offer;
-
-        uint256 pending = pendingDividends(msg.sender);
-        if (pending == 0) return offer;
-
-        if (address(dividendToken) == address(0x0)) {
-            offer = swapAggregator.findBestPath(pending, WNATIVE, address(stakingToken), 3);
-        } else {
-            offer = swapAggregator.findBestPath(pending, dividendToken, address(stakingToken), 3);
-        }
     }
 
     function compoundDividend(IBrewlabsAggregator.Trade memory _trade) external payable nonReentrant {
@@ -896,18 +894,10 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         address _to,
         IBrewlabsAggregator.Trade memory _trade
     ) internal returns (uint256) {
-        // IBrewlabsAggregator.FormattedOffer memory query =
-        //     swapAggregator.findBestPath(_amountIn, _fromToken, _toToken, 3);
-
-        // IBrewlabsAggregator.Trade memory _trade;
-        _trade.amountIn = _amountIn;
-        // _trade.amountOut = query.amounts[query.amounts.length - 1];
-        // _trade.adapters = query.adapters;
-        // _trade.path = query.path;
-
         IERC20(_fromToken).safeApprove(address(swapAggregator), _amountIn);
 
         uint256 beforeAmount = IERC20(_toToken).balanceOf(_to);
+        _trade.amountIn = _amountIn;
         swapAggregator.swapNoSplit(_trade, _to);
         uint256 afterAmount = IERC20(_toToken).balanceOf(_to);
 

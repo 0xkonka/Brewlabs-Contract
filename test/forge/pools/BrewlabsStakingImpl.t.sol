@@ -364,7 +364,7 @@ contract BrewlabsStakingImplTest is Test {
 
         uint256 tokenBal = stakingToken.balanceOf(address(0x1));
 
-        IBrewlabsAggregator.FormattedOffer memory query = pool.precomputeCompoundReward();
+        IBrewlabsAggregator.FormattedOffer memory query = pool.precomputeCompound(false);
         IBrewlabsAggregator.Trade memory trade;
         trade.adapters = query.adapters;
         trade.path = query.path;
@@ -449,7 +449,7 @@ contract BrewlabsStakingImplTest is Test {
 
         vm.startPrank(_user);
 
-        IBrewlabsAggregator.FormattedOffer memory query = _pool.precomputeCompoundDividend();
+        IBrewlabsAggregator.FormattedOffer memory query = _pool.precomputeCompound(true);
         IBrewlabsAggregator.Trade memory trade;
         trade.adapters = query.adapters;
         trade.path = query.path;
