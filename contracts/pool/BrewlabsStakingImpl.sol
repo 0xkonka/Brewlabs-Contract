@@ -679,25 +679,25 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
 
     /**
      * @notice It allows the admin to recover wrong tokens sent to the contract
-     * @param _tokenAddress: the address of the token to withdraw
-     * @param _tokenAmount: the number of tokens to withdraw
+     * @param _token: the address of the token to withdraw
+     * @param _amount: the number of tokens to withdraw
      * @dev This function is only callable by admin.
      */
-    function rescueTokens(address _tokenAddress, uint256 _tokenAmount) external onlyOwner {
-        require(_tokenAddress != address(rewardToken) || _tokenAddress == dividendToken, "Cannot be reward token");
+    function rescueTokens(address _token, uint256 _amount) external onlyOwner {
+        require(_token != address(rewardToken) || _token == dividendToken, "Cannot be reward token");
 
-        if (_tokenAddress == address(stakingToken)) {
+        if (_token == address(stakingToken)) {
             uint256 tokenBal = stakingToken.balanceOf(address(this));
-            require(_tokenAmount <= tokenBal - totalStaked, "Insufficient balance");
+            require(_amount <= tokenBal - totalStaked, "Insufficient balance");
         }
 
-        if (_tokenAddress == address(0x0)) {
-            payable(msg.sender).transfer(_tokenAmount);
+        if (_token == address(0x0)) {
+            payable(msg.sender).transfer(_amount);
         } else {
-            IERC20(_tokenAddress).safeTransfer(address(msg.sender), _tokenAmount);
+            IERC20(_token).safeTransfer(address(msg.sender), _amount);
         }
 
-        emit AdminTokenRecovered(_tokenAddress, _tokenAmount);
+        emit AdminTokenRecovered(_token, _amount);
     }
 
     function startReward() external onlyAdmin {
