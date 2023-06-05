@@ -76,7 +76,7 @@ contract BrewlabsStakingImplTest is Test {
         pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    stakingToken, rewardToken, address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    address(stakingToken), address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
                 )
             )
         );
@@ -171,7 +171,7 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    stakingToken, rewardToken, address(0x0), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, false
+                    address(stakingToken), address(rewardToken), address(0x0), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, false
                 )
             )
         );
@@ -370,48 +370,48 @@ contract BrewlabsStakingImplTest is Test {
         assertEq(pool.paidRewards(), pending);
     }
 
-    // function test_compoundReward() public {
-    //     tryDeposit(address(0x1), 2 ether);
+    function test_compoundReward() public {
+        tryDeposit(address(0x1), 2 ether);
 
-    //     dividendToken.mint(address(pool), 0.1 ether);
-    //     uint256 rewards = pool.availableRewardTokens();
+        dividendToken.mint(address(pool), 0.1 ether);
+        uint256 rewards = pool.availableRewardTokens();
 
-    //     utils.mineBlocks(100);
+        utils.mineBlocks(100);
 
-    //     (uint256 amount,,) = pool.userInfo(address(0x1));
-    //     uint256 _reward = 100 * pool.rewardPerBlock();
-    //     uint256 accTokenPerShare = (_reward * pool.PRECISION_FACTOR()) / amount;
+        (uint256 amount,,) = pool.userInfo(address(0x1));
+        uint256 _reward = 100 * pool.rewardPerBlock();
+        uint256 accTokenPerShare = (_reward * pool.PRECISION_FACTOR()) / amount;
 
-    //     uint256 pending = pool.pendingReward(address(0x1));
-    //     assertEq(pending, amount * accTokenPerShare / pool.PRECISION_FACTOR());
+        uint256 pending = pool.pendingReward(address(0x1));
+        assertEq(pending, amount * accTokenPerShare / pool.PRECISION_FACTOR());
 
-    //     uint256 performanceFee = pool.performanceFee();
+        uint256 performanceFee = pool.performanceFee();
 
-    //     vm.deal(address(0x1), 1 ether);
-    //     vm.startPrank(address(0x1));
+        vm.deal(address(0x1), 1 ether);
+        vm.startPrank(address(0x1));
 
-    //     uint256 tokenBal = stakingToken.balanceOf(address(0x1));
+        uint256 tokenBal = stakingToken.balanceOf(address(0x1));
 
-    //     IBrewlabsAggregator.FormattedOffer memory query = pool.precomputeCompound(false);
-    //     IBrewlabsAggregator.Trade memory trade;
-    //     trade.adapters = query.adapters;
-    //     trade.path = query.path;
+        IBrewlabsAggregator.FormattedOffer memory query = pool.precomputeCompound(false);
+        IBrewlabsAggregator.Trade memory trade;
+        trade.adapters = query.adapters;
+        trade.path = query.path;
 
-    //     vm.expectEmit(true, true, true, true);
-    //     emit Compound(address(0x1), pending);
-    //     pool.compoundReward{value: performanceFee}(trade);
+        vm.expectEmit(true, true, true, true);
+        emit Compound(address(0x1), pending);
+        pool.compoundReward{value: performanceFee}(trade);
 
-    //     vm.stopPrank();
+        vm.stopPrank();
 
-    //     (uint256 amount1,,) = pool.userInfo(address(0x1));
-    //     assertEq(amount1, amount + pending);
-    //     assertEq(stakingToken.balanceOf(address(0x1)), tokenBal);
-    //     assertEq(dividendToken.balanceOf(address(0x1)), 0);
+        (uint256 amount1,,) = pool.userInfo(address(0x1));
+        assertEq(amount1, amount + pending);
+        assertEq(stakingToken.balanceOf(address(0x1)), tokenBal);
+        assertEq(dividendToken.balanceOf(address(0x1)), 0);
 
-    //     assertEq(pool.availableDividendTokens(), 0.1 ether);
-    //     assertEq(pool.availableRewardTokens(), rewards - pending);
-    //     assertEq(pool.paidRewards(), pending);
-    // }
+        assertEq(pool.availableDividendTokens(), 0.1 ether);
+        assertEq(pool.availableRewardTokens(), rewards - pending);
+        assertEq(pool.paidRewards(), pending);
+    }
 
     function test_claimDividend() public {
         tryDeposit(address(0x1), 2 ether);
@@ -442,61 +442,61 @@ contract BrewlabsStakingImplTest is Test {
         assertEq(pool.availableRewardTokens(), rewards);
     }
 
-    // function test_compoundDividend() public {
-    //     BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
-    //         payable(
-    //             factory.createBrewlabsSinglePool(IERC20(BREWLABS), IERC20(BREWLABS), BUSD, 10, 0.001 gwei, 0, 0, true)
-    //         )
-    //     );
+    function test_compoundDividend() public {
+        BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
+            payable(
+                factory.createBrewlabsSinglePool(BREWLABS, BREWLABS, BUSD, 10, 0.001 gwei, 0, 0, true)
+            )
+        );
 
-    //     trySwap(BREWLABS, 1 ether, address(_pool));
+        trySwap(BREWLABS, 1 ether, address(_pool));
 
-    //     uint256 rewards = _pool.availableRewardTokens();
-    //     _pool.startReward();
-    //     utils.mineBlocks(101);
+        uint256 rewards = _pool.availableRewardTokens();
+        _pool.startReward();
+        utils.mineBlocks(101);
 
-    //     address _user = address(0x1);
-    //     trySwap(BREWLABS, 0.1 ether, _user);
-    //     uint256 _amount = IERC20(BREWLABS).balanceOf(_user);
+        address _user = address(0x1);
+        trySwap(BREWLABS, 0.1 ether, _user);
+        uint256 _amount = IERC20(BREWLABS).balanceOf(_user);
 
-    //     vm.deal(_user, 1 ether);
-    //     vm.startPrank(_user);
-    //     IERC20(BREWLABS).approve(address(_pool), _amount);
-    //     _pool.deposit{value: _pool.performanceFee()}(_amount);
-    //     vm.stopPrank();
+        vm.deal(_user, 1 ether);
+        vm.startPrank(_user);
+        IERC20(BREWLABS).approve(address(_pool), _amount);
+        _pool.deposit{value: _pool.performanceFee()}(_amount);
+        vm.stopPrank();
 
-    //     trySwap(BUSD, 0.1 ether, address(_pool));
-    //     uint256 busdBal = IERC20(BUSD).balanceOf(address(_pool));
+        trySwap(BUSD, 0.1 ether, address(_pool));
+        uint256 busdBal = IERC20(BUSD).balanceOf(address(_pool));
 
-    //     utils.mineBlocks(100);
+        utils.mineBlocks(100);
 
-    //     (uint256 amount,,) = _pool.userInfo(address(0x1));
-    //     uint256 pendingReflection = _pool.pendingDividends(address(0x1));
-    //     uint256 performanceFee = _pool.performanceFee();
-    //     uint256 tokenBal = IERC20(BUSD).balanceOf(address(0x1));
+        (uint256 amount,,) = _pool.userInfo(address(0x1));
+        uint256 pendingReflection = _pool.pendingDividends(address(0x1));
+        uint256 performanceFee = _pool.performanceFee();
+        uint256 tokenBal = IERC20(BUSD).balanceOf(address(0x1));
 
-    //     vm.startPrank(_user);
+        vm.startPrank(_user);
 
-    //     IBrewlabsAggregator.FormattedOffer memory query = _pool.precomputeCompound(true);
-    //     IBrewlabsAggregator.Trade memory trade;
-    //     trade.adapters = query.adapters;
-    //     trade.path = query.path;
+        IBrewlabsAggregator.FormattedOffer memory query = _pool.precomputeCompound(true);
+        IBrewlabsAggregator.Trade memory trade;
+        trade.adapters = query.adapters;
+        trade.path = query.path;
 
-    //     vm.expectEmit(true, true, true, true);
-    //     emit CompoundDividend(address(0x1), pendingReflection);
-    //     _pool.compoundDividend{value: performanceFee}(trade);
+        vm.expectEmit(true, true, true, true);
+        emit CompoundDividend(address(0x1), pendingReflection);
+        _pool.compoundDividend{value: performanceFee}(trade);
 
-    //     vm.stopPrank();
+        vm.stopPrank();
 
-    //     (uint256 amount1,,) = _pool.userInfo(address(0x1));
-    //     assertGt(amount1, amount);
-    //     assertEq(_pool.pendingDividends(_user), 0);
-    //     assertEq(IERC20(BREWLABS).balanceOf(address(0x1)), 0);
-    //     assertEq(IERC20(BUSD).balanceOf(address(0x1)), tokenBal);
+        (uint256 amount1,,) = _pool.userInfo(address(0x1));
+        assertGt(amount1, amount);
+        assertEq(_pool.pendingDividends(_user), 0);
+        assertEq(IERC20(BREWLABS).balanceOf(address(0x1)), 0);
+        assertEq(IERC20(BUSD).balanceOf(address(0x1)), tokenBal);
 
-    //     assertEq(_pool.availableDividendTokens(), busdBal - pendingReflection);
-    //     assertEq(_pool.availableRewardTokens(), rewards);
-    // }
+        assertEq(_pool.availableDividendTokens(), busdBal - pendingReflection);
+        assertEq(_pool.availableRewardTokens(), rewards);
+    }
 
     function test_harvestTo() public {
         tryDeposit(address(0x1), 2 ether);
@@ -544,7 +544,7 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    stakingToken, rewardToken, address(rewardToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, false
+                    address(stakingToken), address(rewardToken), address(rewardToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, false
                 )
             )
         );
@@ -564,7 +564,7 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    stakingToken, rewardToken, address(rewardToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, false
+                    address(stakingToken), address(rewardToken), address(rewardToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, false
                 )
             )
         );
@@ -604,7 +604,7 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    IERC20(BREWLABS), rewardToken, address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    BREWLABS, address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
                 )
             )
         );
@@ -622,7 +622,7 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    IERC20(BREWLABS), rewardToken, address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    BREWLABS, address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
                 )
             )
         );
@@ -653,7 +653,7 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    IERC20(BREWLABS), rewardToken, address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    BREWLABS, address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
                 )
             )
         );
@@ -673,7 +673,7 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    IERC20(BREWLABS), rewardToken, address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    BREWLABS, address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
                 )
             )
         );
@@ -784,7 +784,7 @@ contract BrewlabsStakingImplTest is Test {
         pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    stakingToken, rewardToken, address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    address(stakingToken), address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
                 )
             )
         );

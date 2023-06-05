@@ -94,8 +94,8 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     }
 
     function createBrewlabsSinglePool(
-        IERC20 stakingToken,
-        IERC20 rewardToken,
+        address stakingToken,
+        address rewardToken,
         address dividendToken,
         uint256 duration,
         uint256 rewardPerBlock,
@@ -104,6 +104,8 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         bool hasDividend
     ) external payable returns (address pool) {
         require(implementation[0] != address(0x0), "No implementation");
+        require(isContract(stakingToken), "Invalid staking token");
+        require(isContract(rewardToken), "Invalid reward token");
         require(depositFee < 2000, "Invalid deposit fee");
         require(withdrawFee < 2000, "Invalid withdraw fee");
 
@@ -113,7 +115,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         {
             bytes32 salt = keccak256(
                 abi.encodePacked(
-                    msg.sender, "0", address(stakingToken), address(rewardToken), hasDividend, block.timestamp
+                    msg.sender, "0", stakingToken, rewardToken, hasDividend, block.timestamp
                 )
             );
 
@@ -140,8 +142,8 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
                 pool,
                 0,
                 version[0],
-                address(stakingToken),
-                address(rewardToken),
+                stakingToken,
+                rewardToken,
                 dividendToken,
                 0,
                 hasDividend,
@@ -153,8 +155,8 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         emit SinglePoolCreated(
             pool,
             version[0],
-            address(stakingToken),
-            address(rewardToken),
+            stakingToken,
+            rewardToken,
             dividendToken,
             rewardPerBlock,
             depositFee,
