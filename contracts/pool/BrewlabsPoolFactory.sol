@@ -113,11 +113,8 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             _transferServiceFee();
         }
         {
-            bytes32 salt = keccak256(
-                abi.encodePacked(
-                    msg.sender, "0", stakingToken, rewardToken, hasDividend, block.timestamp
-                )
-            );
+            bytes32 salt =
+                keccak256(abi.encodePacked(msg.sender, "0", stakingToken, rewardToken, hasDividend, block.timestamp));
 
             pool = Clones.cloneDeterministic(implementation[0], salt);
             (bool success,) = pool.call(

@@ -948,7 +948,8 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         uint256 _withdrawFee,
         uint256 _rate,
         uint256 _totalStakedLimit
-    ) external onlyOwner {
+    ) external {
+        require(msg.sender == owner() || msg.sender == factory, "Caller is not owner or factory");
         require(_depositFee <= 2000, "Invalid deposit fee");
         require(_withdrawFee <= 2000, "Invalid withdraw fee");
 

@@ -76,7 +76,14 @@ contract BrewlabsStakingImplTest is Test {
         pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    address(stakingToken), address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    address(stakingToken),
+                    address(rewardToken),
+                    address(dividendToken),
+                    365,
+                    1 ether,
+                    DEPOSIT_FEE,
+                    WITHDRAW_FEE,
+                    true
                 )
             )
         );
@@ -171,7 +178,14 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    address(stakingToken), address(rewardToken), address(0x0), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, false
+                    address(stakingToken),
+                    address(rewardToken),
+                    address(0x0),
+                    365,
+                    1 ether,
+                    DEPOSIT_FEE,
+                    WITHDRAW_FEE,
+                    false
                 )
             )
         );
@@ -306,7 +320,7 @@ contract BrewlabsStakingImplTest is Test {
 
         vm.stopPrank();
     }
-    
+
     function test_emergencyWithdraw() public {
         tryDeposit(address(0x1), 2 ether);
 
@@ -444,9 +458,7 @@ contract BrewlabsStakingImplTest is Test {
 
     function test_compoundDividend() public {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
-            payable(
-                factory.createBrewlabsSinglePool(BREWLABS, BREWLABS, BUSD, 10, 0.001 gwei, 0, 0, true)
-            )
+            payable(factory.createBrewlabsSinglePool(BREWLABS, BREWLABS, BUSD, 10, 0.001 gwei, 0, 0, true))
         );
 
         trySwap(BREWLABS, 1 ether, address(_pool));
@@ -533,18 +545,25 @@ contract BrewlabsStakingImplTest is Test {
         assertEq(pool.availableRewardTokens(), rewards - pending);
         assertEq(pool.paidRewards(), pending);
     }
-    
+
     function test_availableRewardTokens() public {
         uint256 oldBalance = pool.availableRewardTokens();
         rewardToken.mint(address(pool), 10 ether);
         assertEq(pool.availableRewardTokens(), oldBalance + 10 ether);
     }
-    
+
     function test_availableRewardTokensInSameRewardAndDividend() public {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    address(stakingToken), address(rewardToken), address(rewardToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, false
+                    address(stakingToken),
+                    address(rewardToken),
+                    address(rewardToken),
+                    365,
+                    1 ether,
+                    DEPOSIT_FEE,
+                    WITHDRAW_FEE,
+                    false
                 )
             )
         );
@@ -564,7 +583,14 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    address(stakingToken), address(rewardToken), address(rewardToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, false
+                    address(stakingToken),
+                    address(rewardToken),
+                    address(rewardToken),
+                    365,
+                    1 ether,
+                    DEPOSIT_FEE,
+                    WITHDRAW_FEE,
+                    false
                 )
             )
         );
@@ -604,12 +630,19 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    BREWLABS, address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    BREWLABS,
+                    address(rewardToken),
+                    address(dividendToken),
+                    365,
+                    1 ether,
+                    DEPOSIT_FEE,
+                    WITHDRAW_FEE,
+                    true
                 )
             )
         );
         rewardToken.mint(address(_pool), _pool.insufficientRewards());
-        
+
         uint256 startBlock = block.number + 100;
         uint256 bonusEndBlock = startBlock + 365 * BLOCKS_PER_DAY;
 
@@ -622,18 +655,25 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    BREWLABS, address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    BREWLABS,
+                    address(rewardToken),
+                    address(dividendToken),
+                    365,
+                    1 ether,
+                    DEPOSIT_FEE,
+                    WITHDRAW_FEE,
+                    true
                 )
             )
         );
         rewardToken.mint(address(_pool), _pool.insufficientRewards() - 10000);
-        
+
         _pool.startReward();
     }
 
     function test_stopReward() public {
         vm.startPrank(pool.operator());
-        vm.expectEmit(true, true, true,true);
+        vm.expectEmit(true, true, true, true);
         emit RewardsStop(block.number);
         pool.stopReward();
         vm.stopPrank();
@@ -645,7 +685,7 @@ contract BrewlabsStakingImplTest is Test {
         pool.updateEndBlock(endBlock - 1);
 
         vm.startPrank(pool.operator());
-        vm.expectEmit(true, true, true,true);
+        vm.expectEmit(true, true, true, true);
         emit EndBlockChanged(endBlock - 1);
         pool.updateEndBlock(endBlock - 1);
         vm.stopPrank();
@@ -653,7 +693,14 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    BREWLABS, address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    BREWLABS,
+                    address(rewardToken),
+                    address(dividendToken),
+                    365,
+                    1 ether,
+                    DEPOSIT_FEE,
+                    WITHDRAW_FEE,
+                    true
                 )
             )
         );
@@ -673,12 +720,19 @@ contract BrewlabsStakingImplTest is Test {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    BREWLABS, address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    BREWLABS,
+                    address(rewardToken),
+                    address(dividendToken),
+                    365,
+                    1 ether,
+                    DEPOSIT_FEE,
+                    WITHDRAW_FEE,
+                    true
                 )
             )
         );
         rewardToken.mint(address(_pool), _pool.insufficientRewards());
-        
+
         _pool.startReward();
         utils.mineBlocks(10);
 
@@ -687,30 +741,30 @@ contract BrewlabsStakingImplTest is Test {
 
     function test_updateRewardPerBlock() public {
         vm.startPrank(pool.operator());
-        
-        vm.expectEmit(true, true, true,true);
+
+        vm.expectEmit(true, true, true, true);
         emit NewRewardPerBlock(1.1 ether);
         pool.updateRewardPerBlock(1.1 ether);
 
         vm.stopPrank();
     }
-    
+
     function test_setServiceInfo() public {
         vm.expectRevert("setServiceInfo: FORBIDDEN");
         pool.setServiceInfo(address(0x555), 10);
 
         vm.startPrank(pool.treasury());
-        
+
         vm.expectRevert("Invalid address");
         pool.setServiceInfo(address(0), 200);
 
-        vm.expectEmit(true, true, true,true);
+        vm.expectEmit(true, true, true, true);
         emit ServiceInfoChanged(address(0x555), 10);
         pool.setServiceInfo(address(0x555), 10);
 
         vm.stopPrank();
     }
-    
+
     function test_depositRewards() public {
         uint256 rewards = pool.availableRewardTokens();
 
@@ -754,7 +808,7 @@ contract BrewlabsStakingImplTest is Test {
         pool.increaseEmissionRate(100);
         vm.stopPrank();
     }
-    
+
     function test_emergencyRewardWithdraw() public {
         rewardToken.mint(address(pool), 100 ether);
 
@@ -784,11 +838,18 @@ contract BrewlabsStakingImplTest is Test {
         pool = BrewlabsStakingImpl(
             payable(
                 factory.createBrewlabsSinglePool(
-                    address(stakingToken), address(rewardToken), address(dividendToken), 365, 1 ether, DEPOSIT_FEE, WITHDRAW_FEE, true
+                    address(stakingToken),
+                    address(rewardToken),
+                    address(dividendToken),
+                    365,
+                    1 ether,
+                    DEPOSIT_FEE,
+                    WITHDRAW_FEE,
+                    true
                 )
             )
         );
-        rewardToken.mint(address(pool), pool.insufficientRewards());        
+        rewardToken.mint(address(pool), pool.insufficientRewards());
         pool.startReward();
 
         vm.startPrank(pool.owner());
@@ -800,7 +861,7 @@ contract BrewlabsStakingImplTest is Test {
         pool.rescueTokens(address(stakingToken), 100);
 
         stakingToken.mint(address(pool), 1 ether);
-        vm.expectEmit(true, true, true,true);
+        vm.expectEmit(true, true, true, true);
         emit AdminTokenRecovered(address(stakingToken), 1 ether);
         pool.rescueTokens(address(stakingToken), 1 ether);
 
@@ -826,13 +887,13 @@ contract BrewlabsStakingImplTest is Test {
 
         vm.expectRevert("Invalid address");
         pool.setSwapAggregator(address(0x0));
-        
+
         vm.expectRevert();
         pool.setSwapAggregator(BREWLABS);
 
         address aggregator = address(pool.swapAggregator());
 
-        vm.expectEmit(true, true, true,true);
+        vm.expectEmit(true, true, true, true);
         emit SetSwapAggregator(aggregator);
         pool.setSwapAggregator(aggregator);
 
