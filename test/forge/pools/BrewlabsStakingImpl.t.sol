@@ -138,7 +138,7 @@ contract BrewlabsStakingImplTest is Test {
 
         vm.expectRevert(abi.encodePacked("Amount should be greator than 0"));
         pool.deposit(0);
-        vm.stopPrank();        
+        vm.stopPrank();
     }
 
     function test_notFirstDeposit() public {
@@ -148,7 +148,7 @@ contract BrewlabsStakingImplTest is Test {
         tryDeposit(address(0x1), 1 ether);
 
         utils.mineBlocks(100);
-        
+
         (uint256 amount,,) = pool.userInfo(address(0x1));
         uint256 _reward = 100 * pool.rewardPerBlock();
         uint256 accTokenPerShare = (_reward * pool.PRECISION_FACTOR()) / amount;
@@ -231,7 +231,8 @@ contract BrewlabsStakingImplTest is Test {
 
         utils.mineBlocks(1000);
         uint256 reflectionAmt = pool.availableDividendTokens();
-        uint256 accReflectionPerShare = pool.accDividendPerShare() + reflectionAmt * pool.PRECISION_FACTOR_REFLECTION() / (pool.totalStaked() + pool.availableRewardTokens());
+        uint256 accReflectionPerShare = pool.accDividendPerShare()
+            + reflectionAmt * pool.PRECISION_FACTOR_REFLECTION() / (pool.totalStaked() + pool.availableRewardTokens());
 
         (uint256 amount,, uint256 reflectionDebt) = pool.userInfo(address(0x1));
 
@@ -261,9 +262,9 @@ contract BrewlabsStakingImplTest is Test {
         vm.startPrank(address(0x1));
 
         vm.expectRevert("Amount should be greator than 0");
-        pool.withdraw{value: performanceFee}(0);        
+        pool.withdraw{value: performanceFee}(0);
 
-        vm.expectEmit(true, true, true,true);
+        vm.expectEmit(true, true, true, true);
         emit Withdraw(address(0x1), 1 ether);
         pool.withdraw{value: performanceFee}(1 ether);
 
@@ -327,7 +328,7 @@ contract BrewlabsStakingImplTest is Test {
 
         uint256 tokenBal = stakingToken.balanceOf(address(0x1));
 
-        vm.expectEmit(true, true, true,true);
+        vm.expectEmit(true, true, true, true);
         emit Claim(address(0x1), pending);
         pool.claimReward{value: performanceFee}();
 
@@ -363,12 +364,17 @@ contract BrewlabsStakingImplTest is Test {
 
         uint256 tokenBal = stakingToken.balanceOf(address(0x1));
 
-        vm.expectEmit(true, true, true,true);
+        IBrewlabsAggregator.FormattedOffer memory query = pool.precomputeCompoundReward();
+        IBrewlabsAggregator.Trade memory trade;
+        trade.adapters = query.adapters;
+        trade.path = query.path;
+
+        vm.expectEmit(true, true, true, true);
         emit Compound(address(0x1), pending);
-        pool.compoundReward{value: performanceFee}();
+        pool.compoundReward{value: performanceFee}(trade);
 
         vm.stopPrank();
-        
+
         (uint256 amount1,,) = pool.userInfo(address(0x1));
         assertEq(amount1, amount + pending);
         assertEq(stakingToken.balanceOf(address(0x1)), tokenBal);
@@ -395,7 +401,7 @@ contract BrewlabsStakingImplTest is Test {
 
         uint256 tokenBal = dividendToken.balanceOf(address(0x1));
 
-        vm.expectEmit(true, true, true,true);
+        vm.expectEmit(true, true, true, true);
         emit ClaimDividend(address(0x1), pendingReflection);
         pool.claimDividend{value: performanceFee}();
 
@@ -411,9 +417,7 @@ contract BrewlabsStakingImplTest is Test {
     function test_compoundDividend() public {
         BrewlabsStakingImpl _pool = BrewlabsStakingImpl(
             payable(
-                factory.createBrewlabsSinglePool(
-                    IERC20(BREWLABS), IERC20(BREWLABS), BUSD, 10, 0.001 gwei, 0, 0, true
-                )
+                factory.createBrewlabsSinglePool(IERC20(BREWLABS), IERC20(BREWLABS), BUSD, 10, 0.001 gwei, 0, 0, true)
             )
         );
 
@@ -426,7 +430,7 @@ contract BrewlabsStakingImplTest is Test {
         address _user = address(0x1);
         trySwap(BREWLABS, 0.1 ether, _user);
         uint256 _amount = IERC20(BREWLABS).balanceOf(_user);
-        
+
         vm.deal(_user, 1 ether);
         vm.startPrank(_user);
         IERC20(BREWLABS).approve(address(_pool), _amount);
@@ -445,9 +449,14 @@ contract BrewlabsStakingImplTest is Test {
 
         vm.startPrank(_user);
 
-        vm.expectEmit(true, true, true,true);
+        IBrewlabsAggregator.FormattedOffer memory query = _pool.precomputeCompoundDividend();
+        IBrewlabsAggregator.Trade memory trade;
+        trade.adapters = query.adapters;
+        trade.path = query.path;
+
+        vm.expectEmit(true, true, true, true);
         emit CompoundDividend(address(0x1), pendingReflection);
-        _pool.compoundDividend{value: performanceFee}();
+        _pool.compoundDividend{value: performanceFee}(trade);
 
         vm.stopPrank();
 
@@ -483,7 +492,7 @@ contract BrewlabsStakingImplTest is Test {
 
         uint256 tokenBal = stakingToken.balanceOf(address(0x1));
 
-        vm.expectEmit(true, true, true,true);
+        vm.expectEmit(true, true, true, true);
         emit Claim(address(0x1), pending);
         pool.claimReward{value: performanceFee}();
 
@@ -496,5 +505,6 @@ contract BrewlabsStakingImplTest is Test {
         assertEq(pool.availableRewardTokens(), rewards - pending);
         assertEq(pool.paidRewards(), pending);
     }
+
     receive() external payable {}
 }

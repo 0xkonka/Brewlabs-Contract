@@ -163,22 +163,26 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         _transferOwnership(_owner);
     }
 
-    function precomputeZapIn(address _token, uint256 _amount, uint256[] memory _percents) external view returns( IBrewlabsAggregator.FormattedOffer[] memory queries){
+    function precomputeZapIn(address _token, uint256 _amount, uint256[] memory _percents)
+        external
+        view
+        returns (IBrewlabsAggregator.FormattedOffer[] memory queries)
+    {
         queries = new IBrewlabsAggregator.FormattedOffer[](NUM_TOKENS + 1);
         uint256 ethAmount = _amount;
-        if(_token != address(0x0)) {
+        if (_token != address(0x0)) {
             queries[0] = swapAggregator.findBestPath(_amount, _token, WNATIVE, 3);
             ethAmount = queries[0].amounts[queries[0].amounts.length - 1];
         }
 
         for (uint8 i = 0; i < NUM_TOKENS; i++) {
             uint256 amountIn;
-            if( i < _percents.length ) {
+            if (i < _percents.length) {
                 amountIn = (ethAmount * _percents[i]) / FEE_DENOMINATOR;
             }
             if (amountIn == 0) continue;
             if (address(tokens[i]) == WNATIVE) continue;
-            
+
             queries[i + 1] = swapAggregator.findBestPath(amountIn, WNATIVE, address(tokens[i]), 3);
         }
     }
@@ -188,12 +192,12 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      *         When buy tokens, should pay processing fee(brewlabs fixed fee + deployer fee).
      * @param _percents: list of ETH allocation points to buy tokens
      */
-    function zapIn(address _token, uint256 _amount, uint256[] memory _percents, IBrewlabsAggregator.Trade[] memory _trades)
-        external
-        payable
-        onlyInitialized
-        nonReentrant
-    {
+    function zapIn(
+        address _token,
+        uint256 _amount,
+        uint256[] memory _percents,
+        IBrewlabsAggregator.Trade[] memory _trades
+    ) external payable onlyInitialized nonReentrant {
         require(_percents.length == NUM_TOKENS, "Invalid percents");
         require(_trades.length == NUM_TOKENS + 1, "Invalid trade config");
 
@@ -249,7 +253,10 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         }
     }
 
-    function _beforeZapIn(address _token, uint256 _amount, IBrewlabsAggregator.Trade memory _trade) internal returns (uint256 amount) {
+    function _beforeZapIn(address _token, uint256 _amount, IBrewlabsAggregator.Trade memory _trade)
+        internal
+        returns (uint256 amount)
+    {
         if (_token == address(0x0)) return msg.value;
 
         uint8 allowedMethod = factory.allowedTokens(_token);
@@ -310,13 +317,17 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         emit TokenClaimed(msg.sender, amounts, claimedUsdAmount, commission);
     }
 
-    function precomputeZapOut(address _token) external view returns( IBrewlabsAggregator.FormattedOffer[] memory queries){
+    function precomputeZapOut(address _token)
+        external
+        view
+        returns (IBrewlabsAggregator.FormattedOffer[] memory queries)
+    {
         queries = new IBrewlabsAggregator.FormattedOffer[](NUM_TOKENS + 1);
 
         uint256 ethAmount = 0;
         UserInfo memory user = users[msg.sender];
         for (uint256 i = 0; i < NUM_TOKENS; i++) {
-            if(user.amounts[i] == 0) continue;
+            if (user.amounts[i] == 0) continue;
             if (address(tokens[i]) == WNATIVE) {
                 ethAmount += user.amounts[i];
                 continue;
@@ -326,7 +337,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             ethAmount += queries[i].amounts[queries[i].amounts.length - 1];
         }
 
-        if(_token != address(0x0)) {
+        if (_token != address(0x0)) {
             queries[NUM_TOKENS] = swapAggregator.findBestPath(ethAmount, WNATIVE, _token, 3);
         }
     }
@@ -345,7 +356,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         for (uint256 i = 0; i < NUM_TOKENS; i++) {
             uint256 claimAmount = user.amounts[i];
             totalStaked[i] -= claimAmount;
-            if(user.amounts[i] == 0) continue;
+            if (user.amounts[i] == 0) continue;
 
             uint256 amountOut;
             if (address(tokens[i]) == WNATIVE) {
@@ -380,7 +391,9 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         _afterZapOut(_token, msg.sender, ethAmount, _trades[NUM_TOKENS]);
     }
 
-    function _afterZapOut(address _token, address _to, uint256 _amount, IBrewlabsAggregator.Trade memory _trade) internal {
+    function _afterZapOut(address _token, address _to, uint256 _amount, IBrewlabsAggregator.Trade memory _trade)
+        internal
+    {
         if (_token == address(0x0)) {
             payable(_to).transfer(_amount);
             return;
@@ -674,7 +687,10 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      * @param _token: to token
      * @param _to: receiver address
      */
-    function _safeSwapEth(uint256 _amountIn, address _token, address _to, IBrewlabsAggregator.Trade memory _trade) internal returns (uint256) {
+    function _safeSwapEth(uint256 _amountIn, address _token, address _to, IBrewlabsAggregator.Trade memory _trade)
+        internal
+        returns (uint256)
+    {
         _trade.amountIn = _amountIn;
 
         uint256 beforeAmt = IERC20(_token).balanceOf(_to);
@@ -689,7 +705,10 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      * @param _amountIn: token amount to swap
      * @param _token: from token
      */
-    function _safeSwapForETH(uint256 _amountIn, address _token, IBrewlabsAggregator.Trade memory _trade) internal returns (uint256) {
+    function _safeSwapForETH(uint256 _amountIn, address _token, IBrewlabsAggregator.Trade memory _trade)
+        internal
+        returns (uint256)
+    {
         _trade.amountIn = _amountIn;
 
         IERC20(_token).safeApprove(address(swapAggregator), _amountIn);

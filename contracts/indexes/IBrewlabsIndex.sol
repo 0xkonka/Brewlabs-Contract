@@ -48,10 +48,18 @@ interface IBrewlabsIndex {
     function getPendingCommissions() external view returns (uint256[] memory);
     function totalCommissions() external view returns (uint256);
 
-    function precomputeZapIn(address _token, uint256 _amount, uint256[] memory _percents) external view returns( IBrewlabsAggregator.FormattedOffer[] memory queries);
-    function precomputeZapOut(address _token) external view returns( IBrewlabsAggregator.FormattedOffer[] memory queries);
+    function precomputeZapIn(address _token, uint256 _amount, uint256[] memory _percents)
+        external
+        view
+        returns (IBrewlabsAggregator.FormattedOffer[] memory queries);
+    function precomputeZapOut(address _token)
+        external
+        view
+        returns (IBrewlabsAggregator.FormattedOffer[] memory queries);
 
-    function zapIn(address token, uint256 amount, uint256[] memory percents, IBrewlabsAggregator.Trade[] memory _trades) external payable;
+    function zapIn(address token, uint256 amount, uint256[] memory percents, IBrewlabsAggregator.Trade[] memory _trades)
+        external
+        payable;
     function zapOut(address token, IBrewlabsAggregator.Trade[] memory _trades) external;
     function claimTokens(uint256 percent) external;
     function mintNft() external payable returns (uint256);

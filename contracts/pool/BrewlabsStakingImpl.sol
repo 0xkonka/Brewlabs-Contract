@@ -373,7 +373,16 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
     }
 
-    function compoundReward() external payable nonReentrant {
+    function precomputeCompoundReward() external view returns (IBrewlabsAggregator.FormattedOffer memory offer) {
+        if (address(stakingToken) == address(rewardToken)) return offer;
+
+        uint256 pending = pendingReward(msg.sender);
+        if (pending == 0) return offer;
+
+        offer = swapAggregator.findBestPath(pending, address(rewardToken), address(stakingToken), 3);
+    }
+
+    function compoundReward(IBrewlabsAggregator.Trade memory _trade) external payable nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
 
         _transferPerformanceFee();
@@ -393,7 +402,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
             emit Compound(msg.sender, pending);
 
             if (address(stakingToken) != address(rewardToken)) {
-                pending = _safeSwap(pending, address(rewardToken), address(stakingToken), address(this));
+                pending = _safeSwap(pending, address(rewardToken), address(stakingToken), address(this), _trade);
             }
 
             if (hasUserLimit) {
@@ -410,7 +419,20 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
     }
 
-    function compoundDividend() external payable nonReentrant {
+    function precomputeCompoundDividend() external view returns (IBrewlabsAggregator.FormattedOffer memory offer) {
+        if (address(stakingToken) == dividendToken || !hasDividend) return offer;
+
+        uint256 pending = pendingDividends(msg.sender);
+        if (pending == 0) return offer;
+
+        if (address(dividendToken) == address(0x0)) {
+            offer = swapAggregator.findBestPath(pending, WNATIVE, address(stakingToken), 3);
+        } else {
+            offer = swapAggregator.findBestPath(pending, dividendToken, address(stakingToken), 3);
+        }
+    }
+
+    function compoundDividend(IBrewlabsAggregator.Trade memory _trade) external payable nonReentrant {
         require(hasDividend == true, "No reflections");
         UserInfo storage user = userInfo[msg.sender];
 
@@ -429,9 +451,9 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
                 if (address(dividendToken) == address(0x0)) {
                     IWETH(WNATIVE).deposit{value: pending}();
 
-                    pending = _safeSwap(pending, WNATIVE, address(stakingToken), address(this));
+                    pending = _safeSwap(pending, WNATIVE, address(stakingToken), address(this), _trade);
                 } else {
-                    pending = _safeSwap(pending, dividendToken, address(stakingToken), address(this));
+                    pending = _safeSwap(pending, dividendToken, address(stakingToken), address(this), _trade);
                 }
             }
 
@@ -536,7 +558,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
      * @param _user: user address
      * @return Pending reward for a given user
      */
-    function pendingReward(address _user) external view returns (uint256) {
+    function pendingReward(address _user) public view returns (uint256) {
         UserInfo memory user = userInfo[_user];
 
         uint256 adjustedTokenPerShare = accTokenPerShare;
@@ -550,7 +572,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         return (user.amount * adjustedTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
     }
 
-    function pendingDividends(address _user) external view returns (uint256) {
+    function pendingDividends(address _user) public view returns (uint256) {
         if (totalStaked == 0) return 0;
 
         UserInfo memory user = userInfo[_user];
@@ -867,18 +889,21 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         }
     }
 
-    function _safeSwap(uint256 _amountIn, address _fromToken, address _toToken, address _to)
-        internal
-        returns (uint256)
-    {
-        IBrewlabsAggregator.FormattedOffer memory query =
-            swapAggregator.findBestPath(_amountIn, _fromToken, _toToken, 3);
+    function _safeSwap(
+        uint256 _amountIn,
+        address _fromToken,
+        address _toToken,
+        address _to,
+        IBrewlabsAggregator.Trade memory _trade
+    ) internal returns (uint256) {
+        // IBrewlabsAggregator.FormattedOffer memory query =
+        //     swapAggregator.findBestPath(_amountIn, _fromToken, _toToken, 3);
 
-        IBrewlabsAggregator.Trade memory _trade;
+        // IBrewlabsAggregator.Trade memory _trade;
         _trade.amountIn = _amountIn;
-        _trade.amountOut = query.amounts[query.amounts.length - 1];
-        _trade.adapters = query.adapters;
-        _trade.path = query.path;
+        // _trade.amountOut = query.amounts[query.amounts.length - 1];
+        // _trade.adapters = query.adapters;
+        // _trade.path = query.path;
 
         IERC20(_fromToken).safeApprove(address(swapAggregator), _amountIn);
 

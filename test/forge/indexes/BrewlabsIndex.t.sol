@@ -147,7 +147,7 @@ contract BrewlabsIndexTest is Test {
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapIn(address(0), ethAmount, percents);
         IBrewlabsAggregator.Trade[] memory _trades = new IBrewlabsAggregator.Trade[](percents.length + 1);
-        for(uint256 i = 0; i < percents.length + 1; i++) {
+        for (uint256 i = 0; i < percents.length + 1; i++) {
             _trades[i].adapters = queries[i].adapters;
             _trades[i].path = queries[i].path;
         }
@@ -219,7 +219,7 @@ contract BrewlabsIndexTest is Test {
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapIn(address(0), ethAmount, percents);
         IBrewlabsAggregator.Trade[] memory _trades = new IBrewlabsAggregator.Trade[](percents.length + 1);
-        for(uint256 i = 0; i < percents.length + 1; i++) {
+        for (uint256 i = 0; i < percents.length + 1; i++) {
             _trades[i].adapters = queries[i].adapters;
             _trades[i].path = queries[i].path;
         }
@@ -269,7 +269,7 @@ contract BrewlabsIndexTest is Test {
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapIn(address(0), ethAmount, percents);
         IBrewlabsAggregator.Trade[] memory _trades = new IBrewlabsAggregator.Trade[](percents.length + 1);
-        for(uint256 i = 0; i < percents.length + 1; i++) {
+        for (uint256 i = 0; i < percents.length + 1; i++) {
             _trades[i].adapters = queries[i].adapters;
             _trades[i].path = queries[i].path;
         }
@@ -347,7 +347,7 @@ contract BrewlabsIndexTest is Test {
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapIn(USDT, amountIn, percents);
         IBrewlabsAggregator.Trade[] memory _trades = new IBrewlabsAggregator.Trade[](percents.length + 1);
-        for(uint256 i = 0; i < percents.length + 1; i++) {
+        for (uint256 i = 0; i < percents.length + 1; i++) {
             _trades[i].adapters = queries[i].adapters;
             _trades[i].path = queries[i].path;
         }
@@ -408,10 +408,10 @@ contract BrewlabsIndexTest is Test {
         uint256[] memory percents = new uint256[](2);
         percents[0] = 5000;
         percents[1] = 5000;
-        
+
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapIn(address(0), amount, percents);
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](percents.length + 1);
-        for(uint256 i = 0; i < percents.length + 1; i++) {
+        for (uint256 i = 0; i < percents.length + 1; i++) {
             trades[i].adapters = queries[i].adapters;
             trades[i].path = queries[i].path;
         }
@@ -587,7 +587,7 @@ contract BrewlabsIndexTest is Test {
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
-        for(uint256 i = 0; i < queries.length; i++) {
+        for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
             trades[i].path = queries[i].path;
         }
@@ -651,7 +651,7 @@ contract BrewlabsIndexTest is Test {
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
-        for(uint256 i = 0; i < queries.length; i++) {
+        for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
             trades[i].path = queries[i].path;
         }
@@ -706,7 +706,7 @@ contract BrewlabsIndexTest is Test {
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(USDT);
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
-        for(uint256 i = 0; i < queries.length; i++) {
+        for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
             trades[i].path = queries[i].path;
         }
@@ -823,7 +823,7 @@ contract BrewlabsIndexTest is Test {
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
-        for(uint256 i = 0; i < queries.length; i++) {
+        for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
             trades[i].path = queries[i].path;
         }
@@ -877,7 +877,7 @@ contract BrewlabsIndexTest is Test {
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
-        for(uint256 i = 0; i < queries.length; i++) {
+        for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
             trades[i].path = queries[i].path;
         }
@@ -908,7 +908,7 @@ contract BrewlabsIndexTest is Test {
 
         queries = index.precomputeZapOut(address(0));
         trades = new IBrewlabsAggregator.Trade[](queries.length);
-        for(uint256 i = 0; i < queries.length; i++) {
+        for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
             trades[i].path = queries[i].path;
         }
@@ -952,7 +952,7 @@ contract BrewlabsIndexTest is Test {
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
-        for(uint256 i = 0; i < queries.length; i++) {
+        for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
             trades[i].path = queries[i].path;
         }
