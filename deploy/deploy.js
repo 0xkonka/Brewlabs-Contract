@@ -27,7 +27,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             nftTransfer: false,
 
             index: false,
-            indexNft: false,
+            indexNft: true,
             deployerNft: false,
             flaskNft: false,
             indexImpl: false,

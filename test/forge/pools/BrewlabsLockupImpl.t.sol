@@ -276,14 +276,8 @@ contract BrewlabsLockupImplTest is Test {
 
         uint256 pending = 0;
         for (uint256 i = 0; i < 2; i++) {
-            (
-                uint8 _stakeType,
-                uint256 amount,
-                ,
-                uint256 end,
-                uint256 rewardDebt,
-                uint256 reflectionDebt
-            ) = pool.userStakes(address(0x1), i);
+            (uint8 _stakeType, uint256 amount,, uint256 end, uint256 rewardDebt, uint256 reflectionDebt) =
+                pool.userStakes(address(0x1), i);
             // if (stakeType != _stakeType) continue;
             pending += (amount * accTokenPerShare) / pool.PRECISION_FACTOR() - rewardDebt;
         }

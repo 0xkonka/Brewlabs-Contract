@@ -33,6 +33,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
     struct IndexInfo {
         address index;
+        string name;
         uint256 category;
         uint256 version;
         address indexNft;
@@ -55,12 +56,15 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
     event IndexCreated(
         address indexed index,
+        string name,
         uint256 category,
         uint256 version,
         address[] tokens,
         address indexNft,
         address deployerNft,
-        address deployer
+        address deployer,
+        address feeWallet,
+        bool isPrivate
     );
     event SetIndexNft(address newNftAddr);
     event SetDeployerNft(address newOwner);
@@ -104,7 +108,13 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         emit SetImplementation(0, _impl, version[0]);
     }
 
-    function createBrewlabsIndex(address[] memory tokens, uint256 fee) external payable returns (address index) {
+    function createBrewlabsIndex(
+        string memory indexName,
+        address[] memory tokens,
+        uint256 fee,
+        address feeWallet,
+        bool isPrivate
+    ) external payable returns (address index) {
         uint256 curCategory = 0;
         require(implementation[curCategory] != address(0x0), "Not initialized yet");
 
@@ -127,13 +137,15 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         index = Clones.cloneDeterministic(implementation[curCategory], salt);
         (bool success,) = index.call(
             abi.encodeWithSignature(
-                "initialize(address[],address,address,uint256,address,address)",
+                "initialize(string,address[],address,address,uint256,address,address,address)",
+                indexName,
                 tokens,
                 address(indexNft),
                 address(deployerNft),
                 fee,
                 indexDefaultOwner,
-                msg.sender
+                msg.sender,
+                feeWallet
             )
         );
         require(success, "Initialization failed");
@@ -144,6 +156,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         indexInfo.push(
             IndexInfo(
                 index,
+                indexName,
                 curCategory,
                 version[curCategory],
                 address(indexNft),
@@ -155,7 +168,16 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         );
 
         emit IndexCreated(
-            index, curCategory, version[curCategory], tokens, address(indexNft), address(deployerNft), msg.sender
+            index,
+            indexName,
+            curCategory,
+            version[curCategory],
+            tokens,
+            address(indexNft),
+            address(deployerNft),
+            msg.sender,
+            feeWallet,
+            isPrivate
         );
     }
 
@@ -166,11 +188,12 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     function getIndexInfo(uint256 idx)
         external
         view
-        returns (address, uint256, address, address, address[] memory, address, uint256)
+        returns (address, string memory, uint256, address, address, address[] memory, address, uint256)
     {
         IndexInfo memory _indexInfo = indexInfo[idx];
         return (
             _indexInfo.index,
+            _indexInfo.name,
             _indexInfo.category,
             _indexInfo.indexNft,
             _indexInfo.deployerNft,
@@ -226,7 +249,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         require(flag != 2 || wrapper != address(0x0), "Invalid wrapper");
 
         allowedTokens[token] = flag;
-        if(flag == 2) wrappers[token] = wrapper;
+        if (flag == 2) wrappers[token] = wrapper;
         emit SetTokenConfig(token, flag, wrapper);
     }
 

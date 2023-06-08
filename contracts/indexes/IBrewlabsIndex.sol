@@ -8,14 +8,17 @@ import {IBrewlabsAggregator} from "../libs/IBrewlabsAggregator.sol";
 
 interface IBrewlabsIndex {
     function initialize(
+        string memory name,
         IERC20[] memory tokens,
         IERC721 indexNft,
         IERC721 deployerNft,
         uint256 fee,
         address owner,
-        address deployer
+        address deployer,
+        address commissionWallet
     ) external;
 
+    function name() external view returns (string memory);
     function factory() external view returns (address);
     function indexNft() external view returns (address);
     function deployerNft() external view returns (address);

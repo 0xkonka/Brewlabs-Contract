@@ -49,6 +49,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     address private PRICE_FEED;
     address public WNATIVE;
 
+    string public name;
+
     IBrewlabsIndexFactory public factory;
     IERC721 public indexNft;
     IERC721 public deployerNft;
@@ -117,26 +119,32 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
     /**
      * @notice Initialize index contract.
+     * @param _name: index name
      * @param _tokens: token list that user can buy in a transaction
      * @param _indexNft: Index NFT address
      * @param _deployerNft: Deployer NFT address
      * @param _fee: additional fee for deployer
      * @param _owner: index owner address
      * @param _deployer: index deployer address
+     * @param _commissionWallet: index commission wallet
      */
     function initialize(
+        string memory _name,
         IERC20[] memory _tokens,
         IERC721 _indexNft,
         IERC721 _deployerNft,
         uint256 _fee,
         address _owner,
-        address _deployer
+        address _deployer,
+        address _commissionWallet
     ) external {
         require(!isInitialized, "Already initialized");
         require(owner() == address(0x0) || msg.sender == owner(), "Not allowed");
         require(_tokens.length <= 5, "Exceed maximum tokens");
 
         isInitialized = true;
+
+        name = _name;
 
         // initialize default variables
         FEE_DENOMINATOR = 10000;
@@ -149,7 +157,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         performanceFee = 0.01 ether;
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         deployer = _deployer;
-        commissionWallet = _deployer;
+        commissionWallet = _commissionWallet;
 
         factory = IBrewlabsIndexFactory(msg.sender);
 
@@ -266,13 +274,13 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         require(_amount > 1000, "Not enough amount");
 
         IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
-        if(allowedMethod == 1) {
+        if (allowedMethod == 1) {
             amount = _safeSwapForETH(_amount, _token, _trade);
         } else {
             amount = _amount;
 
             address wrapper = factory.wrappers(_token);
-            if(_token == WNATIVE) {
+            if (_token == WNATIVE) {
                 IWETH(WNATIVE).withdraw(_amount);
             } else {
                 IERC20(_token).approve(wrapper, _amount);
@@ -416,11 +424,11 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         uint8 allowedMethod = factory.allowedTokens(_token);
         require(allowedMethod > 0, "Cannot zap out with this token");
 
-        if(allowedMethod == 1) {
+        if (allowedMethod == 1) {
             _safeSwapEth(_amount, _token, _to, _trade);
         } else {
-            uint256 amount = _amount;         
-            if(_token == WNATIVE) {
+            uint256 amount = _amount;
+            if (_token == WNATIVE) {
                 IWETH(WNATIVE).deposit{value: _amount}();
             } else {
                 address wrapper = factory.wrappers(_token);

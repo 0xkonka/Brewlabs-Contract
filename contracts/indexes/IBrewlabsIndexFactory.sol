@@ -13,7 +13,13 @@ interface IBrewlabsIndexFactory {
         uint256 price,
         address indexOwner
     ) external;
-    function createBrewlabsIndex(IERC20[] memory tokens, uint256 fee) external payable returns (address index);
+    function createBrewlabsIndex(
+        string memory indexName,
+        address[] memory tokens,
+        uint256 fee,
+        address feeWallet,
+        bool isPrivate
+    ) external payable returns (address index);
 
     function version(uint256 category) external view returns (uint256);
     function implementation(uint256 category) external view returns (address);
@@ -39,6 +45,7 @@ interface IBrewlabsIndexFactory {
         view
         returns (
             address indexAddr,
+            address name,
             uint256 category,
             address indexNft,
             address deployerNft,
@@ -59,7 +66,7 @@ interface IBrewlabsIndexFactory {
     function setBrewlabsFee(uint256 fee) external;
     function setBrewlabsWallet(address wallet) external;
     function setIndexFeeLimit(uint256 limit) external;
-    function setAllowedToken(IERC20 token, uint8 flag) external;
+    function setAllowedToken(address token, uint8 flag, address wrapper) external;
 
     function setServiceFee(uint256 fee) external;
     function setPayingToken(address token) external;

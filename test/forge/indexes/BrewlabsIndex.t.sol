@@ -87,7 +87,7 @@ contract BrewlabsIndexTest is Test {
         tokens[1] = token1;
 
         vm.startPrank(deployer);
-        index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, 20)); // 0.2%
+        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, 20, deployer, false)); // 0.2%
         vm.stopPrank();
     }
 
@@ -182,7 +182,7 @@ contract BrewlabsIndexTest is Test {
         tokens[1] = token1;
 
         vm.startPrank(deployer);
-        index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, 20)); // 0.2%
+        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, 20, deployer, false)); // 0.2%
         vm.stopPrank();
 
         address user = address(0x1234);
@@ -242,7 +242,7 @@ contract BrewlabsIndexTest is Test {
         tokens[4] = address(0x045c4324039dA91c52C55DF5D785385Aab073DcF); // bCFX
 
         vm.startPrank(deployer);
-        index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, 20)); // 0.2%
+        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, 20, deployer, false)); // 0.2%
         vm.stopPrank();
 
         address user = address(0x1234);
@@ -504,7 +504,7 @@ contract BrewlabsIndexTest is Test {
         _paths[1][1] = token1;
 
         vm.startPrank(deployer);
-        index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, 20)); // 0.2%
+        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, 20, deployer, false)); // 0.2%
         vm.stopPrank();
 
         address user = address(0x1234);
@@ -621,7 +621,7 @@ contract BrewlabsIndexTest is Test {
         _paths[1][1] = token1;
 
         vm.startPrank(deployer);
-        index = IBrewlabsIndex(factory.createBrewlabsIndex(tokens, 20)); // 0.2%
+        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, 20, deployer, false)); // 0.2%
         vm.stopPrank();
 
         address user = address(0x1234);

@@ -41,12 +41,15 @@ contract BrewlabsIndexFactoryTest is Test {
 
     event IndexCreated(
         address indexed index,
+        string name,
         uint256 category,
         uint256 version,
         address[] tokens,
         address indexNft,
         address deployerNft,
-        address deployer
+        address deployer,
+        address feeWallet,
+        bool isPrivate
     );
     event SetIndexNft(address newNftAddr);
     event SetDeployerNft(address newOwner);
@@ -211,7 +214,7 @@ contract BrewlabsIndexFactoryTest is Test {
     function test_setAllowedToken() public {
         vm.expectRevert("Invalid token");
         factory.setAllowedToken(address(0x0), 1, address(0));
-        
+
         vm.expectRevert("Invalid wrapper");
         factory.setAllowedToken(address(0x123), 2, address(0));
 
@@ -270,15 +273,17 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Not enough fee");
-        factory.createBrewlabsIndex(tokens, 200);
+        factory.createBrewlabsIndex("testIndex", tokens, 200, deployer, false);
 
         address[] memory _tokens = new address[](2);
         _tokens[0] = address(token0);
         _tokens[1] = address(token1);
 
         vm.expectEmit(false, false, false, true);
-        emit IndexCreated(address(0), 0, 1, _tokens, address(indexNft), address(deployerNft), deployer);
-        address index = factory.createBrewlabsIndex{value: 1 ether}(tokens, 200);
+        emit IndexCreated(
+            address(0), "testIndex", 0, 1, _tokens, address(indexNft), address(deployerNft), deployer, deployer, false
+        );
+        address index = factory.createBrewlabsIndex{value: 1 ether}("testIndex", tokens, 200, deployer, false);
 
         assertEq(IBrewlabsIndex(index).deployer(), deployer);
         assertEq(IBrewlabsIndex(index).owner(), indexOwner);
@@ -315,8 +320,10 @@ contract BrewlabsIndexFactoryTest is Test {
         _tokens[1] = address(token1);
 
         vm.expectEmit(false, false, false, true);
-        emit IndexCreated(address(0), 0, 1, _tokens, address(indexNft), address(deployerNft), deployer);
-        factory.createBrewlabsIndex(tokens, 200);
+        emit IndexCreated(
+            address(0), "testIndex", 0, 1, _tokens, address(indexNft), address(deployerNft), deployer, deployer, false
+        );
+        factory.createBrewlabsIndex("testIndex", tokens, 200, deployer, false);
     }
 
     function test_createBrewlabsIndexInNoFee() public {
@@ -343,8 +350,10 @@ contract BrewlabsIndexFactoryTest is Test {
         _tokens[1] = address(token1);
 
         vm.expectEmit(false, false, false, true);
-        emit IndexCreated(address(0), 0, 1, _tokens, address(indexNft), address(deployerNft), deployer);
-        address index = factory.createBrewlabsIndex(tokens, 200);
+        emit IndexCreated(
+            address(0), "testIndex", 0, 1, _tokens, address(indexNft), address(deployerNft), deployer, deployer, false
+        );
+        address index = factory.createBrewlabsIndex("testIndex", tokens, 200, deployer, false);
 
         assertEq(IBrewlabsIndex(index).deployer(), deployer);
         assertEq(IBrewlabsIndex(index).owner(), indexOwner);
@@ -373,7 +382,7 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Not initialized yet");
-        _factory.createBrewlabsIndex(tokens, 200);
+        _factory.createBrewlabsIndex("testIndex", tokens, 200, deployer, false);
         vm.stopPrank();
     }
 
@@ -394,7 +403,7 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Exceed token limit");
-        factory.createBrewlabsIndex(tokens, 200);
+        factory.createBrewlabsIndex("testIndex", tokens, 200, deployer, false);
         vm.stopPrank();
     }
 
@@ -415,7 +424,7 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Cannot exeed fee limit");
-        factory.createBrewlabsIndex(tokens, 2000);
+        factory.createBrewlabsIndex("testIndex", tokens, 2001, deployer, false);
         vm.stopPrank();
     }
 
@@ -436,7 +445,7 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Cannot use same token");
-        factory.createBrewlabsIndex(tokens, 200);
+        factory.createBrewlabsIndex("testIndex", tokens, 200, deployer, false);
         vm.stopPrank();
     }
 
@@ -457,7 +466,7 @@ contract BrewlabsIndexFactoryTest is Test {
 
         vm.startPrank(deployer);
         vm.expectRevert("Invalid token");
-        factory.createBrewlabsIndex(tokens, 200);
+        factory.createBrewlabsIndex("testIndex", tokens, 200, deployer, false);
         vm.stopPrank();
     }
 
