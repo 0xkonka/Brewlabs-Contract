@@ -67,7 +67,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         bool isPrivate
     );
     event SetIndexNft(address newNftAddr);
-    event SetDeployerNft(address newOwner);
+    event SetDeployerNft(address newNftAddr);
     event SetIndexOwner(address newOwner);
     event SetBrewlabsFee(uint256 fee);
     event SetBrewlabsWallet(address wallet);

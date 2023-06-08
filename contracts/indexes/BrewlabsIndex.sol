@@ -109,6 +109,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     event ServiceInfoChanged(address addr, uint256 fee);
     event SetDeployerFee(uint256 fee);
     event SetSwapAggregator(address aggregator);
+    event SetIndexNft(address newNftAddr);
+    event SetDeployerNft(address newNftAddr);
 
     modifier onlyInitialized() {
         require(isInitialized, "Not initialized");
@@ -623,6 +625,18 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         swapAggregator = IBrewlabsAggregator(_aggregator);
         WNATIVE = IBrewlabsAggregator(_aggregator).WNATIVE();
         emit SetSwapAggregator(_aggregator);
+    }
+
+    function setIndexNft(IERC721 newNftAddr) external onlyOwner {
+        require(address(newNftAddr) != address(0x0), "Invalid NFT");
+        indexNft = newNftAddr;
+        emit SetIndexNft(address(newNftAddr));
+    }
+
+    function setDeployerNft(IERC721 newNftAddr) external onlyOwner {
+        require(address(newNftAddr) != address(0x0), "Invalid NFT");
+        deployerNft = newNftAddr;
+        emit SetDeployerNft(address(newNftAddr));
     }
 
     /**
