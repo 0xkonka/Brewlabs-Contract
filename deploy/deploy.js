@@ -27,7 +27,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             nftTransfer: false,
 
             index: false,
-            indexNft: true,
+            indexNft: false,
             deployerNft: false,
             flaskNft: false,
             indexImpl: false,
@@ -127,7 +127,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployedAddress = deployed.address;
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
             
-            let contractInstance = await ethers.getContractAt("BrewlabsDeployerNft", deployedAddress)
+            // let contractInstance = await ethers.getContractAt("BrewlabsDeployerNft", deployedAddress)
             // await contractInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmUaFYco7KfL9Yz3fWqhygAzw7A1RaSkh6nV75NBu5a7CV");
 
             // verify
