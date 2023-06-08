@@ -47,6 +47,7 @@ interface IBrewlabsIndexFactory {
             uint256 createdAt
         );
     function allowedTokens(address token) external view returns (uint8);
+    function wrappers(address token) external view returns (address);
     function whitelist(address addr) external view returns (bool);
 
     function setImplementation(uint256 category, address impl) external;

@@ -10,6 +10,7 @@ import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Hol
 import {AggregatorV3Interface} from "../libs/AggregatorV3Interface.sol";
 import {IBrewlabsAggregator} from "../libs/IBrewlabsAggregator.sol";
 import {IWETH} from "../libs/IWETH.sol";
+import {IWrapper} from "../libs/IWrapper.sol";
 
 interface IBrewlabsIndexFactory {
     function brewlabsFee() external view returns (uint256);
@@ -17,6 +18,7 @@ interface IBrewlabsIndexFactory {
     function brewlabsWallet() external view returns (address);
     function discountMgr() external view returns (address);
     function allowedTokens(address token) external view returns (uint8);
+    function wrappers(address token) external view returns (address);
 }
 
 interface IBrewlabsIndexNft {
@@ -264,7 +266,19 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         require(_amount > 1000, "Not enough amount");
 
         IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
-        amount = _safeSwapForETH(_amount, _token, _trade);
+        if(allowedMethod == 1) {
+            amount = _safeSwapForETH(_amount, _token, _trade);
+        } else {
+            amount = _amount;
+
+            address wrapper = factory.wrappers(_token);
+            if(_token == WNATIVE) {
+                IWETH(WNATIVE).withdraw(_amount);
+            } else {
+                IERC20(_token).approve(wrapper, _amount);
+                amount = IWrapper(wrapper).withdraw(_amount);
+            }
+        }
     }
 
     /**
@@ -402,7 +416,18 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         uint8 allowedMethod = factory.allowedTokens(_token);
         require(allowedMethod > 0, "Cannot zap out with this token");
 
-        _safeSwapEth(_amount, _token, _to, _trade);
+        if(allowedMethod == 1) {
+            _safeSwapEth(_amount, _token, _to, _trade);
+        } else {
+            uint256 amount = _amount;         
+            if(_token == WNATIVE) {
+                IWETH(WNATIVE).deposit{value: _amount}();
+            } else {
+                address wrapper = factory.wrappers(_token);
+                amount = IWrapper(wrapper).deposit{value: _amount}();
+            }
+            IERC20(_token).safeTransfer(_to, amount);
+        }
     }
 
     /**

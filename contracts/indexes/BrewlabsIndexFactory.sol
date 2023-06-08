@@ -47,10 +47,11 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
     /**
      * 0 - DISABLED      : Tokens are not accepted.
-     * 1 - DIRECT_PATH   : Token swap possible directly to BNB.
+     * 1 - SWAPPABLE   : Token swap possible directly to BNB.
      * 2 - LIQUID_TOKEN  : Token can be converted to BNB by burning.
      */
     mapping(address => uint8) public allowedTokens;
+    mapping(address => address) public wrappers;
 
     event IndexCreated(
         address indexed index,
@@ -72,7 +73,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     event SetDiscountMgr(address addr);
     event TreasuryChanged(address addr);
 
-    event SetTokenConfig(address token, uint8 flag);
+    event SetTokenConfig(address token, uint8 flag, address wrapper);
     event Whitelisted(address indexed account, bool isWhitelisted);
 
     constructor() {}
@@ -214,16 +215,19 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
      * @notice Initialize the contract
      * @param token: staked token address
      * @param flag: staked token address
-     *     0 - DISABLED      : Tokens are not accepted.
-     *     1 - DIRECT_PATH   : Token swap possible directly to BNB.
-     *     2 - LIQUID_TOKEN  : Token can be converted to BNB by burning.
+     *     0 - DISABLED      : Not supported.
+     *     1 - SWAPPABLE     : Swappable token with BNB.
+     *     2 - LIQUID_TOKEN  : Token can be converted to BNB by wrapping.
+     * @param wrapper: wrap contract for LST
      */
-    function setAllowedToken(address token, uint8 flag) external onlyOwner {
+    function setAllowedToken(address token, uint8 flag, address wrapper) external onlyOwner {
         require(token != address(0x0), "Invalid token");
-        require(flag < 2, "Invalid type");
+        require(flag < 3, "Invalid type");
+        require(flag != 2 || wrapper != address(0x0), "Invalid wrapper");
 
         allowedTokens[token] = flag;
-        emit SetTokenConfig(token, flag);
+        if(flag == 2) wrappers[token] = wrapper;
+        emit SetTokenConfig(token, flag, wrapper);
     }
 
     function setIndexFeeLimit(uint256 limit) external onlyOwner {
