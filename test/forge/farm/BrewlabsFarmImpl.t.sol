@@ -113,7 +113,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
         vm.startPrank(_user);
         lpToken.approve(address(farm), _amount);
 
-        uint256 _depositFee = _amount * DEPOSIT_FEE / 10000;
+        uint256 _depositFee = (_amount * DEPOSIT_FEE) / 10000;
         vm.expectEmit(true, true, false, true);
         emit Deposit(_user, _amount - _depositFee);
         farm.deposit{value: farm.performanceFee()}(_amount);
@@ -126,7 +126,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
 
         (uint256 amount, uint256 rewardDebt, uint256 reflectionDebt) = farm.userInfo(address(0x1));
 
-        uint256 _depositFee = 1 ether * DEPOSIT_FEE / 10000;
+        uint256 _depositFee = (1 ether * DEPOSIT_FEE) / 10000;
         assertEq(amount, 1 ether - _depositFee);
         assertEq(lpToken.balanceOf(farm.feeAddress()), _depositFee);
         assertEq(rewardDebt, 0);
@@ -211,7 +211,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
         }
         uint256 _expectedRewards = remainRewards / (bonusEndBlock - block.number);
 
-        uint256 _depositFee = 0.1 ether * DEPOSIT_FEE / 10000;
+        uint256 _depositFee = (0.1 ether * DEPOSIT_FEE) / 10000;
         vm.expectEmit(true, true, false, true);
         emit Deposit(address(0x1), 0.1 ether - _depositFee);
         vm.expectEmit(false, false, false, true);
@@ -251,14 +251,14 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
         (uint256 amount, uint256 rewardDebt,) = farm.userInfo(address(0x1));
 
         uint256 rewards = 1000 * farm.rewardPerBlock();
-        uint256 accTokenPerShare = farm.accTokenPerShare() + rewards * 1e18 / farm.totalStaked();
-        uint256 pending = amount * accTokenPerShare / 1e18 - rewardDebt;
+        uint256 accTokenPerShare = farm.accTokenPerShare() + (rewards * 1e18) / farm.totalStaked();
+        uint256 pending = (amount * accTokenPerShare) / 1e18 - rewardDebt;
         assertEq(farm.pendingRewards(address(0x1)), pending);
 
         utils.mineBlocks(100);
         rewards = 1100 * farm.rewardPerBlock();
-        accTokenPerShare = farm.accTokenPerShare() + rewards * 1e18 / farm.totalStaked();
-        pending = amount * accTokenPerShare / 1e18;
+        accTokenPerShare = farm.accTokenPerShare() + (rewards * 1e18) / farm.totalStaked();
+        pending = (amount * accTokenPerShare) / 1e18;
         assertEq(farm.pendingRewards(address(0x1)), pending);
     }
 
@@ -271,11 +271,11 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
 
         utils.mineBlocks(1000);
         uint256 reflectionAmt = farm.availableDividendTokens();
-        uint256 accReflectionPerShare = reflectionAmt * 1e18 / farm.totalStaked();
+        uint256 accReflectionPerShare = (reflectionAmt * 1e18) / farm.totalStaked();
 
         (uint256 amount,,) = farm.userInfo(address(0x1));
 
-        uint256 pending = amount * accReflectionPerShare / 1e18;
+        uint256 pending = (amount * accReflectionPerShare) / 1e18;
         assertEq(farm.pendingReflections(address(0x1)), pending);
     }
 
@@ -290,7 +290,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
         tryDeposit(address(0x2), 2 ether);
 
         (uint256 amount,,) = farm.userInfo(address(0x1));
-        uint256 _withdrawFee = amount * WITHDRAW_FEE / 10000;
+        uint256 _withdrawFee = (amount * WITHDRAW_FEE) / 10000;
         uint256 pending = farm.pendingRewards(address(0x1));
         uint256 pendingReflection = farm.pendingReflections(address(0x1));
 
@@ -420,9 +420,9 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
 
         utils.mineBlocks(100);
         uint256 _rewards = farm.rewardPerBlock() * 100;
-        uint256 dShare = _rewards * 1e18 / farm.totalStaked();
+        uint256 dShare = (_rewards * 1e18) / farm.totalStaked();
         uint256 prevAccTokenPerShare = farm.accTokenPerShare();
-        uint256 accDividendPerShare = 0.01 ether * 1e18 / farm.totalStaked();
+        uint256 accDividendPerShare = (0.01 ether * 1e18) / farm.totalStaked();
 
         tryDeposit(address(0x1), 1 ether);
         assertEq(farm.lastRewardBlock(), block.number);
@@ -567,7 +567,7 @@ contract BrewlabsFarmImplTest is BrewlabsFarmImplBase {
         _farm.startReward();
 
         vm.prank(address(0x1));
-        vm.expectRevert(abi.encodePacked("caller is not owner or operator"));
+        vm.expectRevert(abi.encodePacked("Caller is not owner or operator"));
         _farm.startReward();
     }
 
@@ -727,7 +727,7 @@ contract BrewlabsFarmImplWithETHReflectionTest is BrewlabsFarmImplBase {
         vm.startPrank(_user);
         lpToken.approve(address(farm), _amount);
 
-        uint256 _depositFee = _amount * DEPOSIT_FEE / 10000;
+        uint256 _depositFee = (_amount * DEPOSIT_FEE) / 10000;
         vm.expectEmit(true, true, false, true);
         emit Deposit(_user, _amount - _depositFee);
         farm.deposit{value: farm.performanceFee()}(_amount);

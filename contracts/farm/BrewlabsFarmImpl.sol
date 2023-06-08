@@ -108,7 +108,7 @@ contract BrewlabsFarmImpl is Ownable, ReentrancyGuard {
     event SetSettings(uint256 depositFee, uint256 withdrawFee, address feeAddr);
 
     modifier onlyAdmin() {
-        require(msg.sender == owner() || msg.sender == operator, "caller is not owner or operator");
+        require(msg.sender == owner() || msg.sender == operator, "Caller is not owner or operator");
         _;
     }
 

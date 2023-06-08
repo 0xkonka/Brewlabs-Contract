@@ -131,7 +131,7 @@ contract BrewlabsStakingImplTest is Test {
         vm.startPrank(_user);
         stakingToken.approve(address(pool), _amount);
 
-        uint256 _depositFee = _amount * DEPOSIT_FEE / 10000;
+        uint256 _depositFee = (_amount * DEPOSIT_FEE) / 10000;
         vm.expectEmit(true, true, false, true);
         emit Deposit(_user, _amount - _depositFee);
         pool.deposit{value: performanceFee}(_amount);
@@ -163,7 +163,7 @@ contract BrewlabsStakingImplTest is Test {
 
         uint256 pending = pool.pendingReward(address(0x1));
         uint256 pendingReflection = pool.pendingDividends(address(0x1));
-        assertEq(pending, amount * accTokenPerShare / pool.PRECISION_FACTOR());
+        assertEq(pending, (amount * accTokenPerShare) / pool.PRECISION_FACTOR());
 
         tryDeposit(address(0x1), 1 ether);
         assertEq(stakingToken.balanceOf(address(0x1)), pending);
@@ -226,14 +226,14 @@ contract BrewlabsStakingImplTest is Test {
         (uint256 amount, uint256 rewardDebt,) = pool.userInfo(address(0x1));
 
         uint256 rewards = 1000 * pool.rewardPerBlock();
-        uint256 accTokenPerShare = pool.accTokenPerShare() + rewards * pool.PRECISION_FACTOR() / pool.totalStaked();
-        uint256 pending = amount * accTokenPerShare / pool.PRECISION_FACTOR() - rewardDebt;
+        uint256 accTokenPerShare = pool.accTokenPerShare() + (rewards * pool.PRECISION_FACTOR()) / pool.totalStaked();
+        uint256 pending = (amount * accTokenPerShare) / pool.PRECISION_FACTOR() - rewardDebt;
         assertEq(pool.pendingReward(address(0x1)), pending);
 
         utils.mineBlocks(100);
         rewards = 1100 * pool.rewardPerBlock();
-        accTokenPerShare = pool.accTokenPerShare() + rewards * pool.PRECISION_FACTOR() / pool.totalStaked();
-        pending = amount * accTokenPerShare / pool.PRECISION_FACTOR() - rewardDebt;
+        accTokenPerShare = pool.accTokenPerShare() + (rewards * pool.PRECISION_FACTOR()) / pool.totalStaked();
+        pending = (amount * accTokenPerShare) / pool.PRECISION_FACTOR() - rewardDebt;
         assertEq(pool.pendingReward(address(0x1)), pending);
     }
 
@@ -247,11 +247,11 @@ contract BrewlabsStakingImplTest is Test {
         utils.mineBlocks(1000);
         uint256 reflectionAmt = pool.availableDividendTokens();
         uint256 accReflectionPerShare = pool.accDividendPerShare()
-            + reflectionAmt * pool.PRECISION_FACTOR_REFLECTION() / (pool.totalStaked() + pool.availableRewardTokens());
+            + (reflectionAmt * pool.PRECISION_FACTOR_REFLECTION()) / (pool.totalStaked() + pool.availableRewardTokens());
 
         (uint256 amount,, uint256 reflectionDebt) = pool.userInfo(address(0x1));
 
-        uint256 pending = amount * accReflectionPerShare / pool.PRECISION_FACTOR_REFLECTION() - reflectionDebt;
+        uint256 pending = (amount * accReflectionPerShare) / pool.PRECISION_FACTOR_REFLECTION() - reflectionDebt;
         assertEq(pool.pendingDividends(address(0x1)), pending);
     }
 
@@ -269,7 +269,7 @@ contract BrewlabsStakingImplTest is Test {
 
         uint256 pending = pool.pendingReward(address(0x1));
         uint256 pendingReflection = pool.pendingDividends(address(0x1));
-        assertEq(pending, amount * accTokenPerShare / pool.PRECISION_FACTOR());
+        assertEq(pending, (amount * accTokenPerShare) / pool.PRECISION_FACTOR());
 
         uint256 performanceFee = pool.performanceFee();
 
@@ -285,7 +285,7 @@ contract BrewlabsStakingImplTest is Test {
 
         vm.stopPrank();
 
-        assertEq(stakingToken.balanceOf(address(0x1)), 1 ether - 1 ether * WITHDRAW_FEE / 10000 + pending);
+        assertEq(stakingToken.balanceOf(address(0x1)), 1 ether - (1 ether * WITHDRAW_FEE) / 10000 + pending);
         assertEq(dividendToken.balanceOf(address(0x1)), pendingReflection);
 
         assertEq(pool.availableDividendTokens(), 0.1 ether - pendingReflection);
@@ -361,7 +361,7 @@ contract BrewlabsStakingImplTest is Test {
         uint256 accTokenPerShare = (_reward * pool.PRECISION_FACTOR()) / amount;
 
         uint256 pending = pool.pendingReward(address(0x1));
-        assertEq(pending, amount * accTokenPerShare / pool.PRECISION_FACTOR());
+        assertEq(pending, (amount * accTokenPerShare) / pool.PRECISION_FACTOR());
 
         uint256 performanceFee = pool.performanceFee();
 
@@ -397,7 +397,7 @@ contract BrewlabsStakingImplTest is Test {
         uint256 accTokenPerShare = (_reward * pool.PRECISION_FACTOR()) / amount;
 
         uint256 pending = pool.pendingReward(address(0x1));
-        assertEq(pending, amount * accTokenPerShare / pool.PRECISION_FACTOR());
+        assertEq(pending, (amount * accTokenPerShare) / pool.PRECISION_FACTOR());
 
         uint256 performanceFee = pool.performanceFee();
 
@@ -523,7 +523,7 @@ contract BrewlabsStakingImplTest is Test {
         uint256 accTokenPerShare = (_reward * pool.PRECISION_FACTOR()) / amount;
 
         uint256 pending = pool.pendingReward(address(0x1));
-        assertEq(pending, amount * accTokenPerShare / pool.PRECISION_FACTOR());
+        assertEq(pending, (amount * accTokenPerShare) / pool.PRECISION_FACTOR());
 
         uint256 performanceFee = pool.performanceFee();
 
@@ -681,7 +681,7 @@ contract BrewlabsStakingImplTest is Test {
 
     function test_updateEndBlock() public {
         uint256 endBlock = pool.bonusEndBlock();
-        vm.expectRevert("caller is not owner or operator");
+        vm.expectRevert("Caller is not owner or operator");
         pool.updateEndBlock(endBlock - 1);
 
         vm.startPrank(pool.operator());

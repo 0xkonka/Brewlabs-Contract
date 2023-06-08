@@ -148,7 +148,7 @@ contract BrewlabsLockupImplTest is Test {
         (,, uint256 depositFee,,,,,,) = pool.lockups(uint256(0));
 
         uint256 treasuryVal = address(pool.treasury()).balance;
-        uint256 _depositFee = _amount * depositFee / 10000;
+        uint256 _depositFee = (_amount * depositFee) / 10000;
         vm.expectEmit(true, true, false, true);
         emit Deposit(_user, 0, 1 ether - _depositFee);
         pool.deposit{value: performanceFee}(_amount, 0);
@@ -168,95 +168,137 @@ contract BrewlabsLockupImplTest is Test {
         vm.stopPrank();
     }
 
-    // function test_notFirstDeposit() public {
-    //     dividendToken.mint(address(pool), 0.1 ether);
-    //     uint256 rewards = pool.availableRewardTokens();
+    function test_notFirstDeposit() public {
+        dividendToken.mint(address(pool), 0.1 ether);
+        uint256 rewards = pool.availableRewardTokens();
 
-    //     tryDeposit(address(0x1), 1 ether);
+        tryDeposit(address(0x1), 1 ether);
 
-    //     utils.mineBlocks(100);
+        utils.mineBlocks(100);
 
-    //     (uint256 amount,,) = pool.userInfo(0, address(0x1));
-    //     uint256 _reward = 100 * pool.rewardPerBlock(0);
-    //     uint256 accTokenPerShare = (_reward * pool.PRECISION_FACTOR()) / amount;
+        (uint256 amount,,) = pool.userInfo(0, address(0x1));
+        uint256 _reward = 100 * pool.rewardPerBlock(0);
+        uint256 accTokenPerShare = (_reward * pool.PRECISION_FACTOR()) / amount;
 
-    //     uint256 pending = pool.pendingReward(address(0x1), 0);
-    //     uint256 pendingReflection = pool.pendingDividends(address(0x1), 0);
-    //     assertEq(pending, amount * accTokenPerShare / pool.PRECISION_FACTOR());
+        uint256 pending = pool.pendingReward(address(0x1), 0);
+        uint256 pendingReflection = pool.pendingDividends(address(0x1), 0);
+        assertEq(pending, (amount * accTokenPerShare) / pool.PRECISION_FACTOR());
 
-    //     tryDeposit(address(0x1), 1 ether);
-    //     assertEq(stakingToken.balanceOf(address(0x1)), pending);
-    //     assertEq(dividendToken.balanceOf(address(0x1)), pendingReflection);
+        tryDeposit(address(0x1), 1 ether);
+        assertEq(stakingToken.balanceOf(address(0x1)), pending);
+        assertEq(dividendToken.balanceOf(address(0x1)), pendingReflection);
 
-    //     assertEq(pool.availableDividendTokens(), 0.1 ether - pendingReflection);
-    //     assertEq(pool.availableRewardTokens(), rewards - pending);
-    //     assertEq(pool.paidRewards(), pending);
-    // }
+        assertEq(pool.availableDividendTokens(), 0.1 ether - pendingReflection);
+        assertEq(pool.availableRewardTokens(), rewards - pending);
+        assertEq(pool.paidRewards(), pending);
+    }
 
-    // function testFailed_depositInNotStaredPool() public {
-    //     BrewlabsLockupImpl _pool = BrewlabsLockupImpl(
-    //         payable(
-    //             factory.createBrewlabsSinglePool(
-    //                 address(stakingToken),
-    //                 address(rewardToken),
-    //                 address(0x0),
-    //                 365,
-    //                 1 ether,
-    //                 DEPOSIT_FEE,
-    //                 WITHDRAW_FEE,
-    //                 false
-    //             )
-    //         )
-    //     );
+    function testFailed_depositInNotStaredPool() public {
+        uint256[] memory lockDurations = new uint256[](2);
+        lockDurations[0] = 10;
+        lockDurations[1] = 20;
 
-    //     stakingToken.mint(address(0x1), 1 ether);
-    //     vm.deal(address(0x1), _pool.performanceFee());
+        uint256[] memory rewardsPerBlock = new uint256[](2);
+        rewardsPerBlock[0] = 1 ether;
+        rewardsPerBlock[1] = 1.5 ether;
 
-    //     vm.startPrank(address(0x1));
-    //     stakingToken.approve(address(_pool), 1 ether);
+        uint256[] memory depositFees = new uint256[](2);
+        depositFees[0] = 0;
+        depositFees[1] = DEPOSIT_FEE;
 
-    //     _pool.deposit{value: _pool.performanceFee()}(1 ether, 0);
-    //     vm.stopPrank();
-    // }
+        uint256[] memory withdrawFees = new uint256[](2);
+        withdrawFees[0] = 0;
+        withdrawFees[1] = WITHDRAW_FEE;
 
-    // function testFailed_zeroDeposit() public {
-    //     tryDeposit(address(0x1), 0);
-    // }
+        BrewlabsLockupImpl _pool = BrewlabsLockupImpl(
+            payable(
+                factory.createBrewlabsLockupPools(
+                    address(stakingToken),
+                    address(rewardToken),
+                    address(0x0),
+                    365,
+                    lockDurations,
+                    rewardsPerBlock,
+                    depositFees,
+                    withdrawFees
+                )
+            )
+        );
 
-    // // function testFailed_depositInNotEnoughRewards() public {
-    // //     tryDeposit(address(0x1), 1 ether);
+        stakingToken.mint(address(0x1), 1 ether);
+        vm.deal(address(0x1), _pool.performanceFee());
 
-    // //     vm.startPrank(deployer);
-    // //     pool.updateRewardPerBlock(100 ether);
-    // //     vm.stopPrank();
+        vm.startPrank(address(0x1));
+        stakingToken.approve(address(_pool), 1 ether);
 
-    // //     vm.roll(pool.bonusEndBlock() - 100);
+        _pool.deposit{value: _pool.performanceFee()}(1 ether, 0);
+        vm.stopPrank();
+    }
 
-    // //     tryDeposit(address(0x1), 1 ether);
-    // // }
+    function testFailed_zeroDeposit() public {
+        tryDeposit(address(0x1), 0);
+    }
 
-    // function test_pendingReward() public {
-    //     tryDeposit(address(0x1), 1 ether);
-    //     utils.mineBlocks(2);
-    //     tryDeposit(address(0x2), 2 ether);
+    function testFailed_depositInNotEnoughRewards() public {
+        tryDeposit(address(0x1), 1 ether);
 
-    //     utils.mineBlocks(1000);
+        vm.startPrank(deployer);
+        pool.updateLockup(0, 20, 0, 0, 100 ether, 0);
+        vm.stopPrank();
 
-    //     (uint256 amount, uint256 rewardDebt,) = pool.userInfo(0, address(0x1));
+        vm.roll(pool.bonusEndBlock() - 100);
 
-    //     BrewlabsLockupImpl.Lockup memory lockup = pool.lockups(0);
+        tryDeposit(address(0x1), 1 ether);
+    }
 
-    //     uint256 rewards = 1000 * pool.rewardPerBlock(0);
-    //     uint256 accTokenPerShare = lockup.accTokenPerShare + rewards * pool.PRECISION_FACTOR() / pool.totalStaked();
-    //     uint256 pending = amount * accTokenPerShare / pool.PRECISION_FACTOR() - rewardDebt;
-    //     assertEq(pool.pendingReward(address(0x1), 0), pending);
+    function test_pendingReward() public {
+        tryDeposit(address(0x1), 1 ether);
+        utils.mineBlocks(2);
+        tryDeposit(address(0x2), 2 ether);
 
-    //     utils.mineBlocks(100);
-    //     rewards = 1100 * pool.rewardPerBlock();
-    //     accTokenPerShare = pool.accTokenPerShare() + rewards * pool.PRECISION_FACTOR() / pool.totalStaked();
-    //     pending = amount * accTokenPerShare / pool.PRECISION_FACTOR() - rewardDebt;
-    //     assertEq(pool.pendingReward(address(0x1)), pending);
-    // }
+        utils.mineBlocks(1000);
+
+        (
+            uint8 stakeType,
+            uint256 duration,
+            uint256 depositFee,
+            uint256 withdrawFee,
+            uint256 rate,
+            uint256 accTokenPerShare,
+            uint256 lastRewardBlock,
+            uint256 totalStaked,
+            uint256 totalStakedLimit
+        ) = pool.lockups(0);
+
+        uint256 multiplier = block.number - lastRewardBlock;
+        uint256 reward = multiplier * rate;
+        accTokenPerShare += (reward * pool.PRECISION_FACTOR()) / totalStaked;
+
+        uint256 pending = 0;
+        for (uint256 i = 0; i < 2; i++) {
+            (
+                uint8 _stakeType,
+                uint256 amount,
+                uint256 duration,
+                uint256 end,
+                uint256 rewardDebt,
+                uint256 reflectionDebt
+            ) = pool.userStakes(address(0x1), i);
+            if (stakeType != _stakeType) continue;
+            pending += (amount * accTokenPerShare) / pool.PRECISION_FACTOR() - rewardDebt;
+        }
+
+        // assertEq(pool.pendingReward(address(0x1), 0), pending);
+
+        // uint256 rewards = 1000 * pool.rewardPerBlock(0);
+        // uint256 accTokenPerShare = lockup.accTokenPerShare + rewards * pool.PRECISION_FACTOR() / pool.totalStaked();
+        // uint256 pending = amount * accTokenPerShare / pool.PRECISION_FACTOR() - rewardDebt;
+        // utils.mineBlocks(100);
+        // rewards = 1100 * pool.rewardPerBlock(0);
+        // accTokenPerShare = pool.accTokenPerShare + rewards * pool.PRECISION_FACTOR() / pool.totalStaked();
+        // pending = amount * accTokenPerShare / pool.PRECISION_FACTOR() - rewardDebt;
+        // assertEq(pool.pendingReward(address(0x1)), pending);
+    }
 
     // function test_pendingDividends() public {
     //     tryDeposit(address(0x1), 1 ether);
@@ -690,7 +732,7 @@ contract BrewlabsLockupImplTest is Test {
 
     // function test_updateEndBlock() public {
     //     uint256 endBlock = pool.bonusEndBlock();
-    //     vm.expectRevert("caller is not owner or operator");
+    //     vm.expectRevert("Caller is not owner or operator");
     //     pool.updateEndBlock(endBlock - 1);
 
     //     vm.startPrank(pool.operator());

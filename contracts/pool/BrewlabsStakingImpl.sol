@@ -109,7 +109,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
     event SetSwapAggregator(address aggregator);
 
     modifier onlyAdmin() {
-        require(msg.sender == owner() || msg.sender == operator, "caller is not owner or operator");
+        require(msg.sender == owner() || msg.sender == operator, "Caller is not owner or operator");
         _;
     }
 
