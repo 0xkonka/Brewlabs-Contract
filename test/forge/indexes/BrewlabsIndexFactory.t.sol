@@ -59,7 +59,7 @@ contract BrewlabsIndexFactoryTest is Test {
     event SetDiscountMgr(address addr);
     event TreasuryChanged(address addr);
 
-    event SetTokenConfig(address token, uint8 flag);
+    event SetTokenConfig(address token, uint8 flag, address wrapper);
     event Whitelisted(address indexed account, bool isWhitelisted);
 
     function setUp() public {
@@ -210,13 +210,20 @@ contract BrewlabsIndexFactoryTest is Test {
 
     function test_setAllowedToken() public {
         vm.expectRevert("Invalid token");
-        factory.setAllowedToken(address(0x0), 1);
+        factory.setAllowedToken(address(0x0), 1, address(0));
+        
+        vm.expectRevert("Invalid wrapper");
+        factory.setAllowedToken(address(0x123), 2, address(0));
 
         vm.expectEmit(false, false, false, true);
-        emit SetTokenConfig(address(0x1), 1);
-        factory.setAllowedToken(address(0x1), 1);
+        emit SetTokenConfig(address(0x1), 1, address(0));
+        factory.setAllowedToken(address(0x1), 1, address(0));
 
         assertEq(factory.allowedTokens(address(0x1)), 1);
+
+        factory.setAllowedToken(address(0x123), 2, address(0x3333));
+        assertEq(factory.allowedTokens(address(0x123)), 2);
+        assertEq(factory.wrappers(address(0x123)), address(0x3333));
     }
 
     function test_addToWhitelist() public {

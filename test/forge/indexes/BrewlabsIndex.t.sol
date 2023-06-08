@@ -302,7 +302,7 @@ contract BrewlabsIndexTest is Test {
         vm.deal(user, 10 ether);
 
         uint256 amountIn = trySwapUsdt(user, 1 ether);
-        factory.setAllowedToken(USDT, 1);
+        factory.setAllowedToken(USDT, 1, address(0));
 
         vm.startPrank(user);
         uint256 price = index.getPriceFromChainlink();
@@ -387,7 +387,7 @@ contract BrewlabsIndexTest is Test {
 
         uint256 amountIn = trySwapUsdt(user, 100000);
         amountIn = 1000;
-        factory.setAllowedToken(USDT, 1);
+        factory.setAllowedToken(USDT, 1, address(0));
 
         vm.startPrank(user);
 
@@ -671,7 +671,7 @@ contract BrewlabsIndexTest is Test {
         address user = address(0x1234);
         vm.deal(user, 10 ether);
 
-        factory.setAllowedToken(USDT, 1);
+        factory.setAllowedToken(USDT, 1, address(0));
 
         vm.startPrank(user);
 
