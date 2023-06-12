@@ -77,4 +77,6 @@ interface IBrewlabsIndex {
 
     function setServiceInfo(address treasury, uint256 fee) external;
     function rescueTokens(address token) external;
+
+    function transferOwnership(address newOwner) external;
 }
