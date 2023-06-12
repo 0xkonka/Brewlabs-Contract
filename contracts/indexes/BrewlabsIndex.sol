@@ -634,6 +634,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     }
 
     function setDeployerNft(IERC721 newNftAddr) external onlyOwner {
+        require(deployerNftId == 0, "Deployer NFT already minted");
         require(address(newNftAddr) != address(0x0), "Invalid NFT");
         deployerNft = newNftAddr;
         emit SetDeployerNft(address(newNftAddr));
