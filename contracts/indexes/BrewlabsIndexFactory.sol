@@ -241,7 +241,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
      *     0 - DISABLED      : Not supported.
      *     1 - SWAPPABLE     : Swappable token with BNB.
      *     2 - LIQUID_TOKEN  : Token can be converted to BNB by wrapping.
-     * @param wrapper: wrap contract for LST
+     * @param wrapper: wrap contract for LSDs
      */
     function setAllowedToken(address token, uint8 flag, address wrapper) external onlyOwner {
         require(token != address(0x0), "Invalid token");
