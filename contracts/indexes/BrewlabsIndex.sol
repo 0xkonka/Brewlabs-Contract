@@ -517,8 +517,10 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         _claimPendingCommission();
     }
 
-    function unstakeDeployerNft() external payable {
+    function unstakeDeployerNft() external payable onlyInitialized nonReentrant {
         require(msg.sender == commissionWallet, "Caller is not the commission wallet");
+
+        _transferPerformanceFee();
 
         commissionWallet = address(0x0);
 
