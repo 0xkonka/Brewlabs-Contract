@@ -30,7 +30,6 @@ interface IBrewlabsIndexFactory {
 
     function payingToken() external view returns (address);
     function serviceFee() external view returns (uint256);
-    function performanceFee() external view returns (uint256);
     function treasury() external view returns (address);
 
     function brewlabsFee() external view returns (uint256);

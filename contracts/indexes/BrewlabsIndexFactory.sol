@@ -27,9 +27,9 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     address public treasury;
 
     address public discountMgr;
-    address public brewlabsWallet = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
-    uint256 public brewlabsFee = 25; // 0.25%
-    uint256 public feeLimit = 1000; // 10%
+    address public brewlabsWallet;
+    uint256 public brewlabsFee;
+    uint256 public feeLimit;
 
     struct IndexInfo {
         address index;
@@ -95,6 +95,10 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         require(address(_deployerNft) != address(0x0), "Invalid deployer NFT");
 
         __Ownable_init();
+        
+        brewlabsWallet = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
+        brewlabsFee = 25; // 0.25%
+        feeLimit = 1000; // 10%
 
         payingToken = _token;
         serviceFee = _price;
