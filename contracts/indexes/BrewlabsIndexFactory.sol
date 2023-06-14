@@ -29,7 +29,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     address public discountMgr;
     address public brewlabsWallet;
     uint256 public brewlabsFee;
-    uint256 public feeLimit;
+    uint256[2] public feeLimits;
 
     struct IndexInfo {
         address index;
@@ -71,7 +71,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     event SetIndexOwner(address newOwner);
     event SetBrewlabsFee(uint256 fee);
     event SetBrewlabsWallet(address wallet);
-    event SetIndexFeeLimit(uint256 limit);
+    event SetIndexFeeLimit(uint256[2] limits);
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(uint256 category, address impl, uint256 version);
     event SetDiscountMgr(address addr);
@@ -95,10 +95,11 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         require(address(_deployerNft) != address(0x0), "Invalid deployer NFT");
 
         __Ownable_init();
-        
+
         brewlabsWallet = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
         brewlabsFee = 25; // 0.25%
-        feeLimit = 1000; // 10%
+        feeLimits[0] = 25; // 0.25%
+        feeLimits[1] = 100; // 1%
 
         payingToken = _token;
         serviceFee = _price;
@@ -115,7 +116,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     function createBrewlabsIndex(
         string memory indexName,
         address[] memory tokens,
-        uint256 fee,
+        uint256[2] memory fees,
         address feeWallet,
         bool isPrivate
     ) external payable returns (address index) {
@@ -123,7 +124,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         require(implementation[curCategory] != address(0x0), "Not initialized yet");
 
         require(tokens.length <= 5, "Exceed token limit");
-        require(fee <= feeLimit, "Cannot exeed fee limit");
+        require(fees[0] <= feeLimits[0] && fees[1] <= feeLimits[1], "Cannot exeed fee limit");
 
         for (uint256 i = 0; i < tokens.length; i++) {
             require(isContract(address(tokens[i])), "Invalid token");
@@ -141,12 +142,12 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         index = Clones.cloneDeterministic(implementation[curCategory], salt);
         (bool success,) = index.call(
             abi.encodeWithSignature(
-                "initialize(string,address[],address,address,uint256,address,address,address)",
+                "initialize(string,address[],address,address,uint256[2],address,address,address)",
                 indexName,
                 tokens,
                 address(indexNft),
                 address(deployerNft),
-                fee,
+                fees,
                 indexDefaultOwner,
                 msg.sender,
                 feeWallet
@@ -233,7 +234,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     }
 
     function setBrewlabsFee(uint256 fee) external onlyOwner {
-        require(fee <= feeLimit, "fee cannot exceed limit");
+        require(fee <= feeLimits[0], "fee cannot exceed limit");
         brewlabsFee = fee;
         emit SetBrewlabsFee(brewlabsFee);
     }
@@ -257,10 +258,10 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         emit SetTokenConfig(token, flag, wrapper);
     }
 
-    function setIndexFeeLimit(uint256 limit) external onlyOwner {
-        require(limit <= 2000, "fee limit cannot exceed 20%");
-        feeLimit = limit;
-        emit SetIndexFeeLimit(feeLimit);
+    function setIndexFeeLimit(uint256[2] memory limits) external onlyOwner {
+        require(limits[0] <= 1000 && limits[1] <= 1000, "fee limit cannot exceed 10%");
+        feeLimits = limits;
+        emit SetIndexFeeLimit(feeLimits);
     }
 
     function setIndexOwner(address newOwner) external onlyOwner {

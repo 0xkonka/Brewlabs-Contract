@@ -87,7 +87,7 @@ contract BrewlabsIndexTest is Test {
         tokens[1] = token1;
 
         vm.startPrank(deployer);
-        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, 20, deployer, false)); // 0.2%
+        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, [uint256(20), 20], deployer, false)); // 0.2%
         vm.stopPrank();
     }
 
@@ -119,7 +119,7 @@ contract BrewlabsIndexTest is Test {
         uint256 ethAmount = 0.5 ether;
 
         uint256 brewsFee = (ethAmount * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
-        uint256 deployerFee = (ethAmount * index.fee() * discount) / FEE_DENOMINATOR ** 2;
+        uint256 deployerFee = (ethAmount * index.depositFee() * discount) / FEE_DENOMINATOR ** 2;
         uint256 feeWalletBalance = address(feeWallet).balance;
         uint256 deployerBalance = address(index.deployer()).balance;
         uint256 _usdAmount = (ethAmount - (brewsFee + deployerFee)) * price / 1 ether;
@@ -182,7 +182,7 @@ contract BrewlabsIndexTest is Test {
         tokens[1] = token1;
 
         vm.startPrank(deployer);
-        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, 20, deployer, false)); // 0.2%
+        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, [uint256(20), 20], deployer, false)); // 0.2%
         vm.stopPrank();
 
         address user = address(0x1234);
@@ -195,7 +195,7 @@ contract BrewlabsIndexTest is Test {
         uint256 ethAmount = 0.5 ether;
 
         uint256 brewsFee = (ethAmount * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
-        uint256 deployerFee = (ethAmount * index.fee() * discount) / FEE_DENOMINATOR ** 2;
+        uint256 deployerFee = (ethAmount * index.depositFee() * discount) / FEE_DENOMINATOR ** 2;
         uint256 _usdAmount = (ethAmount - (brewsFee + deployerFee)) * price / 1 ether;
 
         uint256[] memory percents = new uint256[](2);
@@ -242,7 +242,7 @@ contract BrewlabsIndexTest is Test {
         tokens[4] = address(0x045c4324039dA91c52C55DF5D785385Aab073DcF); // bCFX
 
         vm.startPrank(deployer);
-        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, 20, deployer, false)); // 0.2%
+        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, [uint256(20), 20], deployer, false)); // 0.2%
         vm.stopPrank();
 
         address user = address(0x1234);
@@ -255,7 +255,7 @@ contract BrewlabsIndexTest is Test {
         uint256 ethAmount = 0.5 ether;
 
         uint256 brewsFee = (ethAmount * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
-        uint256 deployerFee = (ethAmount * index.fee() * discount) / FEE_DENOMINATOR ** 2;
+        uint256 deployerFee = (ethAmount * index.depositFee() * discount) / FEE_DENOMINATOR ** 2;
         uint256 _usdAmount = (ethAmount - (brewsFee + deployerFee)) * price / 1 ether;
 
         uint256[] memory percents = new uint256[](5);
@@ -319,7 +319,7 @@ contract BrewlabsIndexTest is Test {
         }
 
         uint256 brewsFee = (ethAmount * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
-        uint256 deployerFee = (ethAmount * index.fee() * discount) / FEE_DENOMINATOR ** 2;
+        uint256 deployerFee = (ethAmount * index.depositFee() * discount) / FEE_DENOMINATOR ** 2;
         uint256 _usdAmount = (ethAmount - (brewsFee + deployerFee)) * price / 1 ether;
 
         uint256[] memory percents = new uint256[](2);
@@ -439,14 +439,14 @@ contract BrewlabsIndexTest is Test {
 
             if (bCommission) {
                 _claimFees[i] =
-                    (_claimAmounts[i] * profit * index.totalFee() * discount) / usdAmount / FEE_DENOMINATOR ** 2;
+                    (_claimAmounts[i] * profit * index.commissionFee() * discount) / usdAmount / FEE_DENOMINATOR ** 2;
             }
         }
 
         uint256 commission = 0;
         if (bCommission) {
             commission = (estimatedEthAmount * percent * profit) / FEE_DENOMINATOR;
-            commission = (commission * index.totalFee() * discount) / usdAmount / FEE_DENOMINATOR ** 2;
+            commission = (commission * index.commissionFee() * discount) / usdAmount / FEE_DENOMINATOR ** 2;
         }
 
         return (_claimAmounts, _claimFees, commission);
@@ -504,7 +504,7 @@ contract BrewlabsIndexTest is Test {
         _paths[1][1] = token1;
 
         vm.startPrank(deployer);
-        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, 20, deployer, false)); // 0.2%
+        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, [uint256(20), 20], deployer, false)); // 0.2%
         vm.stopPrank();
 
         address user = address(0x1234);
@@ -568,7 +568,6 @@ contract BrewlabsIndexTest is Test {
         emit log_named_uint("Estimated ETH", ethAmount);
         // uint256 userBalance = user.balance;
 
-        uint256 _fee = index.totalFee();
         uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
         uint256 price = index.getPriceFromChainlink();
         emit log_named_uint("ETH Price", price);
@@ -579,8 +578,9 @@ contract BrewlabsIndexTest is Test {
             emit log_named_uint("Profit", profit);
             emit log_named_uint("Discount", discount);
 
-            commission = (profit * _fee * discount) / FEE_DENOMINATOR ** 2;
-            ethAmount -= commission;
+            uint256 brewsFee = (profit * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
+            commission = (profit * index.commissionFee() * discount) / FEE_DENOMINATOR ** 2;
+            ethAmount -= commission + brewsFee;
 
             emit log_named_uint("Commission", commission);
         }
@@ -621,7 +621,7 @@ contract BrewlabsIndexTest is Test {
         _paths[1][1] = token1;
 
         vm.startPrank(deployer);
-        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, 20, deployer, false)); // 0.2%
+        index = IBrewlabsIndex(factory.createBrewlabsIndex("testIndex", tokens, [uint256(20), 20], deployer, false)); // 0.2%
         vm.stopPrank();
 
         address user = address(0x1234);
@@ -637,7 +637,6 @@ contract BrewlabsIndexTest is Test {
         (uint256[] memory amounts, uint256 usdAmount) = index.userInfo(user);
         uint256 ethAmount = index.estimateEthforUser(user);
 
-        uint256 _fee = index.totalFee();
         uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
         uint256 price = index.getPriceFromChainlink();
 
@@ -645,8 +644,9 @@ contract BrewlabsIndexTest is Test {
         if ((ethAmount * price / 1 ether) > usdAmount) {
             uint256 profit = ((ethAmount * price / 1 ether) - usdAmount) * 1e18 / price;
 
-            commission = (profit * _fee * discount) / FEE_DENOMINATOR ** 2;
-            ethAmount -= commission;
+            uint256 brewsFee = (profit * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
+            commission = (profit * index.commissionFee() * discount) / FEE_DENOMINATOR ** 2;
+            ethAmount -= commission + brewsFee;
         }
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
@@ -683,15 +683,16 @@ contract BrewlabsIndexTest is Test {
         uint256 ethAmount = index.estimateEthforUser(user);
         // uint256 userBalance = IERC20(USDT).balanceOf(user);
 
-        uint256 _fee = index.totalFee();
         uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
         uint256 price = index.getPriceFromChainlink();
 
         uint256 commission = 0;
         if ((ethAmount * price / 1 ether) > usdAmount) {
             uint256 profit = ((ethAmount * price / 1 ether) - usdAmount) * 1e18 / price;
-            commission = (profit * _fee * discount) / FEE_DENOMINATOR ** 2;
-            ethAmount -= commission;
+
+            uint256 brewsFee = (profit * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
+            commission = (profit * index.commissionFee() * discount) / FEE_DENOMINATOR ** 2;
+            ethAmount -= commission + brewsFee;
         }
 
         uint256 usdtAmount;
@@ -798,27 +799,26 @@ contract BrewlabsIndexTest is Test {
         index.mintDeployerNft{value: pFee}();
         vm.stopPrank();
 
-        string memory _tokenUri = deployerNft.tokenURI(tokenId);
-        emit log_named_string("DeployerNFT URI", _tokenUri);
-
         tryAddDicountConfig();
         nft.mint(user, 1);
 
         vm.startPrank(user);
+        uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
+
         tryZapIn(address(0), 0.5 ether);
+        uint256 commission = (0.5 ether * index.commissionFee() * discount) / FEE_DENOMINATOR ** 2;
 
         (, uint256 usdAmount) = index.userInfo(user);
         uint256 ethAmount = index.estimateEthforUser(user);
 
-        uint256 _fee = index.totalFee();
-        uint256 discount = FEE_DENOMINATOR - discountMgr.discountOf(user);
         uint256 price = index.getPriceFromChainlink();
 
-        uint256 commission = 0;
         if ((ethAmount * price / 1 ether) > usdAmount) {
             uint256 profit = ((ethAmount * price / 1 ether) - usdAmount) * 1e18 / price;
-            commission = (profit * _fee * discount) / FEE_DENOMINATOR ** 2;
-            ethAmount -= commission;
+
+            uint256 brewsFee = (profit * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
+            commission += (profit * index.commissionFee() * discount) / FEE_DENOMINATOR ** 2;
+            ethAmount -= commission + brewsFee;
         }
 
         IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
@@ -836,6 +836,9 @@ contract BrewlabsIndexTest is Test {
         assertEq(_pendingCommissions[2], commission);
         assertEq(index.totalCommissions(), commission * price / 1 ether);
         assertEq(index.commissionWallet(), address(0x0));
+
+        string memory _tokenUri = deployerNft.tokenURI(tokenId);
+        emit log_named_string("DeployerNFT URI", _tokenUri);
 
         vm.stopPrank();
     }
@@ -988,7 +991,7 @@ contract BrewlabsIndexTest is Test {
 
         vm.deal(address(0x1111), 1 ether);
         vm.startPrank(address(0x1111));
-        vm.expectRevert("Caller is not the commission wallet");
+        vm.expectRevert("Caller is not operator");
         index.unstakeDeployerNft{value: pFee}();
         vm.stopPrank();
     }

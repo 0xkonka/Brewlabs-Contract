@@ -14,7 +14,7 @@ import {IWrapper} from "../libs/IWrapper.sol";
 
 interface IBrewlabsIndexFactory {
     function brewlabsFee() external view returns (uint256);
-    function feeLimit() external view returns (uint256);
+    function feeLimits(uint256 index) external view returns (uint256);
     function brewlabsWallet() external view returns (address);
     function discountMgr() external view returns (address);
     function allowedTokens(address token) external view returns (uint8);
@@ -54,8 +54,9 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     IBrewlabsIndexFactory public factory;
     IERC721 public indexNft;
     IERC721 public deployerNft;
-    IERC20[] public tokens;
+
     uint256 public NUM_TOKENS;
+    IERC20[] public tokens;
 
     IBrewlabsAggregator public swapAggregator;
 
@@ -76,7 +77,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     mapping(uint256 => NftInfo) private nfts;
     uint256[] public totalStaked;
 
-    uint256 public fee;
+    uint256 public depositFee;
+    uint256 public commissionFee;
     uint256 public performanceFee;
     address public treasury;
     address public deployer;
@@ -85,7 +87,6 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     uint256 public totalCommissions;
     uint256[] private pendingCommissions;
 
-    bool private deployerNftMintable;
     uint256 public deployerNftId;
 
     event TokenZappedIn(
@@ -104,13 +105,13 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     event DeployerNftMinted(address indexed user, address nft, uint256 tokenId);
     event DeployerNftStaked(address indexed user, uint256 tokenId);
     event DeployerNftUnstaked(address indexed user, uint256 tokenId);
-    event PendingCommissionClaimed(address indexed user);
+    event CommissionClaimed(address indexed user);
 
-    event ServiceInfoChanged(address addr, uint256 fee);
-    event SetDeployerFee(uint256 fee);
-    event SetSwapAggregator(address aggregator);
     event SetIndexNft(address newNftAddr);
     event SetDeployerNft(address newNftAddr);
+    event SetFeeSettings(uint256[2] fees, address wallet);
+    event SetSwapAggregator(address aggregator);
+    event ServiceInfoChanged(address addr, uint256 fee);
 
     modifier onlyInitialized() {
         require(isInitialized, "Not initialized");
@@ -125,7 +126,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      * @param _tokens: token list that user can buy in a transaction
      * @param _indexNft: Index NFT address
      * @param _deployerNft: Deployer NFT address
-     * @param _fee: additional fee for deployer
+     * @param _fees: additional fee for deployer
      * @param _owner: index owner address
      * @param _deployer: index deployer address
      * @param _commissionWallet: index commission wallet
@@ -135,7 +136,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         IERC20[] memory _tokens,
         IERC721 _indexNft,
         IERC721 _deployerNft,
-        uint256 _fee,
+        uint256[2] memory _fees,
         address _owner,
         address _deployer,
         address _commissionWallet
@@ -155,7 +156,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         WNATIVE = swapAggregator.WNATIVE();
         NUM_TOKENS = _tokens.length;
 
-        fee = _fee;
+        depositFee = _fees[0];
+        commissionFee = _fees[1];
         performanceFee = 0.01 ether;
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
         deployer = _deployer;
@@ -170,7 +172,6 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         totalStaked = new uint256[](NUM_TOKENS);
 
         pendingCommissions = new uint256[](NUM_TOKENS + 1);
-        deployerNftMintable = true;
 
         _transferOwnership(_owner);
     }
@@ -192,8 +193,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             if (i < _percents.length) {
                 amountIn = (ethAmount * _percents[i]) / FEE_DENOMINATOR;
             }
-            if (amountIn == 0) continue;
-            if (address(tokens[i]) == WNATIVE) continue;
+            if (amountIn == 0 || address(tokens[i]) == WNATIVE) continue;
 
             queries[i + 1] = swapAggregator.findBestPath(amountIn, WNATIVE, address(tokens[i]), 3);
         }
@@ -221,16 +221,26 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
         uint256 ethAmount = _beforeZapIn(_token, _amount, _trades[0]);
 
-        // pay brewlabs fee
+        uint256 price = getPriceFromChainlink();
         uint256 discount = _getDiscount(msg.sender);
+
+        // pay brewlabs fee
         uint256 brewsFee = (ethAmount * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
         payable(factory.brewlabsWallet()).transfer(brewsFee);
         // pay deployer fee
-        uint256 deployerFee = (ethAmount * fee * discount) / FEE_DENOMINATOR ** 2;
-        payable(deployer).transfer(deployerFee);
+        uint256 deployerFee = (ethAmount * depositFee * discount) / FEE_DENOMINATOR ** 2;
+        if (commissionWallet == address(0x0)) {
+            pendingCommissions[NUM_TOKENS] += deployerFee;
+            totalCommissions += deployerFee * price / 1 ether;
+        } else {
+            payable(commissionWallet).transfer(deployerFee);
+        }
+        ethAmount -= brewsFee + deployerFee;
 
         UserInfo storage user = users[msg.sender];
-        ethAmount -= brewsFee + deployerFee;
+        if (user.usdAmount == 0) {
+            user.amounts = new uint256[](NUM_TOKENS);
+        }
 
         // buy tokens
         uint256 amount;
@@ -246,22 +256,18 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
                 amountOuts[i] = _safeSwapEth(amountIn, address(tokens[i]), address(this), _trades[i + 1]);
             }
 
-            if (user.amounts.length == 0) {
-                user.amounts = new uint256[](NUM_TOKENS);
-            }
             user.amounts[i] += amountOuts[i];
-            amount += amountIn;
-
             totalStaked[i] += amountOuts[i];
+
+            amount += amountIn;
         }
-        uint256 price = getPriceFromChainlink();
         uint256 usdAmount = amount * price / 1 ether;
 
         user.usdAmount += usdAmount;
         emit TokenZappedIn(msg.sender, amount, _percents, amountOuts, usdAmount, brewsFee + deployerFee);
 
         if (totalPercentage < FEE_DENOMINATOR) {
-            payable(msg.sender).transfer(ethAmount * (FEE_DENOMINATOR - totalPercentage) / FEE_DENOMINATOR);
+            payable(msg.sender).transfer(ethAmount - amount);
         }
     }
 
@@ -301,7 +307,6 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         UserInfo storage user = users[msg.sender];
         require(user.usdAmount > 0, "No available tokens");
 
-        uint256 _fee = totalFee();
         uint256 discount = _getDiscount(msg.sender);
         uint256 price = getPriceFromChainlink();
         uint256 expectedAmt = _expectedEth(user.amounts);
@@ -309,21 +314,28 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         bool bCommission = (expectedAmt * price / 1 ether) > user.usdAmount;
         uint256 profit = bCommission ? ((expectedAmt * price / 1 ether) - user.usdAmount) : 0;
 
+        address _brewsWallet = factory.brewlabsWallet();
+        uint256 _brewsFee = factory.brewlabsFee();
+
         uint256[] memory amounts = new uint256[](NUM_TOKENS);
         for (uint256 i = 0; i < NUM_TOKENS; i++) {
             uint256 claimAmount = (user.amounts[i] * _percent) / FEE_DENOMINATOR;
             amounts[i] = claimAmount;
 
             uint256 claimFee = 0;
+            uint256 brewsFee = 0;
             if (bCommission) {
-                claimFee = (claimAmount * profit * _fee * discount) / user.usdAmount / FEE_DENOMINATOR ** 2;
+                brewsFee = (claimAmount * profit * _brewsFee * discount) / user.usdAmount / FEE_DENOMINATOR ** 2;
+                _transferToken(tokens[i], _brewsWallet, brewsFee);
+
+                claimFee = (claimAmount * profit * commissionFee * discount) / user.usdAmount / FEE_DENOMINATOR ** 2;
                 if (commissionWallet == address(0x0)) {
                     pendingCommissions[i] += claimFee;
                 } else {
                     _transferToken(tokens[i], commissionWallet, claimFee);
                 }
             }
-            _transferToken(tokens[i], msg.sender, claimAmount - claimFee);
+            _transferToken(tokens[i], msg.sender, claimAmount - claimFee - brewsFee);
 
             user.amounts[i] -= claimAmount;
             totalStaked[i] -= claimAmount;
@@ -332,9 +344,12 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         uint256 commission = 0;
         if (bCommission) {
             commission = (expectedAmt * _percent * profit) / FEE_DENOMINATOR;
-            commission = (commission * _fee * discount) / user.usdAmount / FEE_DENOMINATOR ** 2;
+            commission = (commission * commissionFee * discount) / user.usdAmount / FEE_DENOMINATOR ** 2;
+
+            if (commissionWallet == address(0x0)) {
+                totalCommissions += commission * price / 1 ether;
+            }
         }
-        totalCommissions += commission * price / 1 ether;
 
         uint256 claimedUsdAmount = (user.usdAmount * _percent) / FEE_DENOMINATOR;
         user.usdAmount -= claimedUsdAmount;
@@ -393,22 +408,24 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         }
 
         uint256 commission = 0;
-        uint256 _fee = totalFee();
         uint256 discount = _getDiscount(msg.sender);
         uint256 price = getPriceFromChainlink();
         if ((ethAmount * price / 1 ether) > user.usdAmount) {
             uint256 profit = ((ethAmount * price / 1 ether) - user.usdAmount) * 1e18 / price;
-            commission = (profit * _fee * discount) / FEE_DENOMINATOR ** 2;
+
+            uint256 brewsFee = (profit * factory.brewlabsFee() * discount) / FEE_DENOMINATOR ** 2;
+            payable(factory.brewlabsWallet()).transfer(brewsFee);
+
+            commission = (profit * commissionFee * discount) / FEE_DENOMINATOR ** 2;
             if (commissionWallet == address(0x0)) {
                 pendingCommissions[NUM_TOKENS] += commission;
+                totalCommissions += commission * price / 1 ether;
             } else {
                 payable(commissionWallet).transfer(commission);
             }
 
-            ethAmount -= commission;
+            ethAmount -= commission + brewsFee;
         }
-        totalCommissions += commission * price / 1 ether;
-
         emit TokenZappedOut(msg.sender, user.amounts, ethAmount, commission);
         delete users[msg.sender];
 
@@ -495,12 +512,11 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
     function mintDeployerNft() external payable onlyInitialized nonReentrant returns (uint256) {
         require(msg.sender == deployer, "Caller is not the deployer");
-        require(deployerNftMintable, "Already Mint");
+        require(deployerNftId == 0, "Already Mint");
 
         _transferPerformanceFee();
 
         commissionWallet = address(0x0);
-        deployerNftMintable = false;
         deployerNftId = IBrewlabsIndexNft(address(deployerNft)).mint(msg.sender);
         emit DeployerNftMinted(msg.sender, address(deployerNft), deployerNftId);
         return deployerNftId;
@@ -510,15 +526,14 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         commissionWallet = msg.sender;
 
         _transferPerformanceFee();
+        _claimPendingCommission();
 
         deployerNft.safeTransferFrom(msg.sender, address(this), deployerNftId);
         emit DeployerNftStaked(msg.sender, deployerNftId);
-
-        _claimPendingCommission();
     }
 
     function unstakeDeployerNft() external payable onlyInitialized nonReentrant {
-        require(msg.sender == commissionWallet, "Caller is not the commission wallet");
+        require(msg.sender == commissionWallet, "Caller is not operator");
 
         _transferPerformanceFee();
 
@@ -538,7 +553,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             }
             pendingCommissions[i] = 0;
         }
-        emit PendingCommissionClaimed(commissionWallet);
+        totalCommissions = 0;
+        emit CommissionClaimed(commissionWallet);
     }
 
     /**
@@ -547,13 +563,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      */
     function userInfo(address _user) external view returns (uint256[] memory amounts, uint256 usdAmount) {
         UserInfo memory _userData = users[_user];
-        usdAmount = _userData.usdAmount;
-        amounts = new uint256[](NUM_TOKENS);
-        if (usdAmount == 0) return (amounts, usdAmount);
-
-        for (uint256 i = 0; i < NUM_TOKENS; i++) {
-            amounts[i] = _userData.amounts[i];
-        }
+        if (_userData.usdAmount == 0) return (new uint256[](NUM_TOKENS), 0);
+        return (_userData.amounts, _userData.usdAmount);
     }
 
     /**
@@ -566,14 +577,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         returns (uint256 level, uint256[] memory amounts, uint256 usdAmount)
     {
         NftInfo memory _nftData = nfts[_tokenId];
-        level = _nftData.level;
-        usdAmount = _nftData.usdAmount;
-        amounts = new uint256[](NUM_TOKENS);
-        if (usdAmount == 0) return (1, amounts, usdAmount);
-
-        for (uint256 i = 0; i < NUM_TOKENS; i++) {
-            amounts[i] = _nftData.amounts[i];
-        }
+        if (_nftData.usdAmount == 0) return (1, new uint256[](NUM_TOKENS), 0);
+        return (_nftData.level, _nftData.amounts, _nftData.usdAmount);
     }
 
     function getPendingCommissions() external view returns (uint256[] memory) {
@@ -612,10 +617,6 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         return price;
     }
 
-    function totalFee() public view returns (uint256) {
-        return factory.brewlabsFee() + fee;
-    }
-
     /**
      * @notice Update swap aggregator.
      * @param _aggregator: swap Aggregator address
@@ -644,14 +645,24 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
     /**
      * @notice Update processing fee.
-     * @param _fee: percentage in point
+     * @param _fees: percentage in point
+     * @param _feeWallet: percentage in point
      */
-    function setFee(uint256 _fee) external {
-        require(msg.sender == deployer || msg.sender == owner(), "Caller is not the deployer or owner");
-        require(_fee <= factory.feeLimit(), "Cannot exceed fee limit of factory");
+    function setFeeSettings(uint256[2] memory _fees, address _feeWallet) external payable {
+        require(msg.sender == commissionWallet || msg.sender == owner(), "Caller is not the operator");
+        require(_feeWallet != address(0x0), "Invalid wallet");
+        require(
+            _fees[0] <= factory.feeLimits(0) && _fees[1] <= factory.feeLimits(1), "Cannot exceed fee limit of factory"
+        );
 
-        fee = _fee;
-        emit SetDeployerFee(_fee);
+        if (msg.sender == commissionWallet) {
+            _transferPerformanceFee();
+        }
+
+        depositFee = _fees[0];
+        commissionFee = _fees[1];
+        commissionWallet = _feeWallet;
+        emit SetFeeSettings(_fees, _feeWallet);
     }
 
     /**
@@ -718,7 +729,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             } else {
                 query = swapAggregator.findBestPath(amounts[i], address(tokens[i]), WNATIVE, 3);
                 uint256 _amountOut = query.amounts[query.amounts.length - 1];
-                if (fee > 0) _amountOut = _amountOut * (10000 - aggregatorFee) / 10000;
+                if (aggregatorFee > 0) _amountOut = _amountOut * (10000 - aggregatorFee) / 10000;
                 amountOut += _amountOut;
             }
         }

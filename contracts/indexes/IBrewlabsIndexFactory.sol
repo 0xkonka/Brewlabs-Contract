@@ -16,7 +16,7 @@ interface IBrewlabsIndexFactory {
     function createBrewlabsIndex(
         string memory indexName,
         address[] memory tokens,
-        uint256 fee,
+        uint256[2] memory fees,
         address feeWallet,
         bool isPrivate
     ) external payable returns (address index);
@@ -34,7 +34,7 @@ interface IBrewlabsIndexFactory {
 
     function brewlabsFee() external view returns (uint256);
     function brewlabsWallet() external view returns (address);
-    function feeLimit() external view returns (uint256);
+    function feeLimits(uint256 index) external view returns (uint256);
 
     function discountMgr() external view returns (address);
 
@@ -64,7 +64,7 @@ interface IBrewlabsIndexFactory {
 
     function setBrewlabsFee(uint256 fee) external;
     function setBrewlabsWallet(address wallet) external;
-    function setIndexFeeLimit(uint256 limit) external;
+    function setIndexFeeLimit(uint256[2] memory limits) external;
     function setAllowedToken(address token, uint8 flag, address wrapper) external;
 
     function setServiceFee(uint256 fee) external;
@@ -75,5 +75,6 @@ interface IBrewlabsIndexFactory {
     function setTreasury(address treasury) external;
     function rescueTokens(address token) external;
 
+    function owner() external view returns (address);
     function transferOwnership(address newOwner) external;
 }

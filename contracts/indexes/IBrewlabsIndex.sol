@@ -12,7 +12,7 @@ interface IBrewlabsIndex {
         IERC20[] memory tokens,
         IERC721 indexNft,
         IERC721 deployerNft,
-        uint256 fee,
+        uint256[2] memory fees,
         address owner,
         address deployer,
         address commissionWallet
@@ -30,8 +30,8 @@ interface IBrewlabsIndex {
     function deployer() external view returns (address);
     function deployerNftId() external view returns (uint256);
 
-    function fee() external view returns (uint256);
-    function totalFee() external view returns (uint256);
+    function depositFee() external view returns (uint256);
+    function commissionFee() external view returns (uint256);
     function performanceFee() external view returns (uint256);
     function treasury() external view returns (address);
     function commissionWallet() external view returns (address);
@@ -51,19 +51,19 @@ interface IBrewlabsIndex {
     function getPendingCommissions() external view returns (uint256[] memory);
     function totalCommissions() external view returns (uint256);
 
-    function precomputeZapIn(address _token, uint256 _amount, uint256[] memory _percents)
+    function precomputeZapIn(address token, uint256 amount, uint256[] memory percents)
         external
         view
         returns (IBrewlabsAggregator.FormattedOffer[] memory queries);
-    function precomputeZapOut(address _token)
+    function precomputeZapOut(address token)
         external
         view
         returns (IBrewlabsAggregator.FormattedOffer[] memory queries);
 
-    function zapIn(address token, uint256 amount, uint256[] memory percents, IBrewlabsAggregator.Trade[] memory _trades)
+    function zapIn(address token, uint256 amount, uint256[] memory percents, IBrewlabsAggregator.Trade[] memory trades)
         external
         payable;
-    function zapOut(address token, IBrewlabsAggregator.Trade[] memory _trades) external;
+    function zapOut(address token, IBrewlabsAggregator.Trade[] memory trades) external;
     function claimTokens(uint256 percent) external;
     function mintNft() external payable returns (uint256);
     function stakeNft(uint256 tokenId) external payable;
@@ -72,7 +72,9 @@ interface IBrewlabsIndex {
     function stakeDeployerNft() external payable;
     function unstakeDeployerNft() external payable;
 
-    function setFee(uint256 fee) external;
+    function setIndexNft(IERC721 newNftAddr) external;
+    function setDeployerNft(IERC721 newNftAddr) external;
+    function setFeeSettings(uint256[2] memory fees, address feeWallet) external payable;
     function setSwapAggregator(address aggregator) external;
 
     function setServiceInfo(address treasury, uint256 fee) external;
