@@ -109,7 +109,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
     event SetIndexNft(address newNftAddr);
     event SetDeployerNft(address newNftAddr);
-    event SetFeeSettings(uint256[2] fees, address wallet);
+    event SetFees(uint256 fee0, uint256 fee2);
+    event SetFeeWallet(address wallet);
     event SetSwapAggregator(address aggregator);
     event ServiceInfoChanged(address addr, uint256 fee);
 
@@ -645,24 +646,34 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
     /**
      * @notice Update processing fee.
-     * @param _fees: percentage in point
-     * @param _feeWallet: percentage in point
+     * @param _depositfee: deposit fee in point
+     * @param _commissionFee: commission fee in point
      */
-    function setFeeSettings(uint256[2] memory _fees, address _feeWallet) external payable {
+    function setFees(uint256 _depositfee, uint256 _commissionFee) external payable {
         require(msg.sender == commissionWallet || msg.sender == owner(), "Caller is not the operator");
-        require(_feeWallet != address(0x0), "Invalid wallet");
         require(
-            _fees[0] <= factory.feeLimits(0) && _fees[1] <= factory.feeLimits(1), "Cannot exceed fee limit of factory"
+            _depositfee <= factory.feeLimits(0) && _commissionFee <= factory.feeLimits(1), "Cannot exceed fee limit of factory"
         );
 
         if (msg.sender == commissionWallet) {
             _transferPerformanceFee();
         }
 
-        depositFee = _fees[0];
-        commissionFee = _fees[1];
+        depositFee = _depositfee;
+        commissionFee = _commissionFee;
+        emit SetFees(depositFee, commissionFee);
+    }
+
+    /**
+     * @notice Update fee wallet.
+     * @param _feeWallet: address to receive deposit/commission fee
+     */
+    function setFeeWallet(address _feeWallet) external payable {
+        require(msg.sender == commissionWallet || msg.sender == owner(), "Caller is not the operator");
+        require(_feeWallet != address(0x0), "Invalid wallet");
+        
         commissionWallet = _feeWallet;
-        emit SetFeeSettings(_fees, _feeWallet);
+        emit SetFeeWallet(_feeWallet);
     }
 
     /**
