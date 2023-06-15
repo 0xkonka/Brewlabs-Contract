@@ -109,7 +109,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
     event SetIndexNft(address newNftAddr);
     event SetDeployerNft(address newNftAddr);
-    event SetFees(uint256 fee0, uint256 fee2);
+    event SetFees(uint256 fee0, uint256 fee1);
     event SetFeeWallet(address wallet);
     event SetSwapAggregator(address aggregator);
     event ServiceInfoChanged(address addr, uint256 fee);
