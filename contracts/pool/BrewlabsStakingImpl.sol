@@ -124,6 +124,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
      * @param _depositFee: deposit fee
      * @param _withdrawFee: withdraw fee
      * @param _hasDividend: reflection available flag
+     * @param _aggregator: brewlabs swap aggregator
      * @param _owner: owner address
      * @param _deployer: deployer address
      */
@@ -136,6 +137,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         uint256 _depositFee,
         uint256 _withdrawFee,
         bool _hasDividend,
+        address _aggregator,
         address _owner,
         address _deployer
     ) external {
@@ -185,7 +187,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         }
         PRECISION_FACTOR_REFLECTION = uint256(10 ** (40 - decimalsdividendToken));
 
-        swapAggregator = IBrewlabsAggregator(0xce7C5A34CC7aE17D3d17a9728ab9673f77724743);
+        swapAggregator = IBrewlabsAggregator(_aggregator);
         WNATIVE = swapAggregator.WNATIVE();
 
         _transferOwnership(_owner);

@@ -16,6 +16,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     address public payingToken;
     uint256 public serviceFee;
     address public treasury;
+    address public swapAggregator;
 
     struct PoolInfo {
         address pool;
@@ -77,6 +78,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     event SetPoolOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(uint256 category, address impl, uint256 version);
+    event SetSwapAggregator(address addr);
     event TreasuryChanged(address addr);
     event Whitelisted(address indexed account, bool isWhitelisted);
 
@@ -87,9 +89,11 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
 
         __Ownable_init();
 
+        swapAggregator = 0xb87B0c7A5aD2f3c1A4909a7768C7AF22F20c494b;
+
         payingToken = token;
         serviceFee = price;
-        treasury = poolOwner;
+        treasury = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
         poolDefaultOwner = poolOwner;
     }
 
@@ -119,7 +123,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             pool = Clones.cloneDeterministic(implementation[0], salt);
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
-                    "initialize(address,address,address,uint256,uint256,uint256,uint256,bool,address,address)",
+                    "initialize(address,address,address,uint256,uint256,uint256,uint256,bool,address,address,address)",
                     stakingToken,
                     rewardToken,
                     dividendToken,
@@ -128,6 +132,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
                     depositFee,
                     withdrawFee,
                     hasDividend,
+                    swapAggregator,
                     poolDefaultOwner,
                     msg.sender
                 )
@@ -186,11 +191,12 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             pool = Clones.cloneDeterministic(implementation[1], salt);
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
-                    "initialize(address,address,address,uint256,address,address)",
+                    "initialize(address,address,address,uint256,address,address,address)",
                     stakingToken,
                     rewardToken,
                     dividendToken,
                     duration,
+                    swapAggregator,
                     poolDefaultOwner,
                     msg.sender
                 )
@@ -267,12 +273,13 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             pool = Clones.cloneDeterministic(implementation[2], salt);
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
-                    "initialize(address,address,address,uint256,uint256,address,address)",
+                    "initialize(address,address,address,uint256,uint256,address,address,address)",
                     stakingToken,
                     rewardToken,
                     dividendToken,
                     duration,
                     penaltyFee,
+                    swapAggregator,
                     poolDefaultOwner,
                     msg.sender
                 )
@@ -328,6 +335,13 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         implementation[category] = impl;
         version[category]++;
         emit SetImplementation(category, impl, version[category]);
+    }
+
+    function setSwapAggregator(address _aggregator) external onlyOwner {
+        require(_aggregator != address(0x0), "Invalid address");
+
+        swapAggregator = _aggregator;
+        emit SetSwapAggregator(_aggregator);
     }
 
     function setPoolOwner(address newOwner) external onlyOwner {

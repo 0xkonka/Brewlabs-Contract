@@ -132,6 +132,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
      * @param _earnedToken: earned token address
      * @param _dividendToken: reflection token address
      * @param _penaltyFee: owner address
+     * @param _aggregator: brewlabs swap aggregator
      * @param _owner: owner address
      * @param _deployer: deployer address
      */
@@ -141,6 +142,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
         address _dividendToken,
         uint256 _duration,
         uint256 _penaltyFee,
+        address _aggregator,
         address _owner,
         address _deployer
     ) external {
@@ -178,7 +180,7 @@ contract BrewlabsLockupPenaltyImpl is Ownable, ReentrancyGuard {
 
         whiteList = address(0x0);
 
-        swapAggregator = IBrewlabsAggregator(0xce7C5A34CC7aE17D3d17a9728ab9673f77724743);
+        swapAggregator = IBrewlabsAggregator(_aggregator);
         WNATIVE = swapAggregator.WNATIVE();
 
         _transferOwnership(_owner);
