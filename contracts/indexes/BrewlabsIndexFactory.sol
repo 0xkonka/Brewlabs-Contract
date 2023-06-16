@@ -13,7 +13,7 @@ interface IBrewlabsIndexNft {
 contract BrewlabsIndexFactory is OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
-    uint256 private constant FEE_DENOMIATOR = 10000;
+    // uint256 private constant FEE_DENOMIATOR = 10000;
 
     mapping(uint256 => address) public implementation;
     mapping(uint256 => uint256) public version;
