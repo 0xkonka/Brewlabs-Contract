@@ -134,6 +134,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      */
     function initialize(
         string memory _name,
+        address _aggregator,
         IERC20[] memory _tokens,
         IERC721 _indexNft,
         IERC721 _deployerNft,
@@ -153,7 +154,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         // initialize default variables
         FEE_DENOMINATOR = 10000;
         PRICE_FEED = 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE; // BNB-USD FEED
-        swapAggregator = IBrewlabsAggregator(0xce7C5A34CC7aE17D3d17a9728ab9673f77724743);
+        swapAggregator = IBrewlabsAggregator(_aggregator);
         WNATIVE = swapAggregator.WNATIVE();
         NUM_TOKENS = _tokens.length;
 
@@ -655,9 +656,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             _depositfee <= factory.feeLimits(0) && _commissionFee <= factory.feeLimits(1), "Cannot exceed fee limit of factory"
         );
 
-        if (msg.sender == commissionWallet) {
-            _transferPerformanceFee();
-        }
+        _transferPerformanceFee();
 
         depositFee = _depositfee;
         commissionFee = _commissionFee;

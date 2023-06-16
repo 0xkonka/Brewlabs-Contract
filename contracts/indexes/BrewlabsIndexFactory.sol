@@ -13,7 +13,7 @@ interface IBrewlabsIndexNft {
 contract BrewlabsIndexFactory is OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
-    // uint256 private constant FEE_DENOMIATOR = 10000;
+    uint256 private constant FEE_DENOMIATOR = 10000;
 
     mapping(uint256 => address) public implementation;
     mapping(uint256 => uint256) public version;
@@ -26,6 +26,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     uint256 public serviceFee;
     address public treasury;
 
+    address public swapAggregator;
     address public discountMgr;
     address public brewlabsWallet;
     uint256 public brewlabsFee;
@@ -75,6 +76,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(uint256 category, address impl, uint256 version);
     event SetDiscountMgr(address addr);
+    event SetSwapAggregator(address addr);
     event TreasuryChanged(address addr);
 
     event SetTokenConfig(address token, uint8 flag, address wrapper);
@@ -96,6 +98,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
         __Ownable_init();
 
+        swapAggregator = 0xb87B0c7A5aD2f3c1A4909a7768C7AF22F20c494b;
         brewlabsWallet = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
         brewlabsFee = 25; // 0.25%
         feeLimits[0] = 25; // 0.25%
@@ -142,8 +145,9 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         index = Clones.cloneDeterministic(implementation[curCategory], salt);
         (bool success,) = index.call(
             abi.encodeWithSignature(
-                "initialize(string,address[],address,address,uint256[2],address,address,address)",
+                "initialize(string,address,address[],address,address,uint256[2],address,address,address)",
                 indexName,
+                swapAggregator,
                 tokens,
                 address(indexNft),
                 address(deployerNft),
@@ -237,6 +241,13 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
         require(fee <= feeLimits[0], "fee cannot exceed limit");
         brewlabsFee = fee;
         emit SetBrewlabsFee(brewlabsFee);
+    }
+
+    function setSwapAggregator(address _aggregator) external onlyOwner {
+        require(_aggregator != address(0x0), "Invalid address");
+
+        swapAggregator = _aggregator;
+        emit SetSwapAggregator(_aggregator);
     }
 
     /**
