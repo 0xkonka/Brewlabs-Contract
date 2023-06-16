@@ -61,6 +61,7 @@ interface IBrewlabsIndexFactory {
     function setDeployerNft(IERC721 nft) external;
     function setIndexOwner(address newOwner) external;
     function setDiscountManager(address addr) external;
+    function setSwapAggregator(address aggregator) external;
 
     function setBrewlabsFee(uint256 fee) external;
     function setBrewlabsWallet(address wallet) external;
