@@ -9,7 +9,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 
-interface IBrewlabsMirrorNft {
+interface IBrewlabsMirrorNft is IERC721 {
     function mint(address to, uint256 tokenId) external;
     function burn(uint256 tokenId) external;
 }
@@ -58,7 +58,11 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
 
     event BaseURIUpdated(string uri);
     event MintEnabled();
+
     event ItemUpgraded(uint256[3] tokenIds, uint256 newTokenId);
+    event MirrorNftMinted(address user, uint256 tokenId);
+    event MirrorNftBurned(address user, uint256 tokenId);
+
     event SetFeeToken(address token, bool enabled);
     event SetBrewlabsWallet(address addr);
     event SetStakingAddress(address addr);
@@ -147,13 +151,24 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     }
 
     function mintMirrorNft(uint256 tokenId) external payable {
-        
+        require(ownerOf(tokenId) == msg.sender, "Caller is not holder");
+        require(locked[tokenId] == false, "Mirror token already mint");
+
         _transferPerformanceFee();
+
+        locked[tokenId] = true;
+        mirrorNft.mint(msg.sender, tokenId);
+        emit MirrorNftMinted(msg.sender, tokenId);
     }
 
     function burnMirrorNft(uint256 tokenId) external payable {
-
         _transferPerformanceFee();
+
+        mirrorNft.safeTransferFrom(msg.sender, address(this), tokenId);
+        mirrorNft.burn(tokenId);
+
+        locked[tokenId] = false;
+        emit MirrorNftBurned(msg.sender, tokenId);
     }
 
     function removeModerator(uint256 tokenId, address staking) external onlyOwner {
