@@ -653,7 +653,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     function setFees(uint256 _depositfee, uint256 _commissionFee) external payable {
         require(msg.sender == commissionWallet || msg.sender == owner(), "Caller is not the operator");
         require(
-            _depositfee <= factory.feeLimits(0) && _commissionFee <= factory.feeLimits(1), "Cannot exceed fee limit of factory"
+            _depositfee <= factory.feeLimits(0) && _commissionFee <= factory.feeLimits(1),
+            "Cannot exceed fee limit of factory"
         );
 
         _transferPerformanceFee();
@@ -670,7 +671,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     function setFeeWallet(address _feeWallet) external payable {
         require(msg.sender == commissionWallet || msg.sender == owner(), "Caller is not the operator");
         require(_feeWallet != address(0x0), "Invalid wallet");
-        
+
         commissionWallet = _feeWallet;
         emit SetFeeWallet(_feeWallet);
     }

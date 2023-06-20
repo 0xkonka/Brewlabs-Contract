@@ -14,14 +14,22 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     using Strings for address;
 
     string[6] rarityNames = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mod"];
+    string[6] featureAccesses = ["Basic", "Improved", "Brewer", "Premium", "Premium Brewer"];
+    uint256[5] public feeReductions = [5, 10, 15, 20, 30];
+
     mapping(uint256 => uint256) private rarities;
+    mapping(address => bool) public tokenAllowed;
 
     uint256 public maxSupply = 5000;
+
     bool public mintAllowed;
+    IERC20 public feeToken = IERC20(0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7);
     uint256 public mintFee;
     uint256 public brewsMintFee;
-    IERC20 public feeToken = IERC20(0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7);
+
+    address public stakingAddr = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
     address public feeWallet = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
+    address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
 
     mapping(address => uint256) public whitelist;
 
@@ -46,32 +54,59 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
 
     constructor() ERC721("Brewlabs Flask Nft", "BFL") {}
 
-    function mint() external payable onlyMintable returns (uint256) {
-        if (whitelist[msg.sender] == 0) {
-            require(msg.value >= mintFee, "Insufficient BNB fee");
+    function mint(uint256 numToMint, IERC20 payingToken) external onlyMintable {
+        require(numToMint > 0, "Invalid amount");
+        require(totalSupply() + numToMint <= maxSupply, "Cannot exceed maxSupply");
 
-            // process mint fee
-            payable(feeWallet).transfer(mintFee);
-            if (msg.value > mintFee) {
-                payable(msg.sender).transfer(msg.value - mintFee);
-            }
-            feeToken.safeTransferFrom(msg.sender, feeWallet, brewsMintFee);
+        if (whitelist[msg.sender] == 0) {
+            // require(msg.value >= mintFee, "Insufficient BNB fee");
+
+            // // process mint fee
+            // payable(feeWallet).transfer(mintFee);
+            // if (msg.value > mintFee) {
+            //     payable(msg.sender).transfer(msg.value - mintFee);
+            // }
+            payingToken.safeTransferFrom(msg.sender, address(this), mintFee * numToMint);
+            feeToken.safeTransferFrom(msg.sender, treasury, brewsMintFee * numToMint);
         } else {
             whitelist[msg.sender] = whitelist[msg.sender] - 1;
         }
 
         // mint NFT
-        tokenIndex++;
-        rarities[tokenIndex] = _getRarity(tokenIndex);
+        for (uint256 i = 0; i < numToMint; i++) {
+            tokenIndex++;
+            rarities[tokenIndex] = _getRarity(tokenIndex, numToMint);
 
-        _safeMint(msg.sender, tokenIndex);
-        return tokenIndex;
+            _safeMint(msg.sender, tokenIndex);
+        }
     }
 
-    function _getRarity(uint256 tokenId) internal view returns (uint256) {
+    function mintTo(address to, uint256 rarity, uint256 numToMint) external onlyOwner {
+        require(numToMint > 0, "Invalid amount");
+        require(rarity > 0 && rarity <= rarityNames.length, "Invalid rarity");
+        require(totalSupply() + numToMint <= maxSupply, "Cannot exceed maxSupply");
+
+        // mint NFT
+        for (uint256 i = 0; i < numToMint; i++) {
+            tokenIndex++;
+            rarities[tokenIndex] = rarity;
+
+            _safeMint(to, tokenIndex);
+        }
+    }
+
+    function _getRarity(uint256 tokenId, uint256 num) internal view returns (uint256) {
         uint256 randomNum = uint256(
             keccak256(
-                abi.encode(msg.sender, tx.gasprice, block.number, block.timestamp, blockhash(block.number - 1), tokenId)
+                abi.encode(
+                    msg.sender,
+                    tx.gasprice,
+                    block.number,
+                    block.timestamp,
+                    blockhash(block.number - 1),
+                    num,
+                    num + tokenId
+                )
             )
         );
 
@@ -79,13 +114,13 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
 
         uint256 index = seed % probabilities.length;
         uint256 rarity = seed * 100 / maxSupply;
-        if(rarity < probabilities[index]) {
+        if (rarity < probabilities[index]) {
             rarity = index;
         } else {
             rarity = aliases[index];
         }
 
-        return rarity;
+        return rarity + 1;
     }
 
     function upgradeNFT(uint256[3] memory tokenIds) external returns (uint256) {
@@ -158,19 +193,36 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         return rarities[tokenId];
     }
 
+    function baseURI() public view returns (string memory) {
+        return _tokenBaseURI;
+    }
+
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         require(_exists(tokenId), "BrewlabsFlaskNft: URI query for nonexistent token");
 
-        string memory base = _baseURI();
+        string memory base = baseURI();
         string memory description = string(
             abi.encodePacked(
                 '"description": "Brewlabs Flask NFTs represent users fractionalised ownership of a particular basket of tokens(Index)."'
             )
         );
 
+        uint256 rarity = rarities[tokenId] - 1;
+        string memory rarityName = rarityNames[rarity];
+        if (rarity == 5) rarity = 4;
+
         string memory attributes = '"attributes":[';
         attributes = string(
-            abi.encodePacked(attributes, '{"trait_type":"Rarity", "value":"', rarityNames[rarities[tokenId]], '"}]')
+            abi.encodePacked(
+                attributes,
+                '{"trait_type":"Network", "value":"BNB Chain"}, {"trait_type":"Rarity", "value":"',
+                rarityName,
+                '"}, {"trait_type":"Fee Reduction", "value":"',
+                feeReductions[rarity].toString(),
+                '"}, {"trait_type":"Feature Access", "value":"',
+                featureAccesses[rarity],
+                '"}]'
+            )
         );
 
         // If both are set, concatenate the baseURI (via abi.encodePacked).
@@ -185,8 +237,8 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
                 ', "image": "',
                 base,
                 "/",
-                rarityNames[rarities[tokenId]],
-                ".png",
+                rarityName,
+                ".mp4",
                 '", ',
                 attributes,
                 "}"
@@ -244,10 +296,6 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
             uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
             IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
         }
-    }
-
-    function _baseURI() internal view override returns (string memory) {
-        return _tokenBaseURI;
     }
 
     function _base64(bytes memory data) internal pure returns (string memory) {
