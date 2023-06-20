@@ -51,6 +51,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
     }
 
     function burn(uint256 tokenId) external {
+        require(ownerOf(tokenId) == msg.sender, "caller is not token owner");
         _burn(tokenId);
     }
 
