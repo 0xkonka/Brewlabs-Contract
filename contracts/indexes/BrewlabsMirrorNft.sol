@@ -21,12 +21,16 @@ contract BrewlabsMirrorNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable
     string[6] featureAccesses = ["Basic", "Improved", "Brewer", "Premium", "Premium Brewer"];
     uint256[5] feeReductions = [5, 10, 15, 20, 30];
 
-    constructor(IBrewlabsFlaskNft _nft) ERC721("Brewlabs Mirror Nft", "BMN") {
+    constructor(IBrewlabsFlaskNft _nft) ERC721("Brewlabs Flask Mirror Nft", "mBLF") {
         originNft = _nft;
     }
 
     function mint(address to, uint256 tokenId) external onlyOwner {
         _safeMint(to, tokenId);
+    }
+
+    function burn(uint256 tokenId) external onlyOwner {
+        _burn(tokenId);
     }
 
     function setApprovalForAll(address operator, bool approved)
@@ -75,7 +79,7 @@ contract BrewlabsMirrorNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable
         string memory base = originNft.baseURI();
         string memory description = string(
             abi.encodePacked(
-                '"description": "Brewlabs mirror NFT represents your staked Brewlabs NFT and allows Brewlabs ecosystem to attribute your wallet the correct benefits while your Brewlabs NFT is held within the NFT staking contract. Brewlabs mirror NFT is non-transferable."'
+                '"description": "Brewlabs Flask Mirror NFT represents your staked Brewlabs Flask NFT and allows Brewlabs ecosystem to attribute your wallet the correct benefits while your Brewlabs Flask NFT is held within the NFT staking contract. Brewlabs Flask Mirror NFT is non-transferable."'
             )
         );
 
