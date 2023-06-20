@@ -38,7 +38,7 @@ contract BrewlabsNftDiscountMgr is Ownable {
 
             if (maxRarity < rarity) maxRarity = rarity;
         }
-        return maxRarity > 0 ?  discounts[maxRarity - 1] : 0;
+        return maxRarity > 0 ? discounts[maxRarity - 1] : 0;
     }
 
     function setCollection(IERC721 _nft) external onlyOwner {

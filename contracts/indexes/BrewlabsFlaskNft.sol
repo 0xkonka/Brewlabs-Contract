@@ -33,9 +33,9 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     IERC20 public feeToken = IERC20(0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7);
 
     uint256 public mintFee = 100 ether;
-    uint256 public brewsMintFee = 3500 * 10**9;
+    uint256 public brewsMintFee = 3500 * 10 ** 9;
     uint256 public upgradeFee = 25 ether;
-    uint256 public brewsUpgradeFee = 1500 * 10**9;
+    uint256 public brewsUpgradeFee = 1500 * 10 ** 9;
     uint256 public performanceFee = 0.01 ether;
 
     address public stakingAddr = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
@@ -85,7 +85,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
 
         // process mint fee
         if (whitelist[msg.sender] == 0) {
-            uint256 precision = 10**(18 - IERC20Metadata(address(payingToken)).decimals());
+            uint256 precision = 10 ** (18 - IERC20Metadata(address(payingToken)).decimals());
             uint256 feeAmount = (mintFee / precision) * numToMint;
             require(payingToken.balanceOf(msg.sender) >= feeAmount, "Insufficient fee");
 
@@ -130,7 +130,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         require(tokenAllowed[address(payingToken)], "Not allowed for upgrade NFT");
 
         // process upgrade fee
-        uint256 precision = 10**(18 - IERC20Metadata(address(payingToken)).decimals());
+        uint256 precision = 10 ** (18 - IERC20Metadata(address(payingToken)).decimals());
         uint256 feeAmount = upgradeFee / precision;
         require(payingToken.balanceOf(msg.sender) >= feeAmount, "Insufficient fee");
 
@@ -254,12 +254,11 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         super.safeTransferFrom(from, to, tokenId, data);
     }
 
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 firstTokenId,
-        uint256 batchSize
-    ) internal virtual override {
+    function _beforeTokenTransfer(address from, address to, uint256 firstTokenId, uint256 batchSize)
+        internal
+        virtual
+        override
+    {
         require(rarities[firstTokenId] < 6, "Cannot transfer Mod item");
         require(locked[firstTokenId] == false, "Locked due to mirror token");
 
