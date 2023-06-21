@@ -153,6 +153,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     function mintMirrorNft(uint256 tokenId) external payable {
         require(ownerOf(tokenId) == msg.sender, "Caller is not holder");
         require(locked[tokenId] == false, "Mirror token already mint");
+        require(rarities[tokenId] > 2, "Cannot mint mirror token for uncommon and common");
 
         _transferPerformanceFee();
 
@@ -162,6 +163,8 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     }
 
     function burnMirrorNft(uint256 tokenId) external payable {
+        require(mirrorNft.ownerOf(tokenId) == msg.sender, "Caller is not holder");
+
         _transferPerformanceFee();
 
         mirrorNft.safeTransferFrom(msg.sender, address(this), tokenId);
@@ -174,11 +177,14 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     function removeModerator(uint256 tokenId, address staking) external onlyOwner {
         require(rarities[tokenId] == 6, "can remove only Mod token");
 
-        address from = ownerOf(tokenId);
-        try IBrewlabsNftStaking(staking).forceUnstake(from, tokenId) {} catch {}
-
-        mirrorNft.burn(tokenId);
         _burn(tokenId);
+        if(locked[tokenId]) {
+            address from = ownerOf(tokenId);
+            try IBrewlabsNftStaking(staking).forceUnstake(from, tokenId) {} catch {}
+
+            mirrorNft.burn(tokenId);
+            locked[tokenId] = false;
+        }
     }
 
     function _getRarity(uint256 tokenId, uint256 num) internal view returns (uint256) {

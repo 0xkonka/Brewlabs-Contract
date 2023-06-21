@@ -32,6 +32,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     // The block number of the last pool update
     uint256 public lastRewardBlock;
 
+    address public admin;
     address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
     uint256 public performanceFee = 0.0035 ether;
 
@@ -73,6 +74,12 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     event DurationUpdated(uint256 _duration);
     event SetAutoAdjustableForRewardRate(bool status);
     event SetOneTimeLimit(uint256 limit);
+    event SetAdmin(address addr);
+
+    modifier onlyAdmin() {
+        require(msg.sender == owner() || msg.sender == admin, "Caller is not owner or operator");
+        _;
+    }
 
     constructor() {}
 
@@ -173,6 +180,44 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         emit Withdraw(msg.sender, _tokenIds);
 
         if (autoAdjustableForRewardRate) _updateRewardRate();
+    }
+
+    function forceUnstake(address from, uint256 tokenId) external onlyAdmin nonReentrant {
+        UserInfo storage user = userInfo[from];
+        if (user.amount == 0) return;
+
+        _updatePool();
+
+        if (user.amount > 0) {
+            uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
+            if (pending > 0 && availableRewardTokens() >= pending) {
+                earnedToken.safeTransfer(from, pending);
+                paidRewards += pending;
+                emit Claim(from, pending);
+            }
+        }
+
+        uint256 idx = 0;
+        for(uint256 i = 0; i < user.tokenIds.length; i++) {
+            if(user.tokenIds[i] == tokenId) {
+                idx = i + 1; break;
+            }
+        }
+
+        if(idx > 0) {
+            user.tokenIds[idx - 1] = user.tokenIds[user.tokenIds.length - 1];
+            user.tokenIds.pop();
+
+            stakingNft.safeTransferFrom(address(this), from, tokenId);
+            
+            uint256[] memory _tokenIds = new uint256[](1);
+            _tokenIds[0] = tokenId;
+
+            user.amount = user.amount - 1;
+            totalStaked = totalStaked - 1;
+            emit Withdraw(msg.sender, _tokenIds);
+        }
+        user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
     }
 
     function claimReward() external payable nonReentrant {
@@ -375,6 +420,11 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     function setAutoAdjustableForRewardRate(bool _status) external onlyOwner {
         autoAdjustableForRewardRate = _status;
         emit SetAutoAdjustableForRewardRate(_status);
+    }
+
+    function setAdmin(address _addr) external onlyOwner {
+        admin = _addr;
+        emit SetAdmin(_addr);
     }
 
     function setServiceInfo(address _treasury, uint256 _fee) external {
