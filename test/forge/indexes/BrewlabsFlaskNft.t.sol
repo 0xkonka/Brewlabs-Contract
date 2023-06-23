@@ -22,10 +22,21 @@ contract BrewlabsFlaskNftTest is Test {
 
     event BaseURIUpdated(string uri);
     event MintEnabled();
+
     event ItemUpgraded(uint256[3] tokenIds, uint256 newTokenId);
-    event SetFeeToken(address token);
-    event SetFeeWallet(address wallet);
-    event SetMintPrice(uint256 ethFee, uint256 brewsFee);
+    event MirrorNftMinted(address user, uint256 tokenId);
+    event MirrorNftBurned(address user, uint256 tokenId);
+
+    event SetBrewlabsToken(address token);
+    event SetFeeToken(address token, bool enabled);
+    event SetMintPrice(uint256 tokenFee, uint256 brewsFee);
+    event SetUpgradePrice(uint256 tokenFee, uint256 brewsFee);
+    event SetMaxSupply(uint256 supply);
+    event SetOneTimeLimit(uint256 limit);
+    event SetMirrorNft(address nftAddr);
+    event SetBrewlabsWallet(address addr);
+    event SetStakingAddress(address addr);
+    event ServiceInfoChanged(address addr, uint256 fee);
     event Whitelisted(address indexed account, uint256 count);
 
     function setUp() public {
@@ -96,6 +107,7 @@ contract BrewlabsFlaskNftTest is Test {
         nft.mint(1, feeToken);
         assertEq(nft.balanceOf(user), 1);
         assertEq(nft.whitelist(user), 2);
+        assertGt(nft.rarityOf(1), 0);
 
         assertEq(brewsToken.balanceOf(nft.treasury()), 0);
         assertEq(feeToken.balanceOf(nft.treasury()), 0);
@@ -230,244 +242,269 @@ contract BrewlabsFlaskNftTest is Test {
         vm.stopPrank();
     }
 
-    function test_mintTo() public {}
+    function test_mintTo() public {
+        vm.expectRevert("Invalid rarity");
+        nft.mintTo(address(0x11111), 7, 1);
 
-    // function test_upgradeItem() public {
-    //     address user = address(0x12345);
-    //     vm.deal(user, 100 ether);
+        nft.mintTo(address(0x11111), 4, 1);
+        assertEq(nft.ownerOf(1), address(0x11111));
+        assertEq(nft.rarityOf(1), 4);
 
-    //     uint256 stableMintFee = nft.mintFee();
-    //     uint256 brewsMintFee = nft.brewsMintFee();
-    //     feeToken.mint(user, brewsMintFee * 100);
+        vm.startPrank(address(0x123));
+        vm.expectRevert("Ownable: caller is not the owner");
+        nft.mintTo(address(0x11111), 4, 1);
+        vm.stopPrank();
+    }
 
-    //     vm.startPrank(user);
-    //     feeToken.approve(address(nft), brewsMintFee * 100);
+    function test_upgradeItem() public {
+        address user = address(0x12345);
+        vm.deal(user, 100 ether);
 
-    //     uint256[3] memory tokenIds;
-    //     uint256 count = 0;
-    //     for (uint256 i = 0; i < 100; i++) {
-    //         uint256 tokenId = nft.mint(1, feeToken);
-    //         if (nft.rarityOf(tokenId) == 0) {
-    //             tokenIds[count] = tokenId;
-    //             count++;
-    //             if (count == 3) break;
-    //         }
-    //     }
-    //     if (count < 3) return;
+        nft.mintTo(user, 1, 3);
+        nft.mintTo(user, 2, 3);
 
-    //     uint256 newTokenId = nft.upgradeItem(tokenIds);
-    //     assertEq(nft.rarityOf(newTokenId), 1);
+        uint256 upgradeFee = nft.upgradeFee();
+        uint256 brewsUpgradeFee = nft.brewsUpgradeFee();
+        brewsToken.mint(user, brewsUpgradeFee * 2);
+        feeToken.mint(user, upgradeFee * 2);
 
-    //     vm.stopPrank();
-    // }
+        vm.startPrank(user);
+        brewsToken.approve(address(nft), brewsUpgradeFee * 2);
+        feeToken.approve(address(nft), upgradeFee * 2);
+        
+        // upgrade common items
+        uint256[3] memory tokenIds;
+        tokenIds[0] = 1;
+        tokenIds[1] = 2;
+        tokenIds[2] = 3;
+        
+        uint256 newTokenId = nft.upgradeNFT(tokenIds, feeToken);
+        assertEq(nft.rarityOf(newTokenId), nft.rarityOf(tokenIds[0]) + 1);
+        
+        // upgrade uncommon items
+        tokenIds[0] = 4;
+        tokenIds[1] = 5;
+        tokenIds[2] = 6;
+        
+        newTokenId = nft.upgradeNFT(tokenIds, feeToken);
+        assertEq(nft.rarityOf(newTokenId), nft.rarityOf(tokenIds[0]) + 1);
+        vm.stopPrank();
+    }
 
-    // function test_failUpgradeItemWithUnsupportedItems() public {
-    //     address user = address(0x12345);
-    //     vm.deal(user, 100 ether);
+    function test_failUpgradeItemWithUnsupportedItems() public {
+        address user = address(0x12345);
+        vm.deal(user, 100 ether);
 
-    //     uint256 stableMintFee = nft.mintFee();
-    //     uint256 brewsMintFee = nft.brewsMintFee();
-    //     feeToken.mint(user, brewsMintFee * 100);
+        nft.mintTo(user, 3, 3);
 
-    //     vm.startPrank(user);
-    //     feeToken.approve(address(nft), brewsMintFee * 100);
+        vm.startPrank(user);
 
-    //     uint256[3] memory tokenIds;
-    //     uint256 count = 0;
-    //     for (uint256 i = 0; i < 100; i++) {
-    //         uint256 tokenId = nft.mint(1, feeToken);
-    //         if (nft.rarityOf(tokenId) == 0 && count < 2) {
-    //             tokenIds[count] = tokenId;
-    //             count++;
+        uint256[3] memory tokenIds;
+        tokenIds[0] = 1;
+        tokenIds[1] = 2;
+        tokenIds[2] = 3;
+        
+        vm.expectRevert("Only common or uncommon NFT can be upgraded");
+        nft.upgradeNFT(tokenIds, feeToken);
 
-    //             if (tokenIds[0] > 2) break;
-    //         } else if (nft.rarityOf(tokenId) > 1) {
-    //             tokenIds[0] = tokenId;
-    //             if (count == 2) break;
-    //         }
-    //     }
+        vm.stopPrank();
+    }
 
-    //     if (count < 2 || tokenIds[0] == 0) return;
+    function test_failUpgradeItemWithDifferentRarities() public {
+        address user = address(0x12345);
+        vm.deal(user, 100 ether);
 
-    //     vm.expectRevert("Only common or uncommon NFT can be upgraded");
-    //     nft.upgradeItem(tokenIds);
+        nft.mintTo(user, 1, 2);
+        nft.mintTo(user, 2, 2);
 
-    //     vm.stopPrank();
-    // }
+        vm.startPrank(user);
 
-    // function test_failUpgradeItemWithDifferentRarities() public {
-    //     address user = address(0x12345);
-    //     vm.deal(user, 100 ether);
+        uint256[3] memory tokenIds;
+        tokenIds[0] = 1;
+        tokenIds[1] = 2;
+        tokenIds[2] = 3;
 
-    //     uint256 stableMintFee = nft.mintFee();
-    //     uint256 brewsMintFee = nft.brewsMintFee();
-    //     feeToken.mint(user, brewsMintFee * 100);
+        vm.expectRevert("Rarities should be same");
+        nft.upgradeNFT(tokenIds, feeToken);
 
-    //     vm.startPrank(user);
-    //     feeToken.approve(address(nft), brewsMintFee * 100);
+        vm.stopPrank();
+    }
 
-    //     uint256[3] memory tokenIds;
-    //     tokenIds[0] = nft.mint(1, feeToken);
-    //     tokenIds[1] = nft.mint(1, feeToken);
+    function test_failUpgradeItemWithSameIds() public {
+        address user = address(0x12345);
+        vm.deal(user, 100 ether);
 
-    //     for (uint256 i = 0; i < 100; i++) {
-    //         uint256 tokenId = nft.mint(1, feeToken);
-    //         if (nft.rarityOf(tokenId) != nft.rarityOf(tokenIds[0])) {
-    //             tokenIds[2] = tokenId;
-    //             break;
-    //         }
-    //     }
+        nft.mintTo(user, 1, 3);
+        nft.mintTo(user, 2, 3);
 
-    //     vm.expectRevert("Rarities should be same");
-    //     nft.upgradeItem(tokenIds);
+        uint256 upgradeFee = nft.upgradeFee();
+        uint256 brewsUpgradeFee = nft.brewsUpgradeFee();
+        brewsToken.mint(user, brewsUpgradeFee );
+        feeToken.mint(user, upgradeFee );
 
-    //     vm.stopPrank();
-    // }
+        vm.startPrank(user);
+        brewsToken.approve(address(nft), brewsUpgradeFee);
+        feeToken.approve(address(nft), upgradeFee);
+        
+        // upgrade common items
+        uint256[3] memory tokenIds;
+        tokenIds[0] = 1;
+        tokenIds[1] = 2;
+        tokenIds[2] = 2;
 
-    // function test_failUpgradeItemWithSameIds() public {
-    //     address user = address(0x12345);
-    //     vm.deal(user, 100 ether);
+        vm.expectRevert("ERC721: invalid token ID");
+        nft.upgradeNFT(tokenIds, feeToken);
 
-    //     uint256 stableMintFee = nft.mintFee();
-    //     uint256 brewsMintFee = nft.brewsMintFee();
-    //     feeToken.mint(user, brewsMintFee * 100);
+        vm.stopPrank();
+    }
 
-    //     vm.startPrank(user);
-    //     feeToken.approve(address(nft), brewsMintFee * 100);
+    function test_NewMintOwnerRegistered() public {
+        address user = address(0x1234);
+        vm.deal(user, 1 ether);
 
-    //     uint256[3] memory tokenIds;
-    //     tokenIds[0] = nft.mint(1, feeToken);
-    //     tokenIds[1] = tokenIds[0];
-    //     tokenIds[2] = tokenIds[0];
+        uint256 stableMintFee = nft.mintFee();
+        uint256 brewsMintFee = nft.brewsMintFee();
+        brewsToken.mint(user, brewsMintFee);
+        feeToken.mint(user, stableMintFee);
 
-    //     vm.expectRevert("ERC721: invalid token ID");
-    //     nft.upgradeItem(tokenIds);
+        vm.startPrank(user);
+        brewsToken.approve(address(nft), brewsMintFee);
+        feeToken.approve(address(nft), stableMintFee);
 
-    //     vm.stopPrank();
-    // }
+        nft.mint(1, feeToken);
+        vm.stopPrank();
 
-    // function test_NewMintOwnerRegistered() public {
-    //     address user = address(0x1234);
-    //     vm.deal(user, 1 ether);
+        uint256 slotOfNewOwner = stdstore.target(address(nft)).sig(nft.ownerOf.selector).with_key(1).find();
+        uint160 ownerOfTokenIdOne = uint160(uint256((vm.load(address(nft), bytes32(abi.encode(slotOfNewOwner))))));
+        assertEq(address(ownerOfTokenIdOne), user);
+    }
 
-    //     uint256 stableMintFee = nft.mintFee();
-    //     uint256 brewsMintFee = nft.brewsMintFee();
-    //     feeToken.mint(user, brewsMintFee);
+    function test_BalanceIncremented() public {
+        address user = address(0x1234);
+        vm.deal(user, 1 ether);
 
-    //     vm.startPrank(user);
-    //     feeToken.approve(address(nft), brewsMintFee);
-    //     uint256 tokenId = nft.mint(1, feeToken);
-    //     vm.stopPrank();
+        uint256 stableMintFee = nft.mintFee();
+        uint256 brewsMintFee = nft.brewsMintFee();
+        brewsToken.mint(user, brewsMintFee * 2);
+        feeToken.mint(user, stableMintFee * 2);
 
-    //     uint256 slotOfNewOwner = stdstore.target(address(nft)).sig(nft.ownerOf.selector).with_key(tokenId).find();
-    //     uint160 ownerOfTokenIdOne = uint160(uint256((vm.load(address(nft), bytes32(abi.encode(slotOfNewOwner))))));
-    //     assertEq(address(ownerOfTokenIdOne), user);
-    // }
+        vm.startPrank(user);
 
-    // function test_BalanceIncremented() public {
-    //     address user = address(0x1234);
-    //     vm.deal(user, 1 ether);
+        brewsToken.approve(address(nft), brewsMintFee * 2);
+        feeToken.approve(address(nft), stableMintFee * 2);
 
-    //     uint256 stableMintFee = nft.mintFee();
-    //     uint256 brewsMintFee = nft.brewsMintFee();
-    //     feeToken.mint(user, brewsMintFee * 2);
+        uint256 slotBalance = stdstore.target(address(nft)).sig(nft.balanceOf.selector).with_key(user).find();
 
-    //     vm.startPrank(user);
+        nft.mint(1, feeToken);
+        uint256 balanceFirstMint = uint256(vm.load(address(nft), bytes32(slotBalance)));
+        assertEq(balanceFirstMint, 1);
 
-    //     feeToken.approve(address(nft), brewsMintFee * 2);
+        utils.mineBlocks(10);
 
-    //     uint256 slotBalance = stdstore.target(address(nft)).sig(nft.balanceOf.selector).with_key(user).find();
+        nft.mint(1, feeToken);
+        uint256 balanceSecondMint = uint256(vm.load(address(nft), bytes32(slotBalance)));
+        assertEq(balanceSecondMint, 2);
+        vm.stopPrank();
+    }
 
-    //     nft.mint(1, feeToken);
-    //     uint256 balanceFirstMint = uint256(vm.load(address(nft), bytes32(slotBalance)));
-    //     assertEq(balanceFirstMint, 1);
+    function test_checkMetadata() public {
+        address user = address(0x1234);
+        vm.deal(user, 1 ether);
 
-    //     utils.mineBlocks(10);
+        uint256 stableMintFee = nft.mintFee();
+        uint256 brewsMintFee = nft.brewsMintFee();
+        brewsToken.mint(user, brewsMintFee);
+        feeToken.mint(user, stableMintFee);
 
-    //     nft.mint(1, feeToken);
-    //     uint256 balanceSecondMint = uint256(vm.load(address(nft), bytes32(slotBalance)));
-    //     assertEq(balanceSecondMint, 2);
-    //     vm.stopPrank();
-    // }
+        vm.startPrank(user);
+        brewsToken.approve(address(nft), brewsMintFee);
+        feeToken.approve(address(nft), stableMintFee);
 
-    // function test_checkMetadata() public {
-    //     address user = address(0x1234);
-    //     vm.deal(user, 1 ether);
+        nft.mint(1, feeToken);
+        vm.stopPrank();
 
-    //     uint256 stableMintFee = nft.mintFee();
-    //     uint256 brewsMintFee = nft.brewsMintFee();
-    //     feeToken.mint(user, brewsMintFee);
+        vm.startPrank(nftOwner);
+        nft.setTokenBaseUri("https://test.com/metadata");
+        vm.stopPrank();
 
-    //     vm.startPrank(user);
-    //     feeToken.approve(address(nft), brewsMintFee);
-    //     uint256 tokenId = nft.mint(1, feeToken);
-    //     vm.stopPrank();
+        emit log_named_string("metadata", nft.tokenURI(1));
+    }
 
-    //     vm.startPrank(nftOwner);
-    //     nft.setTokenBaseUri("https://test.com/metadata");
-    //     vm.stopPrank();
+    function test_setMintPrice() public {
+        vm.expectEmit(false, false, false, true);
+        emit SetMintPrice(0.1 ether, 2 ether);
+        nft.setMintPrice(0.1 ether, 2 ether);
+    }
 
-    //     emit log_named_string("metadata", nft.tokenURI(tokenId));
-    // }
+    function test_setUpgradePrice() public {
+        vm.expectEmit(false, false, false, true);
+        emit SetUpgradePrice(0.1 ether, 2 ether);
+        nft.setUpgradePrice(0.1 ether, 2 ether);
+    }
 
-    // function test_setMintPrice() public {
-    //     vm.expectEmit(false, false, false, true);
-    //     emit SetMintPrice(0.1 ether, 2 ether);
-    //     nft.setMintPrice(0.1 ether, 2 ether);
-    // }
+    function test_enableMint() public {
+        vm.expectRevert(abi.encodePacked("Already enabled"));
+        nft.enableMint();
 
-    // function test_enableMint() public {
-    //     vm.expectRevert(abi.encodePacked("Already enabled"));
-    //     nft.enableMint();
+        BrewlabsFlaskNft _nft = new BrewlabsFlaskNft();
 
-    //     BrewlabsFlaskNft _nft = new BrewlabsFlaskNft();
+        vm.expectEmit(false, false, false, true);
+        emit MintEnabled();
+        _nft.enableMint();
 
-    //     vm.expectEmit(false, false, false, true);
-    //     emit MintEnabled();
-    //     _nft.enableMint();
+        assertTrue(_nft.mintAllowed());
+    }
 
-    //     assertTrue(_nft.mintAllowed());
-    // }
+    function test_setFeeToken() public {
+        vm.expectRevert(abi.encodePacked("Invalid token"));
+        nft.setFeeToken(address(0x0), true);
 
-    // function test_setFeeToken() public {
-    //     vm.expectRevert(abi.encodePacked("Invalid token"));
-    //     nft.setFeeToken(IERC20(address(0x0)));
+        vm.expectEmit(false, false, false, true);
+        emit SetFeeToken(address(0x1), true);
+        nft.setFeeToken(address(0x1), true);
 
-    //     vm.expectEmit(false, false, false, true);
-    //     emit SetFeeToken(address(0x1));
-    //     nft.setFeeToken(IERC20(address(0x1)));
-    // }
+        assertEq(nft.tokenAllowed(address(0x1)), true);
+    }
 
-    // function test_setFeeWallet() public {
-    //     vm.expectRevert(abi.encodePacked("Invalid address"));
-    //     nft.setFeeWallet(address(0x0));
+    function test_setBrewlabsWallet() public {
+        vm.expectRevert(abi.encodePacked("Invalid address"));
+        nft.setBrewlabsWallet(address(0x0));
 
-    //     vm.expectEmit(false, false, false, true);
-    //     emit SetFeeWallet(address(0x1));
-    //     nft.setFeeWallet(address(0x1));
-    // }
+        vm.expectEmit(false, false, false, true);
+        emit SetBrewlabsWallet(address(0x1));
+        nft.setBrewlabsWallet(address(0x1));
+    }
 
-    // function test_setTokenBaseUri() public {
-    //     vm.expectEmit(false, false, false, true);
-    //     emit BaseURIUpdated("uri");
-    //     nft.setTokenBaseUri("uri");
-    // }
+    function test_setStakingAddress() public {
+        vm.expectRevert(abi.encodePacked("Invalid address"));
+        nft.setStakingAddress(address(0x0));
 
-    // function test_addToWhitelist() public {
-    //     vm.expectEmit(true, false, false, true);
-    //     emit Whitelisted(address(0x123), 3);
-    //     nft.addToWhitelist(address(0x123), 3);
+        vm.expectEmit(false, false, false, true);
+        emit SetStakingAddress(address(0x1));
+        nft.setStakingAddress(address(0x1));
+    }
 
-    //     assertEq(nft.whitelist(address(0x123)), 3);
-    // }
+    function test_setTokenBaseUri() public {
+        vm.expectEmit(false, false, false, true);
+        emit BaseURIUpdated("uri");
+        nft.setTokenBaseUri("uri");
+    }
 
-    // function test_removeFromWhitelist() public {
-    //     vm.expectEmit(true, false, false, true);
-    //     emit Whitelisted(address(0x123), 0);
-    //     nft.removeFromWhitelist(address(0x123));
+    function test_addToWhitelist() public {
+        vm.expectEmit(true, false, false, true);
+        emit Whitelisted(address(0x123), 3);
+        nft.addToWhitelist(address(0x123), 3);
 
-    //     assertEq(nft.whitelist(address(0x123)), 0);
-    // }
+        assertEq(nft.whitelist(address(0x123)), 3);
+    }
+
+    function test_removeFromWhitelist() public {
+        vm.expectEmit(true, false, false, true);
+        emit Whitelisted(address(0x123), 0);
+        nft.removeFromWhitelist(address(0x123));
+
+        assertEq(nft.whitelist(address(0x123)), 0);
+    }
 
     function test_rescueTokensForEther() public {
         vm.deal(address(nft), 0.02 ether);

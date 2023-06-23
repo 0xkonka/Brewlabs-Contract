@@ -67,6 +67,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     event SetBrewlabsToken(address token);
     event SetFeeToken(address token, bool enabled);
     event SetMintPrice(uint256 tokenFee, uint256 brewsFee);
+    event SetUpgradePrice(uint256 tokenFee, uint256 brewsFee);
     event SetMaxSupply(uint256 supply);
     event SetOneTimeLimit(uint256 limit);
     event SetMirrorNft(address nftAddr);
@@ -130,7 +131,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     }
 
     function upgradeNFT(uint256[3] memory tokenIds, IERC20 payingToken) external returns (uint256) {
-        require(rarities[tokenIds[0]] < 2, "Only common or uncommon NFT can be upgraded");
+        require(rarities[tokenIds[0]] < 3, "Only common or uncommon NFT can be upgraded");
         require(
             rarities[tokenIds[0]] == rarities[tokenIds[1]] && rarities[tokenIds[1]] == rarities[tokenIds[2]],
             "Rarities should be same"
@@ -372,6 +373,12 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         mintFee = tokenFee;
         brewsMintFee = brewsFee;
         emit SetMintPrice(tokenFee, brewsFee);
+    }
+
+    function setUpgradePrice(uint256 tokenFee, uint256 brewsFee) external onlyOwner {
+        upgradeFee = tokenFee;
+        brewsUpgradeFee = brewsFee;
+        emit SetUpgradePrice(tokenFee, brewsFee);
     }
 
     function setOneTimeMintLimit(uint256 limit) external onlyOwner {
