@@ -175,7 +175,6 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         require(mirrorNft.ownerOf(tokenId) == msg.sender, "Caller is not holder");
 
         _transferPerformanceFee();
-
         mirrorNft.safeTransferFrom(msg.sender, address(this), tokenId);
         mirrorNft.burn(tokenId);
 
