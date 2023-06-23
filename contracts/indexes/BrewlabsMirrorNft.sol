@@ -79,7 +79,7 @@ contract BrewlabsMirrorNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable
         string memory base = originNft.baseURI();
         string memory description = string(
             abi.encodePacked(
-                '"description": "Brewlabs Flask Mirror NFT represents your staked Brewlabs Flask NFT and allows Brewlabs ecosystem to attribute your wallet the correct benefits while your Brewlabs Flask NFT is held within the NFT staking contract. Brewlabs Flask Mirror NFT is non-transferable."'
+                '"description": "Brewlabs Flask Mirror NFT represents your staked Brewlabs Flask NFT and allows Brewlabs ecosystem to attribute your wallet the correct benefits while your Brewlabs Flask Mirror NFT is held within the NFT staking contract."'
             )
         );
 
