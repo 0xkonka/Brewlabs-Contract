@@ -510,6 +510,22 @@ contract BrewlabsFlaskNftTest is Test {
         vm.stopPrank();
     }
 
+    function test_failedMirrorNftTransfer() public {
+        address user = address(0x12345);
+        vm.deal(user, 0.5 ether);
+        vm.deal(address(0x1), 0.2 ether);
+
+        uint256 performanceFee = nft.performanceFee();
+        nft.mintTo(user, 3, 1);
+
+        vm.startPrank(user);
+        nft.mintMirrorNft{value: performanceFee}(1);
+
+        vm.expectRevert("Cannot transfer");
+        mirrorNft.safeTransferFrom(user, address(0x11111), 1);
+        vm.stopPrank();
+    }
+
     function test_removeModerator() public {
         address user = address(0x12345);
         vm.deal(user, 0.5 ether);

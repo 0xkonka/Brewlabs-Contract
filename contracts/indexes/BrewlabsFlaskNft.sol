@@ -12,6 +12,7 @@ import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOpera
 interface IBrewlabsMirrorNft is IERC721 {
     function mint(address to, uint256 tokenId) external;
     function burn(uint256 tokenId) external;
+    function setNftStakingContract(address staking) external;
 }
 
 interface IBrewlabsNftStaking {
@@ -405,6 +406,8 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
 
         IBrewlabsNftStaking(staking).forceUnstake(address(this), 1);
         nftStaking = staking;
+        mirrorNft.setNftStakingContract(staking);
+
         emit SetNftStakingContract(staking);
     }
 

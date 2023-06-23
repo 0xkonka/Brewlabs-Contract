@@ -16,6 +16,7 @@ contract BrewlabsMirrorNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable
     using Strings for address;
 
     IBrewlabsFlaskNft public originNft;
+    address public nftStaking;
 
     string[6] rarityNames = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mod"];
     string[6] featureAccesses = ["Basic", "Improved", "Brewer", "Premium", "Premium Brewer"];
@@ -31,6 +32,11 @@ contract BrewlabsMirrorNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable
 
     function burn(uint256 tokenId) external onlyOwner {
         _burn(tokenId);
+    }
+
+    function setNftStakingContract(address staking) external onlyOwner {
+        require(staking != address(0x0), "Invalid address");
+        nftStaking = staking;
     }
 
     function setApprovalForAll(address operator, bool approved)
@@ -71,6 +77,20 @@ contract BrewlabsMirrorNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable
         onlyAllowedOperator(from)
     {
         super.safeTransferFrom(from, to, tokenId, data);
+    }
+
+    function _beforeTokenTransfer(address from, address to, uint256 firstTokenId, uint256 batchSize)
+        internal
+        virtual
+        override
+    {
+        require(
+            from == address(0x0) || to == address(0x0) || from == address(originNft) || to == address(originNft)
+                || from == nftStaking || to == nftStaking,
+            "Cannot transfer"
+        );
+
+        super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
