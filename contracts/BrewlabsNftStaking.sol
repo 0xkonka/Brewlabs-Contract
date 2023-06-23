@@ -198,18 +198,19 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         }
 
         uint256 idx = 0;
-        for(uint256 i = 0; i < user.tokenIds.length; i++) {
-            if(user.tokenIds[i] == tokenId) {
-                idx = i + 1; break;
+        for (uint256 i = 0; i < user.tokenIds.length; i++) {
+            if (user.tokenIds[i] == tokenId) {
+                idx = i + 1;
+                break;
             }
         }
 
-        if(idx > 0) {
+        if (idx > 0) {
             user.tokenIds[idx - 1] = user.tokenIds[user.tokenIds.length - 1];
             user.tokenIds.pop();
 
             stakingNft.safeTransferFrom(address(this), from, tokenId);
-            
+
             uint256[] memory _tokenIds = new uint256[](1);
             _tokenIds[0] = tokenId;
 
