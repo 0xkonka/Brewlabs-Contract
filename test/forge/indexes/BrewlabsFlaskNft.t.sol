@@ -421,6 +421,8 @@ contract BrewlabsFlaskNftTest is Test {
 
         // check mirror nft
         assertEq(mirrorNft.ownerOf(_tokenIds[0]), user);
+        assertEq(nft.totalSupply(), 1);
+        assertEq(mirrorNft.totalSupply(), 1);
 
         vm.expectRevert("Cannot transfer");
         mirrorNft.transferFrom(user, address(0x11111111), _tokenIds[0]);
@@ -433,8 +435,11 @@ contract BrewlabsFlaskNftTest is Test {
         // remove moderator
         nft.removeModerator(_tokenIds[0]);
         assertEq(nft.balanceOf(user), 0);
-        assertEq(mirrorNft.balanceOf(user), 0);
         assertEq(nft.rarityOf(_tokenIds[0]), 0);
+        assertEq(mirrorNft.balanceOf(user), 0);
+
+        assertEq(nft.totalSupply(), 0);
+        assertEq(mirrorNft.totalSupply(), 0);
 
         assertEq(earnToken.balanceOf(user), pendingReward);
         (uint256 amount,) = nftStaking.userInfo(user);
