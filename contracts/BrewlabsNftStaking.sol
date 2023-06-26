@@ -13,6 +13,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 interface IBrewlabsMirrorNft is IERC721 {
+    function rarityOf(uint256 tokenId) external view returns (uint256);
     function mint(address to, uint256 tokenId) external;
     function burn(uint256 tokenId) external;
     function setNftStakingContract(address staking) external;
@@ -50,7 +51,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     // Accrued token per share
     uint256 public accTokenPerShare;
     uint256 public oneTimeLimit = 40;
-    bool public autoAdjustableForRewardRate = false;
+    bool public autoAdjustableForRewardRate = true;
 
     uint256 public totalStaked;
     uint256 private totalEarned;
@@ -142,6 +143,8 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
         for (uint256 i = 0; i < _tokenIds.length; i++) {
             uint256 tokenId = _tokenIds[i];
+            require(IBrewlabsMirrorNft(address(stakingNft)).rarityOf(tokenId) > 2, "Cannot stake common or uncommon");
+
             stakingNft.safeTransferFrom(msg.sender, address(this), tokenId);
             mirrorNft.mint(msg.sender, tokenId);
             user.tokenIds.push(tokenId);

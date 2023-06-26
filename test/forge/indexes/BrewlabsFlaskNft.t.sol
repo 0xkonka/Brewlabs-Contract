@@ -469,12 +469,19 @@ contract BrewlabsFlaskNftTest is Test {
             assertEq(nft.tokenOfOwnerByIndex(user, i), mirrorNft.tTokenOfOwnerByIndex(user, i));
         }
 
+        uint256 performanceFee = nftStaking.performanceFee();
+
         // stake flask NFT
         vm.startPrank(user);
         nft.setApprovalForAll(address(nftStaking), true);
         uint256[] memory _tokenIds = new uint256[](1);
+
+        _tokenIds[0] = 1;
+        vm.expectRevert("Cannot stake common or uncommon");
+        nftStaking.deposit{value: performanceFee}(_tokenIds);
+
         _tokenIds[0] = 2;
-        nftStaking.deposit{value: nftStaking.performanceFee()}(_tokenIds);
+        nftStaking.deposit{value: performanceFee}(_tokenIds);
         vm.stopPrank();
 
         assertEq(nft.balanceOf(user) + mirrorNft.balanceOf(user), mirrorNft.tBalanceOf(user));
