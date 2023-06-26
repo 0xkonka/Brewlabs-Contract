@@ -12,6 +12,12 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
+interface IBrewlabsMirrorNft is IERC721 {
+    function mint(address to, uint256 tokenId) external;
+    function burn(uint256 tokenId) external;
+    function setNftStakingContract(address staking) external;
+}
+
 contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -34,10 +40,11 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
     address public admin;
     address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
-    uint256 public performanceFee = 0.0035 ether;
+    uint256 public performanceFee = 0.007 ether;
 
     // The staked token
     IERC721 public stakingNft;
+    IBrewlabsMirrorNft public mirrorNft;
     // The earned token
     IERC20 public earnedToken;
     // Accrued token per share
@@ -89,13 +96,14 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
      * @param _earnedToken: earned token address
      * @param _rewardPerBlock: reward per block (in earnedToken)
      */
-    function initialize(IERC721 _stakingNft, IERC20 _earnedToken, uint256 _rewardPerBlock) external onlyOwner {
+    function initialize(IERC721 _stakingNft, IBrewlabsMirrorNft _mirrorNft, IERC20 _earnedToken, uint256 _rewardPerBlock) external onlyOwner {
         require(!isInitialized, "Already initialized");
 
         // Make this contract initialized
         isInitialized = true;
 
         stakingNft = _stakingNft;
+        mirrorNft = _mirrorNft;
         earnedToken = _earnedToken;
         rewardPerBlock = _rewardPerBlock;
 
@@ -130,6 +138,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         for (uint256 i = 0; i < _tokenIds.length; i++) {
             uint256 tokenId = _tokenIds[i];
             stakingNft.safeTransferFrom(msg.sender, address(this), tokenId);
+            mirrorNft.mint(msg.sender, tokenId);
             user.tokenIds.push(tokenId);
         }
         user.amount = user.amount + _tokenIds.length;
@@ -171,6 +180,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             user.tokenIds.pop();
 
             _tokenIds[i] = tokenId;
+            mirrorNft.burn(tokenId);
             stakingNft.safeTransferFrom(address(this), msg.sender, tokenId);
         }
         user.amount = user.amount - _amount;
@@ -209,6 +219,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             user.tokenIds[idx - 1] = user.tokenIds[user.tokenIds.length - 1];
             user.tokenIds.pop();
 
+            mirrorNft.burn(tokenId);
             stakingNft.safeTransferFrom(address(this), from, tokenId);
 
             uint256[] memory _tokenIds = new uint256[](1);
@@ -216,7 +227,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
             user.amount = user.amount - 1;
             totalStaked = totalStaked - 1;
-            emit Withdraw(msg.sender, _tokenIds);
+            emit Withdraw(from, _tokenIds);
         }
         user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
     }

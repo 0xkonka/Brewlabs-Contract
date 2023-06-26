@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IERC721, IERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IBrewlabsNft {
     function rarityOf(uint256 tokenId) external view returns (uint256);
+    function tBalanceOf(address owner) external view returns (uint256);
+    function tTokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256);
 }
 
 contract BrewlabsNftDiscountMgr is Ownable {
@@ -27,13 +28,13 @@ contract BrewlabsNftDiscountMgr is Ownable {
     function discountOf(address _user) external view returns (uint256) {
         if (nftCollection == address(0x0)) return 0;
 
-        uint256 balance = IERC721(nftCollection).balanceOf(_user);
+        uint256 balance = IBrewlabsNft(nftCollection).tBalanceOf(_user);
         if (balance == 0) return 0;
 
         uint256 maxRarity = 0;
         for (uint256 i = 0; i < balance; i++) {
             if (i >= checkLimit) break;
-            uint256 tokenId = IERC721Enumerable(nftCollection).tokenOfOwnerByIndex(_user, i);
+            uint256 tokenId = IBrewlabsNft(nftCollection).tTokenOfOwnerByIndex(_user, i);
             uint256 rarity = IBrewlabsNft(nftCollection).rarityOf(tokenId);
 
             if (maxRarity < rarity) maxRarity = rarity;
@@ -41,7 +42,7 @@ contract BrewlabsNftDiscountMgr is Ownable {
         return maxRarity > 0 ? discounts[maxRarity - 1] : 0;
     }
 
-    function setCollection(IERC721 _nft) external onlyOwner {
+    function setCollection(address _nft) external onlyOwner {        
         nftCollection = address(_nft);
         emit SetNftCollection(nftCollection);
     }

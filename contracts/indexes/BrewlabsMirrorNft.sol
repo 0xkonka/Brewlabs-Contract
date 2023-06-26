@@ -1,82 +1,67 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.14;
 
-import {ERC721, ERC721Enumerable, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {ERC721, ERC721Enumerable, IERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 
-interface IBrewlabsFlaskNft {
+interface IBrewlabsFlaskNft is IERC721Enumerable {
     function rarityOf(uint256 tokenId) external view returns (uint256);
-    function baseURI() external view returns (string memory);
 }
 
-contract BrewlabsMirrorNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable {
+contract BrewlabsMirrorNft is ERC721Enumerable, Ownable {
     using Strings for uint256;
     using Strings for address;
 
     IBrewlabsFlaskNft public originNft;
-    address public nftStaking;
+    address public admin;
+    string private _tokenBaseURI = "";
 
-    string[6] rarityNames = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mod"];
-    string[6] featureAccesses = ["Basic", "Improved", "Brewer", "Premium", "Premium Brewer"];
+    string[5] rarityNames = ["Common", "Uncommon", "Rare", "Epic", "Legendary"];
+    string[5] featureAccesses = ["Basic", "Improved", "Brewer", "Premium", "Premium Brewer"];
     uint256[5] feeReductions = [5, 10, 15, 20, 30];
+
+    event BaseURIUpdated(string uri);
+    event SetAdmin(address addr);
 
     constructor(IBrewlabsFlaskNft _nft) ERC721("Brewlabs Flask Mirror Nft", "mBLF") {
         originNft = _nft;
     }
 
-    function mint(address to, uint256 tokenId) external onlyOwner {
+    function mint(address to, uint256 tokenId) external {
+        require(msg.sender == admin, "Caller is not admin");
         _safeMint(to, tokenId);
     }
 
-    function burn(uint256 tokenId) external onlyOwner {
+    function burn(uint256 tokenId) external {
+        require(msg.sender == admin, "Caller is not admin");
         _burn(tokenId);
     }
 
-    function setNftStakingContract(address staking) external onlyOwner {
-        require(staking != address(0x0), "Invalid address");
-        nftStaking = staking;
+    function rarityOf(uint256 tokenId) external view returns (uint256) {
+        return originNft.rarityOf(tokenId);
     }
 
-    function setApprovalForAll(address operator, bool approved)
-        public
-        override(ERC721, IERC721)
-        onlyAllowedOperatorApproval(operator)
-    {
-        super.setApprovalForAll(operator, approved);
+    function tBalanceOf(address owner) external view returns (uint256) {
+        return balanceOf(owner) + originNft.balanceOf(owner);
     }
 
-    function approve(address operator, uint256 tokenId)
-        public
-        override(ERC721, IERC721)
-        onlyAllowedOperatorApproval(operator)
-    {
-        super.approve(operator, tokenId);
+    function tTokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256) {
+        if(index < balanceOf(owner)) {
+            return tokenOfOwnerByIndex(owner, index);
+        }
+        return originNft.tokenOfOwnerByIndex(owner, index - balanceOf(owner));
     }
 
-    function transferFrom(address from, address to, uint256 tokenId)
-        public
-        override(ERC721, IERC721)
-        onlyAllowedOperator(from)
-    {
-        super.transferFrom(from, to, tokenId);
+    function setAdmin(address newAdmin) external onlyOwner {
+        require(admin != address(0x0), "Invalid address");
+        admin = newAdmin;
+        emit SetAdmin(newAdmin);
     }
 
-    function safeTransferFrom(address from, address to, uint256 tokenId)
-        public
-        override(ERC721, IERC721)
-        onlyAllowedOperator(from)
-    {
-        super.safeTransferFrom(from, to, tokenId);
-    }
-
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data)
-        public
-        override(ERC721, IERC721)
-        onlyAllowedOperator(from)
-    {
-        super.safeTransferFrom(from, to, tokenId, data);
+    function setTokenBaseUri(string memory _uri) external onlyOwner {
+        _tokenBaseURI = _uri;
+        emit BaseURIUpdated(_uri);
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 firstTokenId, uint256 batchSize)
@@ -85,18 +70,21 @@ contract BrewlabsMirrorNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable
         override
     {
         require(
-            from == address(0x0) || to == address(0x0) || from == address(originNft) || to == address(originNft)
-                || from == nftStaking || to == nftStaking,
+            from == address(0x0) || to == address(0x0),
             "Cannot transfer"
         );
 
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
 
+    function _baseURI() internal view override returns (string memory) {
+        return _tokenBaseURI;
+    }
+
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         require(_exists(tokenId), "BrewlabsMirrorNft: URI query for nonexistent token");
 
-        string memory base = originNft.baseURI();
+        string memory base = _baseURI();
         string memory description = string(
             abi.encodePacked(
                 '"description": "Brewlabs Flask Mirror NFT represents your staked Brewlabs Flask NFT and allows Brewlabs ecosystem to attribute your wallet the correct benefits while your Brewlabs Flask Mirror NFT is held within the NFT staking contract."'
@@ -105,7 +93,6 @@ contract BrewlabsMirrorNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable
 
         uint256 rarity = originNft.rarityOf(tokenId) - 1;
         string memory rarityName = rarityNames[rarity];
-        if (rarity == 5) rarity = 4;
 
         string memory attributes = '"attributes":[';
         attributes = string(
@@ -134,7 +121,7 @@ contract BrewlabsMirrorNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable
                 base,
                 "/",
                 rarityName,
-                ".mp4",
+                ".png",
                 '", ',
                 attributes,
                 "}"

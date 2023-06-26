@@ -9,12 +9,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 
-interface IBrewlabsMirrorNft is IERC721 {
-    function mint(address to, uint256 tokenId) external;
-    function burn(uint256 tokenId) external;
-    function setNftStakingContract(address staking) external;
-}
-
 interface IBrewlabsNftStaking {
     function forceUnstake(address from, uint256 tokenId) external;
 }
@@ -26,9 +20,6 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
 
     bool public mintAllowed;
     uint256 public maxSupply = 5000;
-
-    IBrewlabsMirrorNft public mirrorNft;
-    mapping(uint256 => bool) public locked;
 
     address public nftStaking;
 
@@ -53,7 +44,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     uint256[] private probabilities = [100, 98, 50, 10, 1];
     uint256[] private aliases = [0, 0, 0, 1, 0];
 
-    string[6] public rarityNames = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mod"];
+    string[6] public rarityNames = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mods"];
     string[5] public featureAccesses = ["Basic", "Improved", "Brewer", "Premium", "Premium Brewer"];
     uint256[5] public feeReductions = [5, 10, 15, 20, 30];
     mapping(uint256 => uint256) private rarities;
@@ -163,38 +154,12 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         return tokenIndex;
     }
 
-    function mintMirrorNft(uint256 tokenId) external payable {
-        require(ownerOf(tokenId) == msg.sender, "Caller is not holder");
-        require(locked[tokenId] == false, "Mirror token already mint");
-        require(rarities[tokenId] > 2, "Cannot mint mirror token for uncommon and common");
-
-        _transferPerformanceFee();
-
-        locked[tokenId] = true;
-        mirrorNft.mint(msg.sender, tokenId);
-        emit MirrorNftMinted(msg.sender, tokenId);
-    }
-
-    function burnMirrorNft(uint256 tokenId) external payable {
-        require(mirrorNft.ownerOf(tokenId) == msg.sender, "Caller is not holder");
-
-        _transferPerformanceFee();
-        mirrorNft.safeTransferFrom(msg.sender, address(this), tokenId);
-        mirrorNft.burn(tokenId);
-
-        locked[tokenId] = false;
-        emit MirrorNftBurned(msg.sender, tokenId);
-    }
-
     function removeModerator(uint256 tokenId) external onlyOwner {
         require(rarities[tokenId] == 6, "can remove only Mod token");
 
-        if (locked[tokenId]) {
+        if (nftStaking != address(0x0)) {
             address from = ownerOf(tokenId);
             IBrewlabsNftStaking(nftStaking).forceUnstake(from, tokenId);
-
-            mirrorNft.burn(tokenId);
-            locked[tokenId] = false;
         }
 
         _burn(tokenId);
@@ -280,23 +245,22 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         override
     {
         require(rarities[firstTokenId] < 6 || from == address(0x0) || to == address(0x0), "Cannot transfer Mod item");
-        require(locked[firstTokenId] == false, "Locked due to mirror token");
-
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
 
     function rarityOf(uint256 tokenId) external view returns (uint256) {
-        return rarities[tokenId];
+        uint256 rarity = rarities[tokenId];
+        return rarity < 6 ? rarity : 5;
     }
 
-    function baseURI() public view returns (string memory) {
+    function _baseURI() internal view override returns (string memory) {
         return _tokenBaseURI;
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         require(_exists(tokenId), "BrewlabsFlaskNft: URI query for nonexistent token");
 
-        string memory base = baseURI();
+        string memory base = _baseURI();
         string memory description = string(
             abi.encodePacked(
                 '"description": "Brewlabs Flask NFT collection provides fee reductions and benefits across various Brewlabs products as well as access to exclusive NFT staking pools."'
@@ -396,17 +360,11 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         emit SetMaxSupply(supply);
     }
 
-    function setMirrorNft(address nft) external onlyOwner {
-        mirrorNft = IBrewlabsMirrorNft(nft);
-        emit SetMirrorNft(nft);
-    }
-
     function setNftStakingContract(address staking) external onlyOwner {
         require(staking != address(0x0), "Invalid address");
 
         IBrewlabsNftStaking(staking).forceUnstake(address(this), 1);
         nftStaking = staking;
-        mirrorNft.setNftStakingContract(staking);
 
         emit SetNftStakingContract(staking);
     }
@@ -510,7 +468,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         override
         returns (bytes4)
     {
-        require(msg.sender == address(this) || msg.sender == address(mirrorNft), "not enabled NFT");
+        require(msg.sender == address(this), "not enabled NFT");
         return super.onERC721Received(operator, from, tokenId, data);
     }
 
