@@ -31,5 +31,4 @@ contract MockErc721 is ERC721Enumerable {
     function tTokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256) {
         return tokenOfOwnerByIndex(owner, index);
     }
-
 }

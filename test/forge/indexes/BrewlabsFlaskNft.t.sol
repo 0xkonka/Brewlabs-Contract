@@ -286,7 +286,7 @@ contract BrewlabsFlaskNftTest is Test {
         nft.mintTo(address(0x1111), 6, 1);
 
         vm.startPrank(address(0x1111));
-        vm.expectRevert("Cannot transfer Mod item");
+        vm.expectRevert("Cannot transfer Mods item");
         nft.safeTransferFrom(address(0x1111), address(0x12345), 1);
     }
 
@@ -418,8 +418,13 @@ contract BrewlabsFlaskNftTest is Test {
         uint256[] memory _tokenIds = new uint256[](1);
         _tokenIds[0] = 1;
         nftStaking.deposit{value: nftStaking.performanceFee()}(_tokenIds);
+
         // check mirror nft
         assertEq(mirrorNft.ownerOf(_tokenIds[0]), user);
+
+        vm.expectRevert("Cannot transfer");
+        mirrorNft.transferFrom(user, address(0x11111111), _tokenIds[0]);
+
         vm.stopPrank();
 
         utils.mineBlocks(100);
@@ -434,6 +439,37 @@ contract BrewlabsFlaskNftTest is Test {
         assertEq(earnToken.balanceOf(user), pendingReward);
         (uint256 amount,) = nftStaking.userInfo(user);
         assertEq(amount, 0);
+    }
+
+    function test_checkMirrorNft() public {
+        address user = address(0x12345);
+        vm.deal(user, 1 ether);
+
+        nft.mintTo(user, 2, 1);
+        nft.mintTo(user, 3, 2);
+        nft.mintTo(user, 6, 2);
+
+        assertEq(nft.balanceOf(user), 5);
+        assertEq(mirrorNft.balanceOf(user), 0);
+        assertEq(nft.balanceOf(user), mirrorNft.tBalanceOf(user));
+
+        for (uint256 i = 0; i < 5; i++) {
+            assertEq(nft.tokenOfOwnerByIndex(user, i), mirrorNft.tTokenOfOwnerByIndex(user, i));
+        }
+
+        // stake flask NFT
+        vm.startPrank(user);
+        nft.setApprovalForAll(address(nftStaking), true);
+        uint256[] memory _tokenIds = new uint256[](1);
+        _tokenIds[0] = 2;
+        nftStaking.deposit{value: nftStaking.performanceFee()}(_tokenIds);
+        vm.stopPrank();
+
+        assertEq(nft.balanceOf(user) + mirrorNft.balanceOf(user), mirrorNft.tBalanceOf(user));
+
+        for (uint256 i = 1; i < 5; i++) {
+            assertEq(nft.tokenOfOwnerByIndex(user, i - 1), mirrorNft.tTokenOfOwnerByIndex(user, i));
+        }
     }
 
     function test_NewMintOwnerRegistered() public {

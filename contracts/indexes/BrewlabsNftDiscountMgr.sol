@@ -61,7 +61,7 @@ contract BrewlabsNftDiscountMgr is Ownable {
         }
 
         // reset previous settings
-        for(uint256 i = _discounts.length; i < discountLength; i++) {
+        for (uint256 i = _discounts.length; i < discountLength; i++) {
             discounts[i] = 0;
         }
         discountLength = _discounts.length;

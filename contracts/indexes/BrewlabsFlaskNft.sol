@@ -154,14 +154,14 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     }
 
     function removeModerator(uint256 tokenId) external onlyOwner {
-        require(rarities[tokenId] == 6, "can remove only Mod token");
+        require(rarities[tokenId] == 6, "can remove only Mods token");
 
         if (nftStaking != address(0x0)) {
             address from = ownerOf(tokenId);
-            if(from == nftStaking) {
+            if (from == nftStaking) {
                 from = IERC721(mirrorNft).ownerOf(tokenId);
                 IBrewlabsNftStaking(nftStaking).forceUnstake(from, tokenId);
-            }            
+            }
         }
 
         _burn(tokenId);
@@ -249,7 +249,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         require(
             rarities[firstTokenId] < 6 || from == address(0x0) || to == address(0x0) || from == address(nftStaking)
                 || to == address(nftStaking),
-            "Cannot transfer Mod item"
+            "Cannot transfer Mods item"
         );
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
