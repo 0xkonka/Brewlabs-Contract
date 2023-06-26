@@ -420,9 +420,15 @@ contract BrewlabsFlaskNftTest is Test {
         nftStaking.deposit{value: nftStaking.performanceFee()}(_tokenIds);
 
         // check mirror nft
-        assertEq(mirrorNft.ownerOf(_tokenIds[0]), user);
         assertEq(nft.totalSupply(), 1);
         assertEq(mirrorNft.totalSupply(), 1);
+        assertEq(mirrorNft.ownerOf(_tokenIds[0]), user);
+
+        // check staking info
+        (uint256 amount, uint256[] memory tokenIds) = nftStaking.stakedInfo(user);
+        assertEq(amount, 1);
+        assertEq(tokenIds.length, 1);
+        assertEq(tokenIds[0], _tokenIds[0]);
 
         vm.expectRevert("Cannot transfer");
         mirrorNft.transferFrom(user, address(0x11111111), _tokenIds[0]);
@@ -442,8 +448,9 @@ contract BrewlabsFlaskNftTest is Test {
         assertEq(mirrorNft.totalSupply(), 0);
 
         assertEq(earnToken.balanceOf(user), pendingReward);
-        (uint256 amount,) = nftStaking.userInfo(user);
+        (amount, tokenIds) = nftStaking.stakedInfo(user);
         assertEq(amount, 0);
+        assertEq(tokenIds.length, 0);
     }
 
     function test_checkMirrorNft() public {
