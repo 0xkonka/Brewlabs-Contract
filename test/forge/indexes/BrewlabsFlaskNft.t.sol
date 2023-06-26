@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BrewlabsFlaskNft, IERC721} from "../../../contracts/indexes/BrewlabsFlaskNft.sol";
 import {BrewlabsMirrorNft, IBrewlabsFlaskNft} from "../../../contracts/indexes/BrewlabsMirrorNft.sol";
-import {BrewlabsNftStaking} from "../../../contracts/BrewlabsNftStaking.sol";
+import {BrewlabsNftStaking, IBrewlabsMirrorNft} from "../../../contracts/BrewlabsNftStaking.sol";
 import {MockErc20} from "../../../contracts/mocks/MockErc20.sol";
 import {MockErc721Staking} from "../../../contracts/mocks/MockErc721Staking.sol";
 
@@ -31,8 +31,6 @@ contract BrewlabsFlaskNftTest is Test {
     event MintEnabled();
 
     event ItemUpgraded(uint256[3] tokenIds, uint256 newTokenId);
-    event MirrorNftMinted(address user, uint256 tokenId);
-    event MirrorNftBurned(address user, uint256 tokenId);
 
     event SetBrewlabsToken(address token);
     event SetFeeToken(address token, bool enabled);
@@ -51,7 +49,6 @@ contract BrewlabsFlaskNftTest is Test {
 
         nft = new BrewlabsFlaskNft();
         mirrorNft = new BrewlabsMirrorNft(IBrewlabsFlaskNft(address(nft)));
-        mirrorNft.transferOwnership(address(nft));
         nft.setMirrorNft(address(mirrorNft));
 
         brewsToken = new MockErc20(9);
@@ -60,11 +57,12 @@ contract BrewlabsFlaskNftTest is Test {
         // configure nft staking
         nftStaking = new BrewlabsNftStaking();
         earnToken = new MockErc20(18);
-        nftStaking.initialize(mirrorNft, earnToken, 1 gwei);
+        nftStaking.initialize(nft, IBrewlabsMirrorNft(address(mirrorNft)), earnToken, 1 gwei);
 
         earnToken.mint(address(nftStaking), nftStaking.insufficientRewards());
         nftStaking.startReward();
         nftStaking.setAdmin(address(nft));
+        mirrorNft.setAdmin(address(nftStaking));
         utils.mineBlocks(200);
 
         nftOwner = nft.owner();
@@ -292,17 +290,6 @@ contract BrewlabsFlaskNftTest is Test {
         nft.safeTransferFrom(address(0x1111), address(0x12345), 1);
     }
 
-    function test_failedLockedItemTransfer() public {
-        nft.mintTo(address(0x1111), 5, 1);
-        vm.deal(address(0x1111), 1 ether);
-
-        vm.startPrank(address(0x1111));
-        nft.mintMirrorNft{value: nft.performanceFee()}(1);
-
-        vm.expectRevert("Locked due to mirror token");
-        nft.safeTransferFrom(address(0x1111), address(0x12345), 1);
-    }
-
     function test_upgradeItem() public {
         address user = address(0x12345);
         vm.deal(user, 100 ether);
@@ -407,125 +394,6 @@ contract BrewlabsFlaskNftTest is Test {
         vm.stopPrank();
     }
 
-    function test_mintMirrorNft() public {
-        address user = address(0x12345);
-        vm.deal(user, 0.1 ether);
-
-        uint256 performanceFee = nft.performanceFee();
-        nft.mintTo(user, 6, 1);
-
-        vm.startPrank(user);
-        vm.expectEmit(true, true, true, true);
-        emit MirrorNftMinted(user, 1);
-        nft.mintMirrorNft{value: performanceFee}(1);
-
-        assertEq(mirrorNft.balanceOf(user), 1);
-        assertEq(mirrorNft.ownerOf(1), user);
-
-        emit log_named_string("MirrorNFT Metadata", mirrorNft.tokenURI(1));
-
-        vm.stopPrank();
-    }
-
-    function test_failedMintMirrorNftInOtherWallet() public {
-        address user = address(0x12345);
-        vm.deal(address(0x1), 0.5 ether);
-
-        uint256 performanceFee = nft.performanceFee();
-        nft.mintTo(user, 3, 1);
-
-        vm.startPrank(address(0x1));
-        vm.expectRevert("Caller is not holder");
-        nft.mintMirrorNft{value: performanceFee}(1);
-
-        vm.stopPrank();
-    }
-
-    function test_failedReMintMirrorNft() public {
-        address user = address(0x12345);
-        vm.deal(user, 0.5 ether);
-
-        uint256 performanceFee = nft.performanceFee();
-        nft.mintTo(user, 3, 1);
-
-        vm.startPrank(user);
-        nft.mintMirrorNft{value: performanceFee}(1);
-
-        vm.expectRevert("Mirror token already mint");
-        nft.mintMirrorNft{value: performanceFee}(1);
-
-        vm.stopPrank();
-    }
-
-    function test_failedMintMirrorNftInNotSupportedRarity() public {
-        address user = address(0x12345);
-        vm.deal(user, 0.5 ether);
-
-        uint256 performanceFee = nft.performanceFee();
-        nft.mintTo(user, 2, 1);
-
-        vm.startPrank(user);
-        vm.expectRevert("Cannot mint mirror token for uncommon and common");
-        nft.mintMirrorNft{value: performanceFee}(1);
-        vm.stopPrank();
-    }
-
-    function test_burnMirrorNft() public {
-        address user = address(0x12345);
-        vm.deal(user, 0.5 ether);
-
-        uint256 performanceFee = nft.performanceFee();
-        nft.mintTo(user, 3, 1);
-
-        vm.startPrank(user);
-        nft.mintMirrorNft{value: performanceFee}(1);
-        mirrorNft.setApprovalForAll(address(nft), true);
-
-        vm.expectEmit(true, true, true, true);
-        emit MirrorNftBurned(user, 1);
-        nft.burnMirrorNft{value: performanceFee}(1);
-
-        assertEq(mirrorNft.balanceOf(user), 0);
-        nft.safeTransferFrom(user, address(0x1111), 1);
-
-        vm.stopPrank();
-    }
-
-    function test_failedBurnMirrorNftInOtherWallet() public {
-        address user = address(0x12345);
-        vm.deal(user, 0.5 ether);
-        vm.deal(address(0x1), 0.2 ether);
-
-        uint256 performanceFee = nft.performanceFee();
-        nft.mintTo(user, 3, 1);
-
-        vm.startPrank(user);
-        nft.mintMirrorNft{value: performanceFee}(1);
-        mirrorNft.setApprovalForAll(address(nft), true);
-        vm.stopPrank();
-
-        vm.startPrank(address(0x1));
-        vm.expectRevert("Caller is not holder");
-        nft.burnMirrorNft{value: performanceFee}(1);
-        vm.stopPrank();
-    }
-
-    function test_failedMirrorNftTransfer() public {
-        address user = address(0x12345);
-        vm.deal(user, 0.5 ether);
-        vm.deal(address(0x1), 0.2 ether);
-
-        uint256 performanceFee = nft.performanceFee();
-        nft.mintTo(user, 3, 1);
-
-        vm.startPrank(user);
-        nft.mintMirrorNft{value: performanceFee}(1);
-
-        vm.expectRevert("Cannot transfer");
-        mirrorNft.safeTransferFrom(user, address(0x11111), 1);
-        vm.stopPrank();
-    }
-
     function test_removeModerator() public {
         address user = address(0x12345);
         vm.deal(user, 0.5 ether);
@@ -537,24 +405,6 @@ contract BrewlabsFlaskNftTest is Test {
         assertEq(nft.rarityOf(1), 0);
     }
 
-    function test_removeModeratorAlreadyLocked() public {
-        address user = address(0x12345);
-        vm.deal(user, 0.5 ether);
-
-        nft.mintTo(user, 6, 1);
-
-        vm.startPrank(user);
-        uint256 performanceFee = nft.performanceFee();
-        nft.mintMirrorNft{value: performanceFee}(1);
-        mirrorNft.setApprovalForAll(address(nft), true);
-        vm.stopPrank();
-
-        nft.removeModerator(1);
-        assertEq(nft.balanceOf(user), 0);
-        assertEq(mirrorNft.balanceOf(user), 0);
-        assertEq(nft.rarityOf(1), 0);
-    }
-
     function test_removeModeratorAlreadyStaked() public {
         address user = address(0x12345);
         vm.deal(user, 0.5 ether);
@@ -562,26 +412,24 @@ contract BrewlabsFlaskNftTest is Test {
         nft.mintTo(user, 6, 1);
 
         vm.startPrank(user);
-        // mint mirror NFT
-        uint256 performanceFee = nft.performanceFee();
-        nft.mintMirrorNft{value: performanceFee}(1);
-        mirrorNft.setApprovalForAll(address(nft), true);
-        mirrorNft.setApprovalForAll(address(nftStaking), true);
+        nft.setApprovalForAll(address(nftStaking), true);
 
-        // stake mirror NFT
+        // stake flask NFT
         uint256[] memory _tokenIds = new uint256[](1);
         _tokenIds[0] = 1;
         nftStaking.deposit{value: nftStaking.performanceFee()}(_tokenIds);
+        // check mirror nft
+        assertEq(mirrorNft.ownerOf(_tokenIds[0]), user);
         vm.stopPrank();
 
         utils.mineBlocks(100);
         uint256 pendingReward = nftStaking.pendingReward(user);
 
         // remove moderator
-        nft.removeModerator(1);
+        nft.removeModerator(_tokenIds[0]);
         assertEq(nft.balanceOf(user), 0);
         assertEq(mirrorNft.balanceOf(user), 0);
-        assertEq(nft.rarityOf(1), 0);
+        assertEq(nft.rarityOf(_tokenIds[0]), 0);
 
         assertEq(earnToken.balanceOf(user), pendingReward);
         (uint256 amount,) = nftStaking.userInfo(user);

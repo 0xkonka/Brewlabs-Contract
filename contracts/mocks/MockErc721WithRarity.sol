@@ -23,4 +23,13 @@ contract MockErc721 is ERC721Enumerable {
     function rarityOf(uint256 tokenId) external view returns (uint256) {
         return rarities[tokenId];
     }
+
+    function tBalanceOf(address owner) external view returns (uint256) {
+        return balanceOf(owner);
+    }
+
+    function tTokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256) {
+        return tokenOfOwnerByIndex(owner, index);
+    }
+
 }

@@ -92,7 +92,7 @@ contract BrewlabsIndexTest is Test {
     }
 
     function tryAddDicountConfig() internal {
-        discountMgr.setCollection(nft);
+        discountMgr.setCollection(address(nft));
         discountMgr.setDiscount(0, 500); // 5%
         discountMgr.setDiscount(1, 1000); // 10%
         discountMgr.setDiscount(2, 3000); // 30%

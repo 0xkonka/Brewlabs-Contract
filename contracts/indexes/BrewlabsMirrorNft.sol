@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.14;
 
-import {ERC721, ERC721Enumerable, IERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {
+    ERC721,
+    ERC721Enumerable,
+    IERC721Enumerable
+} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -47,14 +51,14 @@ contract BrewlabsMirrorNft is ERC721Enumerable, Ownable {
     }
 
     function tTokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256) {
-        if(index < balanceOf(owner)) {
+        if (index < balanceOf(owner)) {
             return tokenOfOwnerByIndex(owner, index);
         }
         return originNft.tokenOfOwnerByIndex(owner, index - balanceOf(owner));
     }
 
     function setAdmin(address newAdmin) external onlyOwner {
-        require(admin != address(0x0), "Invalid address");
+        require(newAdmin != address(0x0), "Invalid address");
         admin = newAdmin;
         emit SetAdmin(newAdmin);
     }
@@ -69,10 +73,7 @@ contract BrewlabsMirrorNft is ERC721Enumerable, Ownable {
         virtual
         override
     {
-        require(
-            from == address(0x0) || to == address(0x0),
-            "Cannot transfer"
-        );
+        require(from == address(0x0) || to == address(0x0), "Cannot transfer");
 
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }

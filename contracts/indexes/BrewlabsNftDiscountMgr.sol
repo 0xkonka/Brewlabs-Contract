@@ -17,6 +17,7 @@ contract BrewlabsNftDiscountMgr is Ownable {
     mapping(uint256 => uint256) public discounts;
 
     uint256 public checkLimit = 30;
+    uint256 private discountLength;
 
     event SetNftCollection(address nft);
     event SetCheckingLimit(uint256 limit);
@@ -42,7 +43,7 @@ contract BrewlabsNftDiscountMgr is Ownable {
         return maxRarity > 0 ? discounts[maxRarity - 1] : 0;
     }
 
-    function setCollection(address _nft) external onlyOwner {        
+    function setCollection(address _nft) external onlyOwner {
         nftCollection = address(_nft);
         emit SetNftCollection(nftCollection);
     }
@@ -53,10 +54,18 @@ contract BrewlabsNftDiscountMgr is Ownable {
     }
 
     function setDiscounts(uint256[] memory _discounts) external onlyOwner {
+        // update discount config
         for (uint256 i = 0; i < _discounts.length; i++) {
             require(_discounts[i] <= MAX_DISCOUNT, "Discount cannot exceed limit");
             discounts[i] = _discounts[i];
         }
+
+        // reset previous settings
+        for(uint256 i = _discounts.length; i < discountLength; i++) {
+            discounts[i] = 0;
+        }
+        discountLength = _discounts.length;
+
         emit SetDiscountValues(_discounts);
     }
 

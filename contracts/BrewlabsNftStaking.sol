@@ -96,7 +96,12 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
      * @param _earnedToken: earned token address
      * @param _rewardPerBlock: reward per block (in earnedToken)
      */
-    function initialize(IERC721 _stakingNft, IBrewlabsMirrorNft _mirrorNft, IERC20 _earnedToken, uint256 _rewardPerBlock) external onlyOwner {
+    function initialize(
+        IERC721 _stakingNft,
+        IBrewlabsMirrorNft _mirrorNft,
+        IERC20 _earnedToken,
+        uint256 _rewardPerBlock
+    ) external onlyOwner {
         require(!isInitialized, "Already initialized");
 
         // Make this contract initialized

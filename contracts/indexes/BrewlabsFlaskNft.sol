@@ -22,6 +22,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     uint256 public maxSupply = 5000;
 
     address public nftStaking;
+    address public mirrorNft;
 
     mapping(address => bool) public tokenAllowed;
     IERC20 public brews = IERC20(0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7);
@@ -55,8 +56,6 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     event MintEnabled();
 
     event ItemUpgraded(uint256[3] tokenIds, uint256 newTokenId);
-    event MirrorNftMinted(address user, uint256 tokenId);
-    event MirrorNftBurned(address user, uint256 tokenId);
 
     event SetBrewlabsToken(address token);
     event SetFeeToken(address token, bool enabled);
@@ -64,7 +63,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     event SetUpgradePrice(uint256 tokenFee, uint256 brewsFee);
     event SetMaxSupply(uint256 supply);
     event SetOneTimeLimit(uint256 limit);
-    event SetMirrorNft(address nftAddr);
+    event SetMirrorNft(address nft);
     event SetNftStakingContract(address staking);
     event SetBrewlabsWallet(address addr);
     event SetStakingAddress(address addr);
@@ -159,7 +158,10 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
 
         if (nftStaking != address(0x0)) {
             address from = ownerOf(tokenId);
-            IBrewlabsNftStaking(nftStaking).forceUnstake(from, tokenId);
+            if(from == nftStaking) {
+                from = IERC721(mirrorNft).ownerOf(tokenId);
+                IBrewlabsNftStaking(nftStaking).forceUnstake(from, tokenId);
+            }            
         }
 
         _burn(tokenId);
@@ -244,7 +246,11 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         virtual
         override
     {
-        require(rarities[firstTokenId] < 6 || from == address(0x0) || to == address(0x0), "Cannot transfer Mod item");
+        require(
+            rarities[firstTokenId] < 6 || from == address(0x0) || to == address(0x0) || from == address(nftStaking)
+                || to == address(nftStaking),
+            "Cannot transfer Mod item"
+        );
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
 
@@ -358,6 +364,13 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         require(supply > maxSupply, "Small amount");
         maxSupply = supply;
         emit SetMaxSupply(supply);
+    }
+
+    function setMirrorNft(address _mirrorNft) external onlyOwner {
+        require(_mirrorNft != address(0x0), "Invalid address");
+
+        mirrorNft = _mirrorNft;
+        emit SetMirrorNft(mirrorNft);
     }
 
     function setNftStakingContract(address staking) external onlyOwner {
