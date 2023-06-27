@@ -326,6 +326,10 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             tx = await contractInstance.setAdmin(deployed.address)
             await tx.wait()
 
+            contractInstance = await ethers.getContractAt("BrewlabsFlaskNft", flaskNft);
+            tx = await contractInstance.SetNftStakingContract(deployed.address)
+            await tx.wait()
+
             // await hre.run("verify:verify", {
             //     address: deployedAddress,
             //     contract: "contracts/BrewlabsNftStaking.sol:BrewlabsNftStaking",
