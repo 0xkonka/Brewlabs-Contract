@@ -31,7 +31,6 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     uint256 public brewsMintFee = 3500 * 10 ** 9;
     uint256 public upgradeFee = 25 ether;
     uint256 public brewsUpgradeFee = 1500 * 10 ** 9;
-    uint256 public performanceFee = 0.01 ether;
     uint256 public oneTimeLimit = 30;
 
     address public stakingAddr = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
@@ -67,7 +66,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     event SetNftStakingContract(address staking);
     event SetBrewlabsWallet(address addr);
     event SetStakingAddress(address addr);
-    event ServiceInfoChanged(address addr, uint256 fee);
+    event SetTreasury(address addr);
     event Whitelisted(address indexed account, uint256 count);
 
     modifier onlyMintable() {
@@ -196,11 +195,6 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         return rarity + 1;
     }
 
-    function _transferPerformanceFee() internal {
-        require(msg.value >= performanceFee, "Should pay small gas to call method");
-        payable(treasury).transfer(performanceFee);
-    }
-
     function setApprovalForAll(address operator, bool approved)
         public
         override(ERC721, IERC721)
@@ -255,8 +249,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     }
 
     function rarityOf(uint256 tokenId) external view returns (uint256) {
-        uint256 rarity = rarities[tokenId];
-        return rarity < 6 ? rarity : 5;
+        return rarities[tokenId];
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -394,13 +387,11 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         emit SetStakingAddress(wallet);
     }
 
-    function setServiceInfo(address _addr, uint256 _fee) external {
-        require(msg.sender == treasury, "setServiceInfo: FORBIDDEN");
+    function setTreasury(address _addr) external onlyOwner {
         require(_addr != address(0x0), "Invalid address");
 
         treasury = _addr;
-        performanceFee = _fee;
-        emit ServiceInfoChanged(_addr, _fee);
+        emit SetTreasury(_addr);
     }
 
     function setTokenBaseUri(string memory _uri) external onlyOwner {

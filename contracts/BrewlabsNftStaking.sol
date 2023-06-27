@@ -47,7 +47,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     IERC721 public stakingNft;
     IBrewlabsMirrorNft public mirrorNft;
     // The earned token
-    IERC20 public earnedToken;
+    address public earnedToken;
     // Accrued token per share
     uint256 public accTokenPerShare;
     uint256 public oneTimeLimit = 40;
@@ -100,7 +100,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     function initialize(
         IERC721 _stakingNft,
         IBrewlabsMirrorNft _mirrorNft,
-        IERC20 _earnedToken,
+        address _earnedToken,
         uint256 _rewardPerBlock
     ) external onlyOwner {
         require(!isInitialized, "Already initialized");
@@ -113,7 +113,10 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         earnedToken = _earnedToken;
         rewardPerBlock = _rewardPerBlock;
 
-        uint256 decimalsRewardToken = uint256(IERC20Metadata(address(earnedToken)).decimals());
+        uint256 decimalsRewardToken = 18;
+        if (earnedToken != address(0x0)) {
+            decimalsRewardToken = uint256(IERC20Metadata(earnedToken).decimals());
+        }
         require(decimalsRewardToken < 30, "Must be inferior to 30");
         PRECISION_FACTOR = uint256(10 ** (40 - decimalsRewardToken));
     }
@@ -135,7 +138,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
             if (pending > 0) {
                 require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-                earnedToken.safeTransfer(address(msg.sender), pending);
+                _transferToken(earnedToken, msg.sender, pending);
                 paidRewards += pending;
                 emit Claim(msg.sender, pending);
             }
@@ -176,7 +179,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
             if (pending > 0) {
                 require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-                earnedToken.safeTransfer(address(msg.sender), pending);
+                _transferToken(earnedToken, msg.sender, pending);
                 paidRewards += pending;
                 emit Claim(msg.sender, pending);
             }
@@ -209,7 +212,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         if (user.amount > 0) {
             uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
             if (pending > 0 && availableRewardTokens() >= pending) {
-                earnedToken.safeTransfer(from, pending);
+                _transferToken(earnedToken, from, pending);
                 paidRewards += pending;
                 emit Claim(from, pending);
             }
@@ -251,7 +254,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
         if (pending > 0) {
             require(availableRewardTokens() >= pending, "Insufficient reward tokens");
-            earnedToken.safeTransfer(address(msg.sender), pending);
+            _transferToken(earnedToken, msg.sender, pending);
             paidRewards += pending;
         }
 
@@ -297,7 +300,8 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
      * @notice Available amount of reward token
      */
     function availableRewardTokens() public view returns (uint256) {
-        return earnedToken.balanceOf(address(this));
+        if(earnedToken == address(0x0)) return address(this).balance;        
+        return IERC20(earnedToken).balanceOf(address(this));
     }
 
     function insufficientRewards() external view returns (uint256) {
@@ -343,7 +347,9 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         require(_amount > 0, "invalid amount");
 
         _updatePool();
-        earnedToken.safeTransferFrom(msg.sender, address(this), _amount);
+
+        if(earnedToken == address(0x0)) return;
+        IERC20(earnedToken).safeTransferFrom(msg.sender, address(this), _amount);
 
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
@@ -377,7 +383,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         require(availableRewardTokens() >= _amount, "Insufficient reward tokens");
 
         if (_amount == 0) _amount = availableRewardTokens();
-        earnedToken.safeTransfer(address(msg.sender), _amount);
+        _transferToken(earnedToken, msg.sender, _amount);
     }
 
     function startReward() external onlyOwner {
@@ -396,7 +402,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
             remainRewards = remainRewards - shouldTotalPaid;
-            earnedToken.transfer(msg.sender, remainRewards);
+            _transferToken(earnedToken, msg.sender, remainRewards);
         }
 
         bonusEndBlock = block.number;
@@ -509,6 +515,14 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             return 0;
         } else {
             return bonusEndBlock - _from;
+        }
+    }
+
+    function _transferToken(address _token, address _to, uint256 _amount) internal {
+        if(_token == address(0x0)) {
+            payable(_to).transfer(_amount);
+        } else {
+            IERC20(_token).safeTransfer(_to, _amount);
         }
     }
 

@@ -42,8 +42,9 @@ contract BrewlabsMirrorNft is ERC721Enumerable, Ownable {
         _burn(tokenId);
     }
 
-    function rarityOf(uint256 tokenId) external view returns (uint256) {
-        return originNft.rarityOf(tokenId);
+    function rarityOf(uint256 tokenId) public view returns (uint256) {      
+        uint256 rarity = originNft.rarityOf(tokenId);
+        return rarity < 6 ? rarity : 5;
     }
 
     function tBalanceOf(address owner) external view returns (uint256) {
@@ -92,7 +93,7 @@ contract BrewlabsMirrorNft is ERC721Enumerable, Ownable {
             )
         );
 
-        uint256 rarity = originNft.rarityOf(tokenId) - 1;
+        uint256 rarity = rarityOf(tokenId) - 1;
         string memory rarityName = rarityNames[rarity];
 
         string memory attributes = '"attributes":[';

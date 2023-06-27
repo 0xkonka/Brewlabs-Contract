@@ -57,7 +57,7 @@ contract BrewlabsFlaskNftTest is Test {
         // configure nft staking
         nftStaking = new BrewlabsNftStaking();
         earnToken = new MockErc20(18);
-        nftStaking.initialize(nft, IBrewlabsMirrorNft(address(mirrorNft)), earnToken, 1 gwei);
+        nftStaking.initialize(nft, IBrewlabsMirrorNft(address(mirrorNft)), address(earnToken), 1 gwei);
 
         earnToken.mint(address(nftStaking), nftStaking.insufficientRewards());
         nftStaking.startReward();

@@ -316,7 +316,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
             
             let contractInstance = await ethers.getContractAt("BrewlabsNftStaking", deployed.address)
-            let tx = await contractInstance.initialize(flaskNft, mirrorNft, "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175", ethers.utils.parseUnits("0.1", 18))
+            let tx = await contractInstance.initialize(flaskNft, mirrorNft, "0x0000000000000000000000000000000000000000", "0")
             await tx.wait();
 
             tx = await contractInstance.setAdmin(flaskNft);
