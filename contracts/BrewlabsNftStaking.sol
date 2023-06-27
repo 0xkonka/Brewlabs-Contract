@@ -300,7 +300,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
      * @notice Available amount of reward token
      */
     function availableRewardTokens() public view returns (uint256) {
-        if(earnedToken == address(0x0)) return address(this).balance;        
+        if (earnedToken == address(0x0)) return address(this).balance;
         return IERC20(earnedToken).balanceOf(address(this));
     }
 
@@ -348,7 +348,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
         _updatePool();
 
-        if(earnedToken == address(0x0)) return;
+        if (earnedToken == address(0x0)) return;
         IERC20(earnedToken).safeTransferFrom(msg.sender, address(this), _amount);
 
         uint256 remainRewards = availableRewardTokens() + paidRewards;
@@ -519,7 +519,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     }
 
     function _transferToken(address _token, address _to, uint256 _amount) internal {
-        if(_token == address(0x0)) {
+        if (_token == address(0x0)) {
             payable(_to).transfer(_amount);
         } else {
             IERC20(_token).safeTransfer(_to, _amount);

@@ -429,6 +429,7 @@ contract BrewlabsFlaskNftTest is Test {
         assertEq(amount, 1);
         assertEq(tokenIds.length, 1);
         assertEq(tokenIds[0], _tokenIds[0]);
+        emit log_named_string("Mirror NFT Metadata", mirrorNft.tokenURI( _tokenIds[0]));
 
         vm.expectRevert("Cannot transfer");
         mirrorNft.transferFrom(user, address(0x11111111), _tokenIds[0]);
