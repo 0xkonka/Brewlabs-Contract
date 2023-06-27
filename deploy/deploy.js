@@ -29,9 +29,10 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             index: false,
             indexNft: false,
             deployerNft: false,
-            flaskNft: false,
             indexImpl: false,
             indexFactory: false,
+            flaskNft: false,
+            nftStaking: false,
 
             farm: false,
             farmImpl: false,
@@ -62,7 +63,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             other: false,
         }
 
-        if(config.other) {           
+        if(config.other) {
             Utils.infoMsg("Deploying WarPigsTreasury contract");
 
             let deployed = await deploy('WarPigsTreasury', {
@@ -255,7 +256,56 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
 
         if(config.flaskNft) {
             Utils.infoMsg("Deploying BrewlabsFlaskNft contract");
-            let deployed = await deploy('BrewlabsFlaskNft', 
+            let flaskNft = await deploy('BrewlabsFlaskNft', 
+                {
+                    from: account,
+                    args: [],
+                    log:  false
+                });
+    
+            Utils.successMsg(`Contract Address: ${flaskNft.address}`);
+            
+            let flaskNftInstance = await ethers.getContractAt("BrewlabsFlaskNft", flaskNft.address)
+            // await flaskNftInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmduqridFzpVC39cF5xXjtnLxB6dAaaZMYXkNk2WAyuvSR");
+
+            Utils.infoMsg("Deploying BrewlabsMirrorNft contract");
+            let mirrorNft = await deploy('BrewlabsMirrorNft', 
+                {
+                    from: account,
+                    args: [flaskNft.address],
+                    log:  false
+                });
+    
+            Utils.successMsg(`Contract Address: ${mirrorNft.address}`);
+            
+            let mirrorNftInstance = await ethers.getContractAt("BrewlabsMirrorNft", mirrorNft.address)
+            // await mirrorNftInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmcLtpxjWyvrTjqFBYoxdMmY2fRVquXyoP6rusr18kZ4Aj");
+
+            await flaskNftInstance.setMirrorNft(mirrorNft.address);
+
+            // verify
+            // await hre.run("verify:verify", {
+            //     address: flaskNft.address,
+            //     contract: "contracts/indexes/BrewlabsFlaskNft.sol:BrewlabsFlaskNft",
+            //     constructorArguments: [],
+            // })
+            // await hre.run("verify:verify", {
+            //     address: mirrorNft.address,
+            //     contract: "contracts/indexes/BrewlabsMirrorNft.sol:BrewlabsMirrorNft",
+            //     constructorArguments: [],
+            // })
+        }
+
+        if(config.nftStaking) {          
+            let flaskNft = "";
+            let mirrorNft = "";
+            if(flaskNft === "" || mirrorNft === "") {
+                Utils.errorMsg("Flask NFT or Mirror NFT were not be set");
+                return
+            }
+
+            Utils.infoMsg("Deploying BrewlabsNftStaking contract");
+            let deployed = await deploy('BrewlabsNftStaking', 
                 {
                     from: account,
                     args: [],
@@ -265,13 +315,20 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             let deployedAddress = deployed.address;
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
             
-            let contractInstance = await ethers.getContractAt("BrewlabsFlaskNft", deployedAddress)
-            // await contractInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmUaFYco7KfL9Yz3fWqhygAzw7A1RaSkh6nV75NBu5a7CV");
+            let contractInstance = await ethers.getContractAt("BrewlabsNftStaking", deployed.address)
+            let tx = await contractInstance.initialize(flaskNft, mirrorNft, "0x8428b19C97acCD93fA10f19cbbdfF4FB71C4D175", ethers.utils.parseUnits("0.1", 18))
+            await tx.wait();
 
-            // verify
+            tx = await contractInstance.setAdmin(flaskNft);
+            await tx.wait();
+            
+            contractInstance = await ethers.getContractAt("BrewlabsMirrorNft", mirrorNft);
+            tx = await contractInstance.setAdmin(deployed.address)
+            await tx.wait()
+
             // await hre.run("verify:verify", {
             //     address: deployedAddress,
-            //     contract: "contracts/BrewlabsFlaskNft.sol:BrewlabsFlaskNft",
+            //     contract: "contracts/BrewlabsNftStaking.sol:BrewlabsNftStaking",
             //     constructorArguments: [],
             // })
         }
