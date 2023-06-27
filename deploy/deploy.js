@@ -267,6 +267,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             
             let flaskNftInstance = await ethers.getContractAt("BrewlabsFlaskNft", flaskNft.address)
             // await flaskNftInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmduqridFzpVC39cF5xXjtnLxB6dAaaZMYXkNk2WAyuvSR");
+            let tx = await flaskNftInstance.setFeeToken("0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814", true);
+            await tx.wait()
 
             Utils.infoMsg("Deploying BrewlabsMirrorNft contract");
             let mirrorNft = await deploy('BrewlabsMirrorNft', 
@@ -279,9 +281,11 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${mirrorNft.address}`);
             
             let mirrorNftInstance = await ethers.getContractAt("BrewlabsMirrorNft", mirrorNft.address)
-            // await mirrorNftInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmcLtpxjWyvrTjqFBYoxdMmY2fRVquXyoP6rusr18kZ4Aj");
+            //tx = await mirrorNftInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmcLtpxjWyvrTjqFBYoxdMmY2fRVquXyoP6rusr18kZ4Aj");
+            // await tx.wait()
 
-            await flaskNftInstance.setMirrorNft(mirrorNft.address);
+            tx = await flaskNftInstance.setMirrorNft(mirrorNft.address);
+            await tx.wait()
 
             // verify
             // await hre.run("verify:verify", {
@@ -297,8 +301,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.nftStaking) {          
-            let flaskNft = "";
-            let mirrorNft = "";
+            let flaskNft = "0x21E4e3da848C444291f900c77B8CFCeb48a474D6";
+            let mirrorNft = "0x2DfB85575d60545DfF879A41E5e9bddE52cb421c";
             if(flaskNft === "" || mirrorNft === "") {
                 Utils.errorMsg("Flask NFT or Mirror NFT were not be set");
                 return
@@ -327,7 +331,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await tx.wait()
 
             contractInstance = await ethers.getContractAt("BrewlabsFlaskNft", flaskNft);
-            tx = await contractInstance.SetNftStakingContract(deployed.address)
+            tx = await contractInstance.setNftStakingContract(deployed.address)
             await tx.wait()
 
             // await hre.run("verify:verify", {
