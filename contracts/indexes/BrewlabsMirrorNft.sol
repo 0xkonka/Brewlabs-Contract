@@ -42,7 +42,7 @@ contract BrewlabsMirrorNft is ERC721Enumerable, Ownable {
         _burn(tokenId);
     }
 
-    function rarityOf(uint256 tokenId) public view returns (uint256) {      
+    function rarityOf(uint256 tokenId) public view returns (uint256) {
         uint256 rarity = originNft.rarityOf(tokenId);
         return rarity < 6 ? rarity : 5;
     }
@@ -119,6 +119,7 @@ contract BrewlabsMirrorNft is ERC721Enumerable, Ownable {
                 tokenId.toString(),
                 '", ',
                 description,
+                ', "external_url": "https://earn.brewlabs.info/nft"',
                 ', "image": "',
                 base,
                 "/",
