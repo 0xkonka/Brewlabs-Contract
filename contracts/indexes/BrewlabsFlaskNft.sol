@@ -176,13 +176,12 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
                     block.number,
                     block.timestamp,
                     blockhash(block.number - 1),
-                    num,
                     num + tokenId
                 )
             )
         );
 
-        uint256 seed = randomNum % probabilities.length;
+        uint256 seed = randomNum * maxSupply;
 
         uint256 index = seed % probabilities.length;
         uint256 rarity = seed * 100 / maxSupply;
