@@ -564,6 +564,31 @@ contract BrewlabsFlaskNftTest is Test {
         emit log_named_string("metadata", nft.tokenURI(1));
     }
 
+    function test_checkRandomRarity() public {
+        address user = address(0x1234);
+        vm.deal(user, 1 ether);
+
+        nft.addToWhitelist(user, 5000);
+
+        vm.startPrank(user);
+        uint256[5] memory counts;
+        for(uint256 i = 0; i < 200; i++) {
+            utils.mineBlocks(i ** 2);
+            nft.mint(25, feeToken);
+            for(uint256 j = 0; j < 25; j++) {
+                uint256 rarity = nft.rarityOf(i * 25 + j + 1);
+                counts[rarity - 1]++;
+            }
+        }
+        vm.stopPrank();
+
+        emit log_named_uint("Common", counts[0]);
+        emit log_named_uint("Uncommon", counts[1]);
+        emit log_named_uint("Rare", counts[2]);
+        emit log_named_uint("Epic", counts[3]);
+        emit log_named_uint("Legendary", counts[4]);
+    }
+
     function test_setMintPrice() public {
         vm.expectEmit(false, false, false, true);
         emit SetMintPrice(0.1 ether, 2 ether);
