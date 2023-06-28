@@ -203,6 +203,48 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         if (autoAdjustableForRewardRate) _updateRewardRate();
     }
 
+    function withdrawNft(uint256 tokenId) external payable nonReentrant {
+        UserInfo storage user = userInfo[msg.sender];
+        require(user.amount > 0, "No Staked");
+
+        _transferPerformanceFee();
+        _updatePool();
+
+        if (user.amount > 0) {
+            uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
+            if (pending > 0) {
+                require(availableRewardTokens() >= pending, "Insufficient reward tokens");
+                _transferToken(earnedToken, msg.sender, pending);
+                paidRewards += pending;
+                emit Claim(msg.sender, pending);
+            }
+        }
+
+        uint256 idx = 0;
+        for (uint256 i = 0; i < user.tokenIds.length; i++) {
+            if (user.tokenIds[i] == tokenId) {
+                idx = i + 1;
+                break;
+            }
+        }
+        require(idx > 0, "Did not stake this NFT");
+
+        user.tokenIds[idx - 1] = user.tokenIds[user.tokenIds.length - 1];
+        user.tokenIds.pop();
+
+        mirrorNft.burn(tokenId);
+        stakingNft.safeTransferFrom(address(this), msg.sender, tokenId);
+
+        uint256[] memory _tokenIds = new uint256[](1);
+        _tokenIds[0] = tokenId;
+
+        user.amount = user.amount - 1;
+        totalStaked = totalStaked - 1;
+        emit Withdraw(msg.sender, _tokenIds);
+
+        if (autoAdjustableForRewardRate) _updateRewardRate();
+    }
+
     function forceUnstake(address from, uint256 tokenId) external onlyAdmin nonReentrant {
         UserInfo storage user = userInfo[from];
         if (user.amount == 0) return;
@@ -211,10 +253,12 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
         if (user.amount > 0) {
             uint256 pending = (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
-            if (pending > 0 && availableRewardTokens() >= pending) {
-                _transferToken(earnedToken, from, pending);
+            if (pending > 0) {
+                if (availableRewardTokens() >= pending) {
+                    _transferToken(earnedToken, from, pending);
+                    emit Claim(from, pending);
+                }
                 paidRewards += pending;
-                emit Claim(from, pending);
             }
         }
 
