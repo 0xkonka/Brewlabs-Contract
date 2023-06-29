@@ -429,7 +429,7 @@ contract BrewlabsFlaskNftTest is Test {
         assertEq(amount, 1);
         assertEq(tokenIds.length, 1);
         assertEq(tokenIds[0], _tokenIds[0]);
-        emit log_named_string("Mirror NFT Metadata", mirrorNft.tokenURI( _tokenIds[0]));
+        emit log_named_string("Mirror NFT Metadata", mirrorNft.tokenURI(_tokenIds[0]));
 
         vm.expectRevert("Cannot transfer");
         mirrorNft.transferFrom(user, address(0x11111111), _tokenIds[0]);
@@ -572,10 +572,10 @@ contract BrewlabsFlaskNftTest is Test {
 
         vm.startPrank(user);
         uint256[5] memory counts;
-        for(uint256 i = 0; i < 200; i++) {
+        for (uint256 i = 0; i < 200; i++) {
             utils.mineBlocks(i ** 2);
             nft.mint(25, feeToken);
-            for(uint256 j = 0; j < 25; j++) {
+            for (uint256 j = 0; j < 25; j++) {
                 uint256 rarity = nft.rarityOf(i * 25 + j + 1);
                 counts[rarity - 1]++;
             }

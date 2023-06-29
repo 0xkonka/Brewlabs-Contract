@@ -301,8 +301,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.nftStaking) {          
-            let flaskNft = "0x21E4e3da848C444291f900c77B8CFCeb48a474D6";
-            let mirrorNft = "0x2DfB85575d60545DfF879A41E5e9bddE52cb421c";
+            let flaskNft = "";
+            let mirrorNft = "";
             if(flaskNft === "" || mirrorNft === "") {
                 Utils.errorMsg("Flask NFT or Mirror NFT were not be set");
                 return

@@ -104,9 +104,9 @@ contract BrewlabsIndexTest is Test {
 
         tryAddDicountConfig();
         assertEq(discountMgr.discountOf(user), 0);
-        nft.mint(user, 0);
-        assertEq(discountMgr.discountOf(user), 500);
         nft.mint(user, 1);
+        assertEq(discountMgr.discountOf(user), 500);
+        nft.mint(user, 2);
         assertEq(discountMgr.discountOf(user), 1000);
 
         vm.startPrank(user);
@@ -550,7 +550,7 @@ contract BrewlabsIndexTest is Test {
         vm.deal(user, 100 ether);
 
         tryAddDicountConfig();
-        nft.mint(user, 0);
+        nft.mint(user, 2);
 
         vm.startPrank(user);
 
@@ -628,7 +628,7 @@ contract BrewlabsIndexTest is Test {
         vm.deal(user, 100 ether);
 
         tryAddDicountConfig();
-        nft.mint(user, 0);
+        nft.mint(user, 1);
 
         vm.startPrank(user);
 
@@ -751,6 +751,9 @@ contract BrewlabsIndexTest is Test {
         assertEq(amounts[1], 0);
         assertEq(usdAmount, 0);
         vm.stopPrank();
+
+        indexNft.setTokenBaseURI("https://test.aaa/api", false);
+        emit log_named_string("IndexNFT URI with external URL", indexNft.tokenURI(tokenId));
     }
 
     function test_stakeNft() public {
@@ -841,6 +844,9 @@ contract BrewlabsIndexTest is Test {
         emit log_named_string("DeployerNFT URI", _tokenUri);
 
         vm.stopPrank();
+
+        deployerNft.setTokenBaseURI("https://test.aaa/api/deployer", false);
+        emit log_named_string("DeployerNFT URI with external URL", deployerNft.tokenURI(tokenId));
     }
 
     function test_failMintDeployerNftInNotDeployer() public {

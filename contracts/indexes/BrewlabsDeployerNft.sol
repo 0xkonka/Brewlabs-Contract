@@ -10,6 +10,7 @@ interface IBrewlabsIndex {
     function deployer() external view returns (address);
     function NUM_TOKENS() external view returns (uint256);
     function tokens(uint256 index) external view returns (address);
+    function totalEarned() external view returns (uint256);
     function totalCommissions() external view returns (uint256);
     function getPendingCommissions() external view returns (uint256[] memory);
 }
@@ -22,6 +23,8 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
     string private _tokenBaseURI = "";
 
     address public admin;
+    bool public useOnChainMetadata = true;
+
     mapping(address => bool) public isMinter;
     mapping(uint256 => address) private indexes;
 
@@ -103,13 +106,17 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
         emit SetMinterRole(minter, status);
     }
 
-    function setTokenBaseURI(string memory _uri) external onlyOwner {
+    function setTokenBaseURI(string memory _uri, bool _useOnChain) external onlyOwner {
         _tokenBaseURI = _uri;
+        useOnChainMetadata = _useOnChain;
         emit BaseURIUpdated(_uri);
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         require(_exists(tokenId), "BrewlabsDeployerNft: URI query for nonexistent token");
+
+        // If flag for generating metadata is false, concatenate the baseURI and tokenId (via abi.encodePacked).
+        if (!useOnChainMetadata) return string(abi.encodePacked(_baseURI(), "/", tokenId.toString()));
 
         string memory base = _baseURI();
         string memory description = string(
@@ -121,6 +128,7 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
         IBrewlabsIndex _index = IBrewlabsIndex(indexes[tokenId]);
         address deployer = _index.deployer();
         uint256 totalCommissions = _index.totalCommissions();
+        uint256 totalEarned = _index.totalEarned();
 
         uint256 level = 1;
         if (totalCommissions <= 100 ether) level = 0;
@@ -138,6 +146,10 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
                 address(_index).toHexString(),
                 '"},' '{"trait_type":"Deployer", "value":"',
                 deployer.toHexString(),
+                '"},' '{"trait_type":"Earned Fee", "value":"',
+                totalEarned.toString(),
+                '"},' '{"trait_type":"Pending Fee", "value":"',
+                totalCommissions.toString(),
                 '"},'
             )
         );
@@ -182,6 +194,7 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
                 tokenId.toString(),
                 '", ',
                 description,
+                ', "external_url": "https://earn.brewlabs.info/indexes"',
                 ', "image": "',
                 base,
                 "/",
@@ -196,12 +209,17 @@ contract BrewlabsDeployerNft is ERC721Enumerable, DefaultOperatorFilterer, Ownab
         return string(abi.encodePacked("data:application/json;base64,", _base64(bytes(metadata))));
     }
 
-    function getIndexInfo(uint256 tokenId) external view returns (address, address, uint256, uint256[] memory) {
+    function getIndexInfo(uint256 tokenId)
+        external
+        view
+        returns (address, address, uint256, uint256, uint256[] memory)
+    {
         address deployer = IBrewlabsIndex(indexes[tokenId]).deployer();
+        uint256 earned = IBrewlabsIndex(indexes[tokenId]).totalEarned();
         uint256 commissions = IBrewlabsIndex(indexes[tokenId]).totalCommissions();
         uint256[] memory pCommissions = IBrewlabsIndex(indexes[tokenId]).getPendingCommissions();
 
-        return (indexes[tokenId], deployer, commissions, pCommissions);
+        return (indexes[tokenId], deployer, earned, commissions, pCommissions);
     }
 
     function _baseURI() internal view override returns (string memory) {

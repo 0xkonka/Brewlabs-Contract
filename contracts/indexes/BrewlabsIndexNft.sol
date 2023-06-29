@@ -21,6 +21,8 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
     string private _tokenBaseURI = "";
 
     address public admin;
+    bool public useOnChainMetadata = true;
+
     mapping(address => bool) public isMinter;
     mapping(uint256 => address) private indexes;
 
@@ -107,13 +109,17 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
         emit SetMinterRole(minter, status);
     }
 
-    function setTokenBaseURI(string memory _uri) external onlyOwner {
+    function setTokenBaseURI(string memory _uri, bool _useOnChain) external onlyOwner {
         _tokenBaseURI = _uri;
+        useOnChainMetadata = _useOnChain;
         emit BaseURIUpdated(_uri);
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         require(_exists(tokenId), "BrewlabsIndexNft: URI query for nonexistent token");
+
+        // If flag for generating metadata is false, concatenate the baseURI and tokenId (via abi.encodePacked).
+        if (!useOnChainMetadata) return string(abi.encodePacked(_baseURI(), "/", tokenId.toString()));
 
         string memory base = _baseURI();
         string memory description = string(
@@ -177,6 +183,7 @@ contract BrewlabsIndexNft is ERC721Enumerable, DefaultOperatorFilterer, Ownable 
                 tokenId.toString(),
                 '", ',
                 description,
+                ', "external_url": "https://earn.brewlabs.info/indexes"',
                 ', "image": "',
                 base,
                 "/",

@@ -84,6 +84,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     address public deployer;
     address public commissionWallet;
 
+    uint256 public totalEarned;
     uint256 public totalCommissions;
     uint256[] private pendingCommissions;
 
@@ -238,6 +239,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             payable(commissionWallet).transfer(deployerFee);
         }
         ethAmount -= brewsFee + deployerFee;
+        totalEarned += deployerFee * price / 1 ether;
 
         UserInfo storage user = users[msg.sender];
         if (user.usdAmount == 0) {
@@ -351,6 +353,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             if (commissionWallet == address(0x0)) {
                 totalCommissions += commission * price / 1 ether;
             }
+            totalEarned += commission * price / 1 ether;
         }
 
         uint256 claimedUsdAmount = (user.usdAmount * _percent) / FEE_DENOMINATOR;
@@ -425,7 +428,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             } else {
                 payable(commissionWallet).transfer(commission);
             }
-
+            totalEarned += commission * price / 1 ether;
             ethAmount -= commission + brewsFee;
         }
         emit TokenZappedOut(msg.sender, user.amounts, ethAmount, commission);

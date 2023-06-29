@@ -171,12 +171,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         uint256 randomNum = uint256(
             keccak256(
                 abi.encode(
-                    msg.sender,
-                    tx.gasprice,
-                    block.number,
-                    block.timestamp,
-                    blockhash(block.number - 1),
-                    num + tokenId
+                    msg.sender, tx.gasprice, block.number, block.timestamp, blockhash(block.number - 1), num + tokenId
                 )
             )
         );
