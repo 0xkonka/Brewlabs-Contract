@@ -266,8 +266,10 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${flaskNft.address}`);
             
             let flaskNftInstance = await ethers.getContractAt("BrewlabsFlaskNft", flaskNft.address)
-            // await flaskNftInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmduqridFzpVC39cF5xXjtnLxB6dAaaZMYXkNk2WAyuvSR");
-            let tx = await flaskNftInstance.setFeeToken("0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814", true);
+            await flaskNftInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmaStvah11DH7moS822msJS5D7i4E4gYsPiZqrvMzsabEh");
+            let tx = await flaskNftInstance.setFeeToken("0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", true);
+            await tx.wait()
+            tx = await flaskNftInstance.setFeeToken("0x55d398326f99059fF775485246999027B3197955", true);
             await tx.wait()
 
             Utils.infoMsg("Deploying BrewlabsMirrorNft contract");
@@ -281,23 +283,23 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${mirrorNft.address}`);
             
             let mirrorNftInstance = await ethers.getContractAt("BrewlabsMirrorNft", mirrorNft.address)
-            //tx = await mirrorNftInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmcLtpxjWyvrTjqFBYoxdMmY2fRVquXyoP6rusr18kZ4Aj");
-            // await tx.wait()
+            tx = await mirrorNftInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmcLtpxjWyvrTjqFBYoxdMmY2fRVquXyoP6rusr18kZ4Aj");
+            await tx.wait()
 
             tx = await flaskNftInstance.setMirrorNft(mirrorNft.address);
             await tx.wait()
 
             // verify
-            // await hre.run("verify:verify", {
-            //     address: flaskNft.address,
-            //     contract: "contracts/indexes/BrewlabsFlaskNft.sol:BrewlabsFlaskNft",
-            //     constructorArguments: [],
-            // })
-            // await hre.run("verify:verify", {
-            //     address: mirrorNft.address,
-            //     contract: "contracts/indexes/BrewlabsMirrorNft.sol:BrewlabsMirrorNft",
-            //     constructorArguments: [],
-            // })
+            await hre.run("verify:verify", {
+                address: flaskNft.address,
+                contract: "contracts/indexes/BrewlabsFlaskNft.sol:BrewlabsFlaskNft",
+                constructorArguments: [],
+            })
+            await hre.run("verify:verify", {
+                address: mirrorNft.address,
+                contract: "contracts/indexes/BrewlabsMirrorNft.sol:BrewlabsMirrorNft",
+                constructorArguments: [],
+            })
         }
 
         if(config.nftStaking) {          
