@@ -124,8 +124,7 @@ contract BrewlabsMirrorNft is ERC721Enumerable, Ownable {
                 base,
                 "/",
                 rarityName,
-                ".png",
-                '", ',
+                '.png", ',
                 attributes,
                 "}"
             )

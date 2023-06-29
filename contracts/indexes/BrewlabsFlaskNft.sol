@@ -279,6 +279,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         );
 
         // If both are set, concatenate the baseURI (via abi.encodePacked).
+        string memory imagePath = string(abi.encodePacked(base, "/", rarityName));
         string memory metadata = string(
             abi.encodePacked(
                 '{"name": "',
@@ -287,14 +288,11 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
                 tokenId.toString(),
                 '", ',
                 description,
-                ', "external_url": "https://earn.brewlabs.info/nft"',
-                ', "image": "thumbnail link"',
-                ', "animation_url": "',
-                base,
-                "/",
-                rarityName,
-                ".mp4",
-                '", ',
+                ', "external_url": "https://earn.brewlabs.info/nft", "image": "',
+                imagePath,
+                '.png", "animation_url": "',
+                imagePath,
+                '.mp4", ',
                 attributes,
                 "}"
             )
