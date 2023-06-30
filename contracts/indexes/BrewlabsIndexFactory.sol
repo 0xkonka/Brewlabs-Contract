@@ -98,7 +98,7 @@ contract BrewlabsIndexFactory is OwnableUpgradeable {
 
         __Ownable_init();
 
-        swapAggregator = 0xb87B0c7A5aD2f3c1A4909a7768C7AF22F20c494b;
+        swapAggregator = 0xe91816fDE9DBcF834125A17cf3a22735Bee15a2b;
         brewlabsWallet = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
         brewlabsFee = 25; // 0.25%
         feeLimits[0] = 25; // 0.25%
