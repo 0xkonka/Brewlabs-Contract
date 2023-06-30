@@ -272,7 +272,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
                 rarityName,
                 '"}, {"trait_type":"Fee Reduction", "value":"',
                 feeReductions[rarity].toString(),
-                '"}, {"trait_type":"Feature Access", "value":"',
+                '.00%"}, {"trait_type":"Feature Access", "value":"',
                 featureAccesses[rarity],
                 '"}]'
             )
