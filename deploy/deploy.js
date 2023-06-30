@@ -106,14 +106,14 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
             
             let contractInstance = await ethers.getContractAt("BrewlabsIndexNft", deployedAddress)
-            await contractInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmUaFYco7KfL9Yz3fWqhygAzw7A1RaSkh6nV75NBu5a7CV");
+            await contractInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmUaFYco7KfL9Yz3fWqhygAzw7A1RaSkh6nV75NBu5a7CV", true);
 
             // verify
-            // await hre.run("verify:verify", {
-            //     address: deployedAddress,
-            //     contract: "contracts/indexes/BrewlabsIndexNft.sol:BrewlabsIndexNft",
-            //     constructorArguments: [],
-            // })
+            await hre.run("verify:verify", {
+                address: deployedAddress,
+                contract: "contracts/indexes/BrewlabsIndexNft.sol:BrewlabsIndexNft",
+                constructorArguments: [],
+            })
         }
         
         if(config.deployerNft) {
@@ -129,14 +129,14 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
             
             // let contractInstance = await ethers.getContractAt("BrewlabsDeployerNft", deployedAddress)
-            // await contractInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmUaFYco7KfL9Yz3fWqhygAzw7A1RaSkh6nV75NBu5a7CV");
+            // await contractInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmUaFYco7KfL9Yz3fWqhygAzw7A1RaSkh6nV75NBu5a7CV", true);
 
             // verify
-            // await hre.run("verify:verify", {
-            //     address: deployedAddress,
-            //     contract: "contracts/indexes/BrewlabsIndexNft.sol:BrewlabsIndexNft",
-            //     constructorArguments: [],
-            // })
+            await hre.run("verify:verify", {
+                address: deployedAddress,
+                contract: "contracts/indexes/BrewlabsDeployerNft.sol:BrewlabsDeployerNft",
+                constructorArguments: [],
+            })
         }
         
         if(config.indexImpl) {
@@ -154,9 +154,9 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         
         if(config.indexFactory) {
             Utils.infoMsg("Deploying BrewlabsIndexFactory contract");
-            let implementation = ""
-            let indexNft = ""
-            let deployerNft = ""
+            let implementation = "0xC3283Fc210Ba6c4C9597860D2f7b3aB99cD339A0"
+            let indexNft = "0x1602fa38A7Fc0A9Fa166EcA5eF7416b1e7991c81"
+            let deployerNft = "0x14FA731AED865Bef6d1C459894B8e5DC60D8e4c0"
             let payingToken = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
 
             if(implementation === "") {
