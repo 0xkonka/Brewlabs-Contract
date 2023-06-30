@@ -266,7 +266,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${flaskNft.address}`);
             
             let flaskNftInstance = await ethers.getContractAt("BrewlabsFlaskNft", flaskNft.address)
-            await flaskNftInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmaStvah11DH7moS822msJS5D7i4E4gYsPiZqrvMzsabEh");
+            await flaskNftInstance.setTokenBaseUri("https://maverickbl.mypinata.cloud/ipfs/QmaStvah11DH7moS822msJS5D7i4E4gYsPiZqrvMzsabEh");
             let tx = await flaskNftInstance.setFeeToken("0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", true);
             await tx.wait()
             tx = await flaskNftInstance.setFeeToken("0x55d398326f99059fF775485246999027B3197955", true);
@@ -283,7 +283,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             Utils.successMsg(`Contract Address: ${mirrorNft.address}`);
             
             let mirrorNftInstance = await ethers.getContractAt("BrewlabsMirrorNft", mirrorNft.address)
-            tx = await mirrorNftInstance.setTokenBaseURI("https://maverickbl.mypinata.cloud/ipfs/QmcLtpxjWyvrTjqFBYoxdMmY2fRVquXyoP6rusr18kZ4Aj");
+            tx = await mirrorNftInstance.setTokenBaseUri("https://maverickbl.mypinata.cloud/ipfs/QmcLtpxjWyvrTjqFBYoxdMmY2fRVquXyoP6rusr18kZ4Aj");
             await tx.wait()
 
             tx = await flaskNftInstance.setMirrorNft(mirrorNft.address);
@@ -298,7 +298,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await hre.run("verify:verify", {
                 address: mirrorNft.address,
                 contract: "contracts/indexes/BrewlabsMirrorNft.sol:BrewlabsMirrorNft",
-                constructorArguments: [],
+                constructorArguments: [flaskNft.address],
             })
         }
 
