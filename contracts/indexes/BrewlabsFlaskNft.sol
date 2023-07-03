@@ -59,6 +59,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
 
     event BaseURIUpdated(string uri);
     event MintEnabled();
+    event MintDisabled();
 
     event ItemUpgraded(uint256[3] tokenIds, uint256 newTokenId);
 
@@ -130,6 +131,19 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
             rarities[tokenIndex] = rarity;
 
             _safeMint(to, tokenIndex);
+        }
+    }
+
+    function airdrop(address[] memory toAddresses, uint256[] memory tokenIds, uint256[] memory tokenRarities) external onlyOwner {
+        require(!mintAllowed, "Mint was started");
+        require(toAddresses.length > 0, "Invalid addresses");
+        require(toAddresses.length == tokenIds.length && tokenIds.length == tokenRarities.length, "Invalid config");
+
+        uint256 numToMint = toAddresses.length;
+        for (uint256 i = 0; i < numToMint; i++) {
+            rarities[tokenIds[i]] = tokenRarities[i];
+
+            _safeMint(toAddresses[i], tokenIds[i]);
         }
     }
 
@@ -327,11 +341,18 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         emit Whitelisted(_addr, 0);
     }
 
-    function enableMint() external onlyOwner {
+    function enableMint(uint256 lastTokenId) external onlyOwner {
         require(!mintAllowed, "Already enabled");
 
         mintAllowed = true;
+        tokenIndex = lastTokenId;
         emit MintEnabled();
+    }
+
+    function disableMint() external onlyOwner {
+        require(mintAllowed, "Mint was disabled");
+        mintAllowed = false;
+        emit MintDisabled();
     }
 
     function setBrewlabsToken(IERC20 token) external onlyOwner {
