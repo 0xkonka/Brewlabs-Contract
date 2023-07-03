@@ -13,6 +13,11 @@ interface IBrewlabsNftStaking {
     function forceUnstake(address from, uint256 tokenId) external;
 }
 
+interface IRandomGenerator {
+    function random() external view returns (uint256);
+    function genRandomNumber() external returns (uint256);
+}
+
 contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilterer, Ownable {
     using SafeERC20 for IERC20;
     using Strings for uint256;
@@ -21,6 +26,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     bool public mintAllowed;
     uint256 public maxSupply = 5000;
 
+    IRandomGenerator public radomGenerator;
     address public nftStaking;
     address public mirrorNft;
 
@@ -74,7 +80,9 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         _;
     }
 
-    constructor() ERC721("Brewlabs Flask NFT", "BLF") {}
+    constructor(address _rng) ERC721("Brewlabs Flask NFT", "BLF") {
+        radomGenerator = IRandomGenerator(_rng);
+    }
 
     function mint(uint256 numToMint, IERC20 payingToken) external onlyMintable {
         require(numToMint > 0, "Invalid amount");
@@ -101,12 +109,14 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         }
 
         // mint NFT
+        uint256 seed = radomGenerator.random();
         for (uint256 i = 0; i < numToMint; i++) {
             tokenIndex++;
-            rarities[tokenIndex] = _getRarity(tokenIndex, numToMint);
+            rarities[tokenIndex] = _getRarity(seed, tokenIndex, numToMint);
 
             _safeMint(msg.sender, tokenIndex);
         }
+        radomGenerator.genRandomNumber();
     }
 
     function mintTo(address to, uint256 rarity, uint256 numToMint) external onlyOwner {
@@ -167,11 +177,17 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         rarities[tokenId] = 0;
     }
 
-    function _getRarity(uint256 tokenId, uint256 num) internal view returns (uint256) {
+    function _getRarity(uint256 rSeed, uint256 tokenId, uint256 num) internal view returns (uint256) {
         uint256 randomNum = uint256(
             keccak256(
                 abi.encode(
-                    msg.sender, tx.gasprice, block.number, block.timestamp, blockhash(block.number - 1), num + tokenId
+                    msg.sender,
+                    tx.gasprice,
+                    block.number,
+                    block.timestamp,
+                    blockhash(block.number - 1),
+                    rSeed,
+                    num + tokenId
                 )
             )
         );
