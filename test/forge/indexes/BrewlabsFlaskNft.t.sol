@@ -4,11 +4,12 @@ pragma solidity ^0.8.0;
 import "forge-std/Test.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {BrewlabsFlaskNft, IERC721} from "../../../contracts/indexes/BrewlabsFlaskNft.sol";
+import {BrewlabsFlaskNft, IERC721, IRandomGenerator} from "../../../contracts/indexes/BrewlabsFlaskNft.sol";
 import {BrewlabsMirrorNft, IBrewlabsFlaskNft} from "../../../contracts/indexes/BrewlabsMirrorNft.sol";
 import {BrewlabsNftStaking, IBrewlabsMirrorNft} from "../../../contracts/BrewlabsNftStaking.sol";
 import {MockErc20} from "../../../contracts/mocks/MockErc20.sol";
 import {MockErc721Staking} from "../../../contracts/mocks/MockErc721Staking.sol";
+import {MockRandomGenerator} from "../../../contracts/mocks/MockRandomGenerator.sol";
 
 import {Utils} from "../utils/Utils.sol";
 
@@ -17,6 +18,7 @@ contract BrewlabsFlaskNftTest is Test {
 
     BrewlabsFlaskNft internal nft;
     BrewlabsMirrorNft internal mirrorNft;
+    MockRandomGenerator internal randomGenerator;
 
     MockErc20 internal brewsToken;
     MockErc20 internal feeToken;
@@ -47,7 +49,9 @@ contract BrewlabsFlaskNftTest is Test {
     function setUp() public {
         utils = new Utils();
 
-        nft = new BrewlabsFlaskNft();
+        randomGenerator = new MockRandomGenerator();
+
+        nft = new BrewlabsFlaskNft(address(randomGenerator));
         mirrorNft = new BrewlabsMirrorNft(IBrewlabsFlaskNft(address(nft)));
         nft.setMirrorNft(address(mirrorNft));
 
@@ -63,6 +67,7 @@ contract BrewlabsFlaskNftTest is Test {
         nftStaking.startReward();
         nftStaking.setAdmin(address(nft));
         mirrorNft.setAdmin(address(nftStaking));
+        randomGenerator.setAdmin(address(nft), true);
         utils.mineBlocks(200);
 
         nftOwner = nft.owner();
@@ -72,8 +77,9 @@ contract BrewlabsFlaskNftTest is Test {
         nft.setFeeToken(address(feeToken), true);
         nft.setMintPrice(0.01 ether, 1 ether);
         nft.setStakingAddress(address(0x1234));
-        nft.enableMint();
+        nft.enableMint(0);
 
+        randomGenerator.genRandomNumber();
         nft.setNftStakingContract(address(nftStaking));
 
         vm.stopPrank();
@@ -253,7 +259,7 @@ contract BrewlabsFlaskNftTest is Test {
         address user = address(0x12345);
         vm.deal(user, 10 ether);
 
-        BrewlabsFlaskNft _nft = new BrewlabsFlaskNft();
+        BrewlabsFlaskNft _nft = new BrewlabsFlaskNft(address(randomGenerator));
 
         vm.startPrank(user);
         vm.expectRevert("Mint is disabled");
@@ -603,13 +609,13 @@ contract BrewlabsFlaskNftTest is Test {
 
     function test_enableMint() public {
         vm.expectRevert(abi.encodePacked("Already enabled"));
-        nft.enableMint();
+        nft.enableMint(0);
 
-        BrewlabsFlaskNft _nft = new BrewlabsFlaskNft();
+        BrewlabsFlaskNft _nft = new BrewlabsFlaskNft(address(randomGenerator));
 
         vm.expectEmit(false, false, false, true);
         emit MintEnabled();
-        _nft.enableMint();
+        _nft.enableMint(0);
 
         assertTrue(_nft.mintAllowed());
     }
