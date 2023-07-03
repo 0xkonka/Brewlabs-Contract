@@ -255,11 +255,24 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.flaskNft) {
+            Utils.infoMsg("Deploying RandomSeedGenerator contract");
+            let randomGenerator = await deploy('RandomSeedGenerator', 
+                {
+                    from: account,
+                    args: [
+                        "0xc587d9053cd1118f25F645F9E08BB98c9712A4EE",
+                        "0x404460C6A5EdE2D891e8297795264fDe62ADBB75",
+                        "0xba6e730de88d94a5510ae6613898bfb0c3de5d16e609c5b7da808747125506f7"
+                    ],
+                    log:  false
+                });
+            await sleep(30);
+
             Utils.infoMsg("Deploying BrewlabsFlaskNft contract");
             let flaskNft = await deploy('BrewlabsFlaskNft', 
                 {
                     from: account,
-                    args: [],
+                    args: [randomGenerator.address],
                     log:  false
                 });
     
@@ -289,11 +302,15 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             tx = await flaskNftInstance.setMirrorNft(mirrorNft.address);
             await tx.wait()
 
+            let randomGeneratorInstance = await ethers.getContractAt("RandomSeedGenerator", randomGenerator.address)
+            tx = await randomGeneratorInstance.setAdmin(flaskNft.address);
+            await tx.wait()
+
             // verify
             await hre.run("verify:verify", {
                 address: flaskNft.address,
                 contract: "contracts/indexes/BrewlabsFlaskNft.sol:BrewlabsFlaskNft",
-                constructorArguments: [],
+                constructorArguments: [randomGenerator.address],
             })
             await hre.run("verify:verify", {
                 address: mirrorNft.address,
