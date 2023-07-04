@@ -14,7 +14,7 @@ interface IBrewlabsNftStaking {
 }
 
 interface IRandomGenerator {
-    function random() external view returns (uint256);
+    function random() external returns (uint256);
     function genRandomNumber() external returns (uint256);
 }
 

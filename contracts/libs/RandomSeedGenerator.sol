@@ -27,6 +27,7 @@ contract RandomSeedGenerator is VRFConsumerBaseV2, Ownable {
     uint16 requestConfirmations = 3;
 
     bytes32 internal keyHash;
+    uint256 internal nonce;
     uint256 public randomSeed;
 
     mapping(address => bool) public admins;
@@ -45,9 +46,10 @@ contract RandomSeedGenerator is VRFConsumerBaseV2, Ownable {
         admins[msg.sender] = true;
     }
 
-    function random() public view returns (uint256) {
+    function random() public returns (uint256) {
         require(randomSeed != 0, "Invalid seed");
-        return uint256(keccak256(abi.encode(randomSeed, block.timestamp, blockhash(block.number - 1))));
+        nonce++;
+        return uint256(keccak256(abi.encode(randomSeed, block.timestamp, blockhash(block.number - 1), nonce)));
     }
 
     /**
