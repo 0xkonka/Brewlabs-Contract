@@ -266,6 +266,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                     ],
                     log:  false
                 });
+            Utils.successMsg(`Contract Address: ${randomGenerator.address}`);
             await sleep(30);
 
             Utils.infoMsg("Deploying BrewlabsFlaskNft contract");
@@ -303,7 +304,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await tx.wait()
 
             let randomGeneratorInstance = await ethers.getContractAt("RandomSeedGenerator", randomGenerator.address)
-            tx = await randomGeneratorInstance.setAdmin(flaskNft.address);
+            tx = await randomGeneratorInstance.setAdmin(flaskNft.address, true);
             await tx.wait()
 
             // verify
