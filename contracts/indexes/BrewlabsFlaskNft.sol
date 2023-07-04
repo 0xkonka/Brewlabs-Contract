@@ -39,7 +39,7 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
     uint256 public brewsUpgradeFee = 1500 * 10 ** 9;
     uint256 public oneTimeLimit = 30;
 
-    address public stakingAddr = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
+    address public stakingAddr = 0xEDDcEa807da853Fed51fa4bF0E8d6C9d1f7f9Caa;
     address public brewsWallet = 0xE1f1dd010BBC2860F81c8F90Ea4E38dB949BB16F;
     address public treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
 
