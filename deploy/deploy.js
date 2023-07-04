@@ -815,29 +815,27 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
     
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            await sleep(60)
-            // add farm contract to config
+            // await sleep(60)
+            // add pool contract to config
             let configInstance = await ethers.getContractAt("BrewlabsConfig", "0x60309cDed48575278f77d1Cb6b45e15693700b75")
             let tx = await configInstance.regPool(deployedAddress, false)
             await tx.wait();
 
             // initialize
             let contractInstance = await ethers.getContractAt("BrewlabsStaking", deployedAddress)
-            const _hasDividend = false;
-            const _rewardPerBlock = ethers.utils.parseUnits('0.001424942922374429', 18) 
+            const _hasDividend = true;
+            const _rewardPerBlock = ethers.utils.parseUnits('2378234.398782343', 9) 
             const res = await contractInstance.initialize(
-                "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // _stakingToken
-                "0x1eF68f4507374960cF186c8999aadADB86736Ca4", // _earnedToken
-                "0x0000000000000000000000000000000000000000", // _reflectionToken
+                "0xf0D43f46Cea02bBb5E616bF6d795D4f8719cD80d", // _stakingToken
+                "0xf0D43f46Cea02bBb5E616bF6d795D4f8719cD80d", // _earnedToken
+                "0xf0D43f46Cea02bBb5E616bF6d795D4f8719cD80d", // _reflectionToken
                 _rewardPerBlock,                              // _rewardPerBlock
-                20,                                          // _depositFee (0.3%)
+                0,                                          // _depositFee (0.3%)
                 100,                                          // _withdrawFee (1%)
                 "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
                 [],
-                [
-                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x1eF68f4507374960cF186c8999aadADB86736Ca4",
-                ], 
+                [], 
+                "0x0000000000000000000000000000000000000000", // whitelist contract 
                 _hasDividend,
                 )
 
