@@ -12,6 +12,8 @@ interface IBrewlabsFreezer {
 
     function owner() external view returns (address);
     function implementation() external view returns (address);
+    function treasury() external view returns (address);
+    function buyBackWallet() external view returns (address); // old freezer
 
     function createTokenLocker(
         address _op,
@@ -35,6 +37,7 @@ interface IBrewlabsFreezer {
     function forceUnlockToken(address _locker, uint256 _lockID) external;
     function setFees(uint256 _mintFee, uint256 _editFee, uint256 _defrostFee) external;
     function setTreasury(address _treasury) external;
+    function setFeeAddress(address _addr) external; // old version (bsc freezer) -> will update treasury
     function transferOwnership(address newOwner) external;
 
     function transferOwnershipOfLocker(address payable _locker, address _newOwner) external;
