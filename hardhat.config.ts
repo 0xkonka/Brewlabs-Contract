@@ -67,7 +67,7 @@ module.exports = {
         url: `https://arb1.arbitrum.io/rpc`,
         chainId: 42161,
         //gasPrice: 20000000000,
-        accounts: [accountPrivateKey["bsc"]],
+        accounts: [accountPrivateKey["arbitrum"]],
     },
 
     bsc_mainnet: {
@@ -88,13 +88,13 @@ module.exports = {
       url: `https://polygon-rpc.com`,
       chainId: 137,
       //gasPrice: 20000000000,
-      accounts: [accountPrivateKey["bsc"]],
+      accounts: [accountPrivateKey["polygon"]],
     },
     fantom: {
       url: `https://rpc.ftm.tools/`,
       chainId: 250,
       //gasPrice: 20000000000,
-      accounts: [accountPrivateKey["bsc"]],
+      accounts: [accountPrivateKey["fantom"]],
     },
     avalanche: {
       url: `https://api.avax.network/ext/bc/C/rpc`,
