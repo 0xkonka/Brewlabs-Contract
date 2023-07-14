@@ -485,6 +485,26 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             }) 
         }
 
+        if(config.teamlocker) {
+            Utils.infoMsg("Deploying BrewlabsTeamLocker contract");
+
+            let deployed = await deploy('BrewlabsTeamLocker', {
+                from: account,
+                log:  false
+            });
+    
+            let deployedAddress = deployed.address;
+    
+            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+
+            // verify
+            await sleep(60)
+            await hre.run("verify:verify", {
+                address: deployedAddress,
+                contract: "contracts/BrewlabsTeamLocker.sol:BrewlabsTeamLocker",
+                constructorArguments: [],
+            })
+        }
 
         if(config.nftTransfer) {           
             Utils.infoMsg("Deploying BrewlabsNftTransfer contract");
@@ -1188,36 +1208,6 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await hre.run("verify:verify", {
                 address: deployedAddress,
                 contract: "contracts/others/BUSDBuffetTeamLocker.sol:BUSDBuffetTeamLocker",
-                constructorArguments: [],
-            })
-        }
-
-        if(config.teamlocker) {
-            Utils.infoMsg("Deploying TeamLocker contract");
-
-            let deployed = await deploy('TeamLocker', {
-                from: account,
-                log:  false
-            });
-    
-            let deployedAddress = deployed.address;
-    
-            Utils.successMsg(`Contract Address: ${deployedAddress}`);
-
-            // initialize
-            await sleep(60)
-            let contractInstance = await ethers.getContractAt("TeamLocker", deployedAddress)
-            const res = await contractInstance.initialize(
-                "0x07335A076184C0453aE1987169D9c7ab7047a974", // _vestedToken (BUSD Buffet)
-                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", // _reflecteddToken (BUSD)
-              )
-            console.log('initialize TeamLocker', res)
-    
-            // verify
-            await sleep(60)
-            await hre.run("verify:verify", {
-                address: deployedAddress,
-                contract: "contracts/others/TeamLocker.sol:TeamLocker",
                 constructorArguments: [],
             })
         }
