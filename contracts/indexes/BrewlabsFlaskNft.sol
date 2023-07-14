@@ -134,7 +134,10 @@ contract BrewlabsFlaskNft is ERC721Enumerable, ERC721Holder, DefaultOperatorFilt
         }
     }
 
-    function airdrop(address[] memory toAddresses, uint256[] memory tokenIds, uint256[] memory tokenRarities) external onlyOwner {
+    function airdrop(address[] memory toAddresses, uint256[] memory tokenIds, uint256[] memory tokenRarities)
+        external
+        onlyOwner
+    {
         require(!mintAllowed, "Mint was started");
         require(toAddresses.length > 0, "Invalid addresses");
         require(toAddresses.length == tokenIds.length && tokenIds.length == tokenRarities.length, "Invalid config");

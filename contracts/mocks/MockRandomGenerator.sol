@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-
 contract MockRandomGenerator is Ownable {
     mapping(address => bool) public admins;
 
@@ -30,7 +29,7 @@ contract MockRandomGenerator is Ownable {
      * Requests randomness
      */
     function genRandomNumber() public returns (uint256 requestId) {
-        randomSeed = uint256(keccak256(abi.encode("testing", randomSeed, blockhash(block.number-1), block.timestamp)));        
+        randomSeed = uint256(keccak256(abi.encode("testing", randomSeed, blockhash(block.number - 1), block.timestamp)));
     }
 
     function setAdmin(address _account, bool _isAdmin) external onlyOwner {
