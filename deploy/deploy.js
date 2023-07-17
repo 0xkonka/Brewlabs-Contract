@@ -25,6 +25,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
 
             configure: false,
             nftTransfer: false,
+            teamlocker: false,
 
             index: false,
             indexNft: false,
@@ -54,7 +55,6 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             vesting: false,
             buffetLocker: false,
             blvtVest: false,
-            teamlocker: false,
             kodi: false,
             kodiTreasury: false,
             oracle: false,
