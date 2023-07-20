@@ -4,17 +4,22 @@ pragma solidity ^0.8.0;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import {IUniPair} from "./libs/IUniPair.sol";
+import {IUniRouter02} from "./libs/IUniRouter02.sol";
+
 contract BrewlabsTeamLocker is Ownable {
     using SafeERC20 for IERC20;
 
     address[] public members;
     mapping(address => uint256) public rates;
     uint256 public rateDenominator;
+    address public swapRouter;
 
     event SetMember(address member, uint256 rate);
     event RemoveMember(address member);
     event Distributed(address member, address token, uint256 amount);
     event TokenRecovered(address token, uint256 amount);
+    event SetSwapRouter(address router);
 
     constructor() {}
 
@@ -93,6 +98,26 @@ contract BrewlabsTeamLocker is Ownable {
         } else {
             IERC20(token).safeTransfer(to, amount);
         }
+    }
+
+    function removeLiquidity(address[] memory pairs) external onlyOwner {
+        for(uint256 i = 0; i < pairs.length; i++) {
+            address pair = pairs[i];
+            require(pair != address(0x0), "Invalid pair");
+
+            uint256 amount = IERC20(pair).balanceOf(address(this));
+            IERC20(pair).safeIncreaseAllowance(swapRouter, amount);
+            
+            address token0 = IUniPair(pair).token0();
+            address token1 = IUniPair(pair).token1();
+            IUniRouter02(swapRouter).removeLiquidity(token0, token1, amount, 0, 0, address(this), block.timestamp + 600);
+        }
+    }
+
+    function setSwapRouter(address router) external onlyOwner {
+        require(router != address(0x0), "Invalid router");
+        swapRouter = router;
+        emit SetSwapRouter(router);
     }
 
     /**
