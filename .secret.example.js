@@ -14,7 +14,7 @@ module.exports = {
     goerli: "xxxxx",
     mainnet: "xxxxx",
     bsc: "xxxxx",
-    bbscTestnetsc: "xxxxx",
+    bscTestnet: "xxxxx",
     polygon: "xxxxx",
     opera: "xxxxx", // fantom
     avalanche: "xxxxx",
