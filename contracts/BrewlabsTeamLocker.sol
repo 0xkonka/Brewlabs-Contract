@@ -101,13 +101,13 @@ contract BrewlabsTeamLocker is Ownable {
     }
 
     function removeLiquidity(address[] memory pairs) external onlyOwner {
-        for(uint256 i = 0; i < pairs.length; i++) {
+        for (uint256 i = 0; i < pairs.length; i++) {
             address pair = pairs[i];
             require(pair != address(0x0), "Invalid pair");
 
             uint256 amount = IERC20(pair).balanceOf(address(this));
             IERC20(pair).safeIncreaseAllowance(swapRouter, amount);
-            
+
             address token0 = IUniPair(pair).token0();
             address token1 = IUniPair(pair).token1();
             IUniRouter02(swapRouter).removeLiquidity(token0, token1, amount, 0, 0, address(this), block.timestamp + 600);
