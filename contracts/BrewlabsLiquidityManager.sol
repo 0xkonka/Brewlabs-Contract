@@ -138,7 +138,7 @@ contract BrewlabsLiquidityManager is Ownable, ReentrancyGuard {
     {
         require(amount > 0, "amount is zero");
 
-        address pair = _getPair(router, token0, token1);
+        address pair = getPair(router, token0, token1);
         require(pair != address(0), "invalid liquidity");
 
         IERC20(pair).safeTransferFrom(msg.sender, address(this), amount);
@@ -167,7 +167,7 @@ contract BrewlabsLiquidityManager is Ownable, ReentrancyGuard {
         require(amount > 0, "amount is zero");
 
         address weth = IUniRouter02(router).WETH();
-        address pair = _getPair(router, token, weth);
+        address pair = getPair(router, token, weth);
         require(pair != address(0), "invalid liquidity");
 
         IERC20(pair).safeTransferFrom(msg.sender, address(this), amount);
@@ -196,7 +196,7 @@ contract BrewlabsLiquidityManager is Ownable, ReentrancyGuard {
         require(amount > 0, "amount is zero");
 
         address weth = IUniRouter02(router).WETH();
-        address pair = _getPair(router, token, weth);
+        address pair = getPair(router, token, weth);
         require(pair != address(0), "invalid liquidity");
 
         IERC20(pair).safeTransferFrom(msg.sender, address(this), amount);
@@ -253,7 +253,7 @@ contract BrewlabsLiquidityManager is Ownable, ReentrancyGuard {
         emit BuyBackLimitUpdated(_limit);
     }
 
-    function _getPair(address router, address token0, address token1) internal view returns (address) {
+    function getPair(address router, address token0, address token1) public view returns (address) {
         address factory = IUniRouter02(router).factory();
         return IUniV2Factory(factory).getPair(token0, token1);
     }
