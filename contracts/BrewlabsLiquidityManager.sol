@@ -6,9 +6,27 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import {IUniV2Factory} from "./libs/IUniFactory.sol";
 import {IUniRouter02} from "./libs/IUniRouter02.sol";
 import {IWETH} from "./libs/IWETH.sol";
+
+interface IUniV2Factory {
+    function createPair(address tokenA, address tokenB) external returns (address);
+    function getPair(address tokenA, address tokenB) external view returns (address);
+}
+
+interface IUniPair {
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+
+    function getReserves() external view returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast);
+    function getReserves1()
+        external
+        view
+        returns (uint112 _reserve0, uint112 _reserve1, uint32 feePercent, uint32 _blockTimestampLast);
+
+    function mint(address to) external returns (uint256 liquidity);
+    function burn(address to) external returns (uint256 amount0, uint256 amount1);
+}
 
 contract BrewlabsLiquidityManager is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -28,195 +46,210 @@ contract BrewlabsLiquidityManager is Ownable, ReentrancyGuard {
     event BuyBackLimitUpdated(uint256 limit);
     event AdminTokenRecovered(address tokenRecovered, uint256 amount);
 
+    modifier ensure(uint256 deadline) {
+        require(deadline >= block.timestamp, "BrewlabsLiquidityManager: EXPIRED");
+        _;
+    }
+
     constructor() {}
 
     function addLiquidity(
         address router,
-        address token0,
-        address token1,
-        uint256 amount0,
-        uint256 amount1,
-        uint256 slipPage
-    ) external payable nonReentrant returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
-        require(amount0 > 0 && amount1 > 0, "amount is zero");
-        require(token0 != token1, "cannot use same token for pair");
-        require(slipPage < FEE_DENOMINATOR, "slippage cannot exceed 100%");
+        address tokenA,
+        address tokenB,
+        uint256 amountADesired,
+        uint256 amountBDesired,
+        uint256 slipPage,
+        uint256 deadline
+    ) external ensure(deadline) nonReentrant returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
+        require(amountADesired > 0 && amountBDesired > 0, "amount is zero");
+        require(tokenA != tokenB, "cannot use same token for pair");
 
-        uint256 beforeAmt = IERC20(token0).balanceOf(address(this));
-        IERC20(token0).safeTransferFrom(msg.sender, address(this), amount0);
-        uint256 token0Amt = IERC20(token0).balanceOf(address(this)) - beforeAmt;
-        token0Amt = token0Amt * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
+        {
+            uint256 fee0Amt = amountADesired * fee / FEE_DENOMINATOR;
+            uint256 fee1Amt = amountBDesired * fee / FEE_DENOMINATOR;
+            IERC20(tokenA).safeTransferFrom(msg.sender, walletA, fee0Amt);
+            IERC20(tokenB).safeTransferFrom(msg.sender, walletA, fee1Amt);
 
-        beforeAmt = IERC20(token1).balanceOf(address(this));
-        IERC20(token1).safeTransferFrom(msg.sender, address(this), amount1);
-        uint256 token1Amt = IERC20(token1).balanceOf(address(this)) - beforeAmt;
-        token1Amt = token1Amt * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
+            uint256 amountAMin = amountADesired * (FEE_DENOMINATOR - slipPage) / FEE_DENOMINATOR;
+            uint256 amountBMin = amountBDesired * (FEE_DENOMINATOR - slipPage) / FEE_DENOMINATOR;
+            amountADesired -= fee0Amt;
+            amountBDesired -= fee1Amt;
+            (amountA, amountB) =
+                _addLiquidity(router, tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
+        }
+        address pair = getPair(router, tokenA, tokenB);
 
-        (amountA, amountB, liquidity) = _addLiquidity(router, token0, token1, token0Amt, token1Amt, slipPage);
+        IERC20(tokenA).safeTransferFrom(msg.sender, pair, amountA);
+        IERC20(tokenB).safeTransferFrom(msg.sender, pair, amountB);
+        liquidity = IUniPair(pair).mint(msg.sender);
+    }
 
-        token0Amt = IERC20(token0).balanceOf(address(this));
-        token1Amt = IERC20(token1).balanceOf(address(this));
-        IERC20(token0).safeTransfer(walletA, token0Amt);
-        IERC20(token1).safeTransfer(walletA, token1Amt);
+    function addLiquidityETH(
+        address router,
+        address token,
+        uint256 amountTokenDesired,
+        uint256 slipPage,
+        uint256 deadline
+    )
+        external
+        payable
+        ensure(deadline)
+        nonReentrant
+        returns (uint256 amountToken, uint256 amountETH, uint256 liquidity)
+    {
+        require(amountTokenDesired > 0, "amount is zero");
+        require(msg.value > 0, "amount is zero");
+
+        address WETH = IUniRouter02(router).WETH();
+
+        {
+            uint256 fee0Amt = amountTokenDesired * fee / FEE_DENOMINATOR;
+            uint256 fee1Amt = msg.value * fee / FEE_DENOMINATOR;
+            IERC20(token).safeTransferFrom(msg.sender, walletA, fee0Amt);
+            payable(treasury).transfer(fee1Amt);
+        }
+        {
+            uint256 amountTokenMin = amountTokenDesired * (FEE_DENOMINATOR - slipPage) / FEE_DENOMINATOR;
+            uint256 amountETHMin = msg.value * (FEE_DENOMINATOR - slipPage) / FEE_DENOMINATOR;
+
+            uint256 _amountTokenDesired = amountTokenDesired * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
+            uint256 _amountETHDesired = msg.value * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
+
+            (amountToken, amountETH) =
+                _addLiquidity(router, token, WETH, _amountTokenDesired, _amountETHDesired, amountTokenMin, amountETHMin);
+        }
+
+        address pair = getPair(router, token, WETH);
+        IERC20(token).safeTransferFrom(msg.sender, pair, amountToken);
+        IWETH(WETH).deposit{value: amountETH}();
+        assert(IWETH(WETH).transfer(pair, amountETH));
+        liquidity = IUniPair(pair).mint(msg.sender);
     }
 
     function _addLiquidity(
         address router,
-        address token0,
-        address token1,
-        uint256 amount0,
-        uint256 amount1,
-        uint256 slipPage
-    ) internal returns (uint256, uint256, uint256) {
-        IERC20(token0).safeApprove(router, 0);
-        IERC20(token1).safeApprove(router, 0);
-        IERC20(token0).safeIncreaseAllowance(router, amount0);
-        IERC20(token1).safeIncreaseAllowance(router, amount1);
+        address tokenA,
+        address tokenB,
+        uint256 amountADesired,
+        uint256 amountBDesired,
+        uint256 amountAMin,
+        uint256 amountBMin
+    ) internal returns (uint256 amountA, uint256 amountB) {
+        // create the pair if it doesn't exist yet
+        address pair = getPair(router, tokenA, tokenB);
+        if (pair == address(0)) {
+            pair = _createPair(router, tokenA, tokenB);
+        }
 
-        return IUniRouter02(router).addLiquidity(
-            token0,
-            token1,
-            amount0,
-            amount1,
-            amount0 * (FEE_DENOMINATOR - slipPage) / FEE_DENOMINATOR,
-            amount1 * (FEE_DENOMINATOR - slipPage) / FEE_DENOMINATOR,
-            msg.sender,
-            block.timestamp + 600
-        );
+        (uint256 reserveA, uint256 reserveB) = _getReserves(pair, tokenA, tokenB);
+        if (reserveA == 0 && reserveB == 0) {
+            (amountA, amountB) = (amountADesired, amountBDesired);
+        } else {
+            uint256 amountBOptimal = _quote(amountADesired, reserveA, reserveB);
+            if (amountBOptimal <= amountBDesired) {
+                require(amountBOptimal >= amountBMin, "BrewlabsLiquidityManager: INSUFFICIENT_B_AMOUNT");
+                (amountA, amountB) = (amountADesired, amountBOptimal);
+            } else {
+                uint256 amountAOptimal = _quote(amountBDesired, reserveB, reserveA);
+                assert(amountAOptimal <= amountADesired);
+                require(amountAOptimal >= amountAMin, "BrewlabsLiquidityManager: INSUFFICIENT_A_AMOUNT");
+                (amountA, amountB) = (amountAOptimal, amountBDesired);
+            }
+        }
     }
 
-    function addLiquidityETH(address router, address token, uint256 amount, uint256 slipPage)
-        external
-        payable
-        nonReentrant
-        returns (uint256 amountToken, uint256 amountETH, uint256 liquidity)
-    {
-        require(amount > 0, "amount is zero");
-        require(msg.value > 0, "amount is zero");
-        require(slipPage < FEE_DENOMINATOR, "slippage cannot exceed 100%");
-
-        uint256 beforeAmt = IERC20(token).balanceOf(address(this));
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-        uint256 tokenAmt = IERC20(token).balanceOf(address(this)) - beforeAmt;
-        tokenAmt = tokenAmt * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
-
-        uint256 ethAmt = msg.value;
-        ethAmt = ethAmt * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
-
-        IERC20(token).safeApprove(router, 0);
-        IERC20(token).safeIncreaseAllowance(router, tokenAmt);
-        (amountToken, amountETH, liquidity) = _addLiquidityETH(router, token, tokenAmt, ethAmt, slipPage);
-
-        tokenAmt = IERC20(token).balanceOf(address(this));
-        IERC20(token).safeTransfer(walletA, tokenAmt);
-
-        ethAmt = address(this).balance;
-        payable(treasury).transfer(ethAmt);
-    }
-
-    function _addLiquidityETH(address router, address token, uint256 tokenAmt, uint256 ethAmt, uint256 slipPage)
+    function _getReserves(address pair, address tokenA, address tokenB)
         internal
-        returns (uint256, uint256, uint256)
+        view
+        returns (uint256 reserveA, uint256 reserveB)
     {
-        IERC20(token).safeApprove(router, 0);
-        IERC20(token).safeIncreaseAllowance(router, tokenAmt);
-
-        return IUniRouter02(router).addLiquidityETH{value: ethAmt}(
-            token,
-            tokenAmt,
-            tokenAmt * (FEE_DENOMINATOR - slipPage) / FEE_DENOMINATOR,
-            ethAmt * (FEE_DENOMINATOR - slipPage) / FEE_DENOMINATOR,
-            msg.sender,
-            block.timestamp + 600
-        );
+        (address token0,) = _sortTokens(tokenA, tokenB);
+        try IUniPair(pair).getReserves() returns (uint112 reserve0, uint112 reserve1, uint32) {
+            (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
+        } catch {
+            (uint256 reserve0, uint256 reserve1,,) = IUniPair(pair).getReserves1();
+            (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
+        }
     }
 
-    function removeLiquidity(address router, address token0, address token1, uint256 amount)
-        external
-        nonReentrant
-        returns (uint256 amountA, uint256 amountB)
-    {
-        require(amount > 0, "amount is zero");
-
-        address pair = getPair(router, token0, token1);
-        require(pair != address(0), "invalid liquidity");
-
-        IERC20(pair).safeTransferFrom(msg.sender, address(this), amount);
-        IERC20(pair).safeIncreaseAllowance(router, amount);
-
-        uint256 beforeAmt0 = IERC20(token0).balanceOf(address(this));
-        uint256 beforeAmt1 = IERC20(token1).balanceOf(address(this));
-        IUniRouter02(router).removeLiquidity(token0, token1, amount, 0, 0, address(this), block.timestamp + 600);
-
-        amountA = IERC20(token0).balanceOf(address(this)) - beforeAmt0;
-        amountB = IERC20(token1).balanceOf(address(this)) - beforeAmt1;
-        IERC20(token0).safeTransfer(walletA, amountA * fee / FEE_DENOMINATOR);
-        IERC20(token1).safeTransfer(walletA, amountB * fee / FEE_DENOMINATOR);
-
-        amountA = amountA * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
-        amountB = amountB * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
-        IERC20(token0).safeTransfer(msg.sender, amountA);
-        IERC20(token1).safeTransfer(msg.sender, amountB);
+    function _quote(uint256 amountA, uint256 reserveA, uint256 reserveB) internal pure returns (uint256 amountB) {
+        require(amountA > 0, "BrewlabsLiquidityManager: INSUFFICIENT_AMOUNT");
+        require(reserveA > 0 && reserveB > 0, "BrewlabsLiquidityManager: INSUFFICIENT_LIQUIDITY");
+        amountB = amountA * reserveB / reserveA;
     }
 
-    function removeLiquidityETH(address router, address token, uint256 amount)
-        external
-        nonReentrant
-        returns (uint256 amountToken, uint256 amountETH)
-    {
-        require(amount > 0, "amount is zero");
-
-        address weth = IUniRouter02(router).WETH();
-        address pair = getPair(router, token, weth);
-        require(pair != address(0), "invalid liquidity");
-
-        IERC20(pair).safeTransferFrom(msg.sender, address(this), amount);
-        IERC20(pair).safeIncreaseAllowance(router, amount);
-
-        uint256 beforeAmt0 = IERC20(token).balanceOf(address(this));
-        uint256 beforeAmt1 = address(this).balance;
-        IUniRouter02(router).removeLiquidityETH(token, amount, 0, 0, address(this), block.timestamp + 600);
-
-        amountToken = IERC20(token).balanceOf(address(this)) - beforeAmt0;
-        amountETH = address(this).balance - beforeAmt1;
-        IERC20(token).safeTransfer(walletA, amountToken * fee / FEE_DENOMINATOR);
-        payable(treasury).transfer(amountETH * fee / FEE_DENOMINATOR);
-
-        amountToken = amountToken * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
-        amountETH = amountETH * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
-        IERC20(token).safeTransfer(msg.sender, amountToken);
-        payable(msg.sender).transfer(amountETH);
+    function _sortTokens(address tokenA, address tokenB) internal pure returns (address token0, address token1) {
+        require(tokenA != tokenB, "BrewlabsLiquidityManager: IDENTICAL_ADDRESSES");
+        (token0, token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        require(token0 != address(0), "BrewlabsLiquidityManager: ZERO_ADDRESS");
     }
 
-    function removeLiquidityETHSupportingFeeOnTransferTokens(address router, address token, uint256 amount)
-        external
-        nonReentrant
-        returns (uint256 amountETH)
-    {
-        require(amount > 0, "amount is zero");
+    function removeLiquidity(
+        address router,
+        address tokenA,
+        address tokenB,
+        uint256 liquidity,
+        uint256 amountAMin,
+        uint256 amountBMin,
+        address to,
+        uint256 deadline
+    ) public ensure(deadline) nonReentrant returns (uint256 amountA, uint256 amountB) {
+        require(liquidity > 0, "amount is zero");
 
-        address weth = IUniRouter02(router).WETH();
-        address pair = getPair(router, token, weth);
+        address pair = getPair(router, tokenA, tokenB);
         require(pair != address(0), "invalid liquidity");
 
-        IERC20(pair).safeTransferFrom(msg.sender, address(this), amount);
-        IERC20(pair).safeIncreaseAllowance(router, amount);
+        uint256 _fee = liquidity * fee / FEE_DENOMINATOR;
+        IERC20(pair).safeTransferFrom(msg.sender, pair, _fee);
+        IUniPair(pair).burn(walletA);
 
-        uint256 beforeAmt0 = IERC20(token).balanceOf(address(this));
-        uint256 beforeAmt1 = address(this).balance;
-        IUniRouter02(router).removeLiquidityETHSupportingFeeOnTransferTokens(
-            token, amount, 0, 0, address(this), block.timestamp + 600
-        );
+        IERC20(pair).safeTransferFrom(msg.sender, pair, liquidity - _fee); // send liquidity to pair
 
-        uint256 amountToken = IERC20(token).balanceOf(address(this)) - beforeAmt0;
-        amountETH = address(this).balance - beforeAmt1;
-        IERC20(token).safeTransfer(walletA, amountToken * fee / FEE_DENOMINATOR);
-        payable(treasury).transfer(amountETH * fee / FEE_DENOMINATOR);
+        (uint256 amount0, uint256 amount1) = IUniPair(pair).burn(to);
+        (address token0,) = _sortTokens(tokenA, tokenB);
+        (amountA, amountB) = tokenA == token0 ? (amount0, amount1) : (amount1, amount0);
+        require(amountA >= amountAMin, "BrewlabsLiquidityManager: INSUFFICIENT_A_AMOUNT");
+        require(amountB >= amountBMin, "BrewlabsLiquidityManager: INSUFFICIENT_B_AMOUNT");
+    }
 
-        amountToken = amountToken * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
-        amountETH = amountETH * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
-        IERC20(token).safeTransfer(msg.sender, amountToken);
-        payable(msg.sender).transfer(amountETH);
+    function removeLiquidityETH(
+        address router,
+        address token,
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        address to,
+        uint256 deadline
+    ) external ensure(deadline) returns (uint256 amountToken, uint256 amountETH) {
+        require(liquidity > 0, "amount is zero");
+
+        address WETH = IUniRouter02(router).WETH();
+        (amountToken, amountETH) =
+            removeLiquidity(router, token, WETH, liquidity, amountTokenMin, amountETHMin, address(this), deadline);
+
+        IERC20(token).safeTransfer(to, amountToken);
+        IWETH(WETH).withdraw(amountETH);
+        payable(to).transfer(amountETH);
+    }
+
+    function removeLiquidityETHSupportingFeeOnTransferTokens(
+        address router,
+        address token,
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        address to,
+        uint256 deadline
+    ) external ensure(deadline) returns (uint256 amountETH) {
+        require(liquidity > 0, "amount is zero");
+
+        address WETH = IUniRouter02(router).WETH();
+        (, amountETH) =
+            removeLiquidity(router, token, WETH, liquidity, amountTokenMin, amountETHMin, address(this), deadline);
+        IERC20(token).safeTransfer(to, IERC20(token).balanceOf(address(this)));
+        IWETH(WETH).withdraw(amountETH);
+        payable(to).transfer(amountETH);
     }
 
     function buyBack(address router, address[] memory wethToBrewsPath) internal {
@@ -251,6 +284,11 @@ contract BrewlabsLiquidityManager is Ownable, ReentrancyGuard {
 
         buyBackLimit = _limit;
         emit BuyBackLimitUpdated(_limit);
+    }
+
+    function _createPair(address router, address token0, address token1) internal returns (address) {
+        address factory = IUniRouter02(router).factory();
+        return IUniV2Factory(factory).createPair(token0, token1);
     }
 
     function getPair(address router, address token0, address token1) public view returns (address) {

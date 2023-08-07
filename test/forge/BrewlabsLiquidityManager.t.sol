@@ -23,7 +23,7 @@ contract BrewlabsLiquidityManagerTest is Test {
     uint256 mainnetFork;
     string MAINNET_RPC_URL = "https://bsc-dataseed.binance.org/";
 
-    function setUp() public {      
+    function setUp() public {
         mainnetFork = vm.createSelectFork(MAINNET_RPC_URL);
         lpManager = new BrewlabsLiquidityManager();
 
@@ -40,7 +40,9 @@ contract BrewlabsLiquidityManagerTest is Test {
         token0.approve(address(lpManager), 10 ether);
         token1.approve(address(lpManager), 10 ether);
 
-        lpManager.addLiquidity(swapRouter, address(token0), address(token1), 10 ether, 10 ether, 2000);
+        lpManager.addLiquidity(
+            swapRouter, address(token0), address(token1), 10 ether, 10 ether, 2000, block.timestamp + 200
+        );
 
         assertEq(token0.balanceOf(lpManager.walletA()), 10 ether - 10 ether * 9900 / 10000);
         assertEq(token1.balanceOf(lpManager.walletA()), 10 ether - 10 ether * 9900 / 10000);
@@ -56,10 +58,10 @@ contract BrewlabsLiquidityManagerTest is Test {
         vm.startPrank(alice);
         token0.approve(address(lpManager), 10 ether);
 
-        lpManager.addLiquidityETH{value: 5 ether}(swapRouter, address(token0), 5 ether, 2000);
+        lpManager.addLiquidityETH{value: 5 ether}(swapRouter, address(token0), 5 ether, 2000, block.timestamp + 200);
         assertEq(token0.balanceOf(lpManager.walletA()), 5 ether - 5 ether * 9900 / 10000);
 
-        lpManager.addLiquidityETH{value: 5 ether}(swapRouter1, address(token0), 5 ether, 2000);
+        lpManager.addLiquidityETH{value: 5 ether}(swapRouter1, address(token0), 5 ether, 2000, block.timestamp + 200);
         assertEq(token0.balanceOf(lpManager.walletA()), (5 ether - 5 ether * 9900 / 10000) * 2);
 
         vm.stopPrank();
@@ -74,13 +76,17 @@ contract BrewlabsLiquidityManagerTest is Test {
         token0.approve(address(lpManager), 10 ether);
         token1.approve(address(lpManager), 10 ether);
 
-        lpManager.addLiquidity(swapRouter, address(token0), address(token1), 10 ether, 10 ether, 2000);
+        lpManager.addLiquidity(
+            swapRouter, address(token0), address(token1), 10 ether, 10 ether, 2000, block.timestamp + 200
+        );
 
         address pair = lpManager.getPair(swapRouter, address(token0), address(token1));
         uint256 lpBalance = MockErc20(pair).balanceOf(alice);
 
         MockErc20(pair).approve(address(lpManager), lpBalance);
-        lpManager.removeLiquidity(swapRouter, address(token0), address(token1), lpBalance);
+        lpManager.removeLiquidity(
+            swapRouter, address(token0), address(token1), lpBalance, 0, 0, alice, block.timestamp + 200
+        );
         emit log_uint(token0.balanceOf(alice));
         emit log_uint(token1.balanceOf(alice));
 
@@ -95,21 +101,19 @@ contract BrewlabsLiquidityManagerTest is Test {
         vm.startPrank(alice);
         token0.approve(address(lpManager), 10 ether);
 
-        lpManager.addLiquidityETH{value: 5 ether}(swapRouter, address(token0), 5 ether, 2000);
-        
+        lpManager.addLiquidityETH{value: 5 ether}(swapRouter, address(token0), 5 ether, 2000, block.timestamp + 200);
+
         address wbnb = IUniRouter02(swapRouter).WETH();
         address pair = lpManager.getPair(swapRouter, address(token0), wbnb);
         uint256 lpBalance = MockErc20(pair).balanceOf(alice);
-        
 
         MockErc20(pair).approve(address(lpManager), lpBalance);
-        lpManager.removeLiquidityETH(swapRouter, address(token0), lpBalance);
+        lpManager.removeLiquidityETH(swapRouter, address(token0), lpBalance, 0, 0, alice, block.timestamp + 200);
         // emit log_uint(token0.balanceOf(alice));
 
         vm.stopPrank();
     }
 
-    
     function test_removeLiquidityETHSupportingFeeOnTransferTokens() public {
         vm.deal(alice, 11 ether);
         token0.mint(alice, 10 ether);
@@ -118,15 +122,16 @@ contract BrewlabsLiquidityManagerTest is Test {
         vm.startPrank(alice);
         token0.approve(address(lpManager), 10 ether);
 
-        lpManager.addLiquidityETH{value: 5 ether}(swapRouter1, address(token0), 5 ether, 2000);
-        
+        lpManager.addLiquidityETH{value: 5 ether}(swapRouter1, address(token0), 5 ether, 2000, block.timestamp + 200);
+
         address wbnb = IUniRouter02(swapRouter1).WETH();
         address pair = lpManager.getPair(swapRouter1, address(token0), wbnb);
         uint256 lpBalance = MockErc20(pair).balanceOf(alice);
-        
 
         MockErc20(pair).approve(address(lpManager), lpBalance);
-        lpManager.removeLiquidityETHSupportingFeeOnTransferTokens(swapRouter1, address(token0), lpBalance);
+        lpManager.removeLiquidityETHSupportingFeeOnTransferTokens(
+            swapRouter1, address(token0), lpBalance, 0, 0, alice, block.timestamp + 200
+        );
         // emit log_uint(token0.balanceOf(alice));
 
         vm.stopPrank();

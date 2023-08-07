@@ -17,7 +17,7 @@ contract BrewlabsNftDiscountMgrTest is Test {
     event SetDiscountValues(uint256[] discounts);
     event SetDiscountValue(uint256 rarity, uint256 discount);
 
-    function setUp() public {      
+    function setUp() public {
         discountMgr = new BrewlabsNftDiscountMgr();
         nft = new MockErc721();
     }
@@ -41,7 +41,6 @@ contract BrewlabsNftDiscountMgrTest is Test {
         nft.mint(user, 4);
         assertEq(discountMgr.discountOf(user), 3000);
     }
-
 
     function test_setCollection() public {
         vm.startPrank(address(0x1234));

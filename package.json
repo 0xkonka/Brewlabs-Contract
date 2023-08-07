@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "clean": "hardhat clean && rimraf ./artifacts ./cache",
+    "clean": "hardhat clean && rimraf ./artifacts ./artifacts_forge ./cache",
     "compile": "npx hardhat compile",
     "coverage": "npx hardhat coverage",
     "deploy_goerli": "npx hardhat deploy --network goerli",
