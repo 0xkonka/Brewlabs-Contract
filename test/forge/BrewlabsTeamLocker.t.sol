@@ -4,8 +4,24 @@ pragma solidity ^0.8.0;
 import "forge-std/Test.sol";
 
 import {BrewlabsTeamLocker, IERC20} from "../../contracts/BrewlabsTeamLocker.sol";
+import {IUniV2Factory} from "../../contracts/libs/IUniFactory.sol";
+import {IUniRouter02} from "../../contracts/libs/IUniRouter02.sol";
 import {MockErc20} from "../../contracts/mocks/MockErc20.sol";
 import {Utils} from "./utils/Utils.sol";
+
+interface IUniPair {
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+
+    function getReserves() external view returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast);
+    function getReserves1()
+        external
+        view
+        returns (uint112 _reserve0, uint112 _reserve1, uint32 feePercent, uint32 _blockTimestampLast);
+
+    function mint(address to) external returns (uint256 liquidity);
+    function burn(address to) external returns (uint256 amount0, uint256 amount1);
+}
 
 contract BrewlabsTeamLockerTest is Test {
     BrewlabsTeamLocker internal locker;
@@ -210,6 +226,38 @@ contract BrewlabsTeamLockerTest is Test {
                 assertEq(IERC20(token).balanceOf(address(locker)), remained);
             }
         }
+    }
+
+    function test_removeLiquidity() public {
+        vm.createSelectFork("https://bsc-dataseed.binance.org/");
+        
+        BrewlabsTeamLocker _locker = new BrewlabsTeamLocker();
+
+        MockErc20 token0 = new MockErc20(18);
+        MockErc20 token1 = new MockErc20(18);
+        (token0, token1) = address(token0) < address(token1) ? (token0, token1) : (token1, token0);
+
+        address swapRouter = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+
+        _locker.setSwapRouter(swapRouter);
+
+        token0.mint(address(this), 10 ether);
+        token1.mint(address(this), 5 ether);
+        token0.approve(swapRouter, 10 ether);
+        token1.approve(swapRouter, 5 ether);
+        IUniRouter02(swapRouter).addLiquidity(address(token0), address(token1), 10 ether, 5 ether, 0, 0, address(_locker), block.timestamp + 200);
+
+        address pair = IUniV2Factory(IUniRouter02(swapRouter).factory()).getPair(address(token0), address(token1));
+        uint256 liquidity = MockErc20(pair).balanceOf(address(_locker));
+        emit log_named_uint("liquidity", liquidity);
+        assertGt(liquidity, 0);
+
+        address[] memory pairs = new address[](1);
+        pairs[0] = pair;
+        _locker.removeLiquidity(pairs, block.timestamp + 200);
+        
+        emit log_named_uint("token0", token0.balanceOf(address(_locker)));
+        emit log_named_uint("token1", token1.balanceOf(address(_locker)));
     }
 
     function test_rescueTokensForEther() public {

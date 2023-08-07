@@ -7,6 +7,10 @@ import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {IUniPair} from "./libs/IUniPair.sol";
 import {IUniRouter02} from "./libs/IUniRouter02.sol";
 
+interface IUniV2Pair is IUniPair {
+    function burn(address to) external returns (uint256 amount0, uint256 amount1);
+}
+
 contract BrewlabsTeamLocker is Ownable {
     using SafeERC20 for IERC20;
 
@@ -100,17 +104,17 @@ contract BrewlabsTeamLocker is Ownable {
         }
     }
 
-    function removeLiquidity(address[] memory pairs) external onlyOwner {
+    function removeLiquidity(address[] memory pairs, uint256 deadline) external onlyOwner {
+        require(deadline >= block.timestamp, "EXPIRED");
+
         for (uint256 i = 0; i < pairs.length; i++) {
             address pair = pairs[i];
             require(pair != address(0x0), "Invalid pair");
 
             uint256 amount = IERC20(pair).balanceOf(address(this));
-            IERC20(pair).safeIncreaseAllowance(swapRouter, amount);
-
-            address token0 = IUniPair(pair).token0();
-            address token1 = IUniPair(pair).token1();
-            IUniRouter02(swapRouter).removeLiquidity(token0, token1, amount, 0, 0, address(this), block.timestamp + 600);
+            IERC20(pair).safeTransfer(pair, amount);
+            (uint256 amount0, uint256 amount1) = IUniV2Pair(pair).burn(address(this));
+            require(amount0 > 0 && amount1 > 0, "removing liquidity failed");
         }
     }
 
