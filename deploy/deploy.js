@@ -1098,17 +1098,17 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
     
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
 
-            // initialize
-            await sleep(60)
-            let contractInstance = await ethers.getContractAt("BrewlabsLiquidityManager", deployedAddress)
-            const res = await contractInstance.initialize(
-                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
-                [
-                    "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-                    "0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7"
-                ], // (brews-bnb) path
-              )
-              console.log('initialize BrewlabsLiquidityManager', res)
+            // // initialize
+            // await sleep(60)
+            // let contractInstance = await ethers.getContractAt("BrewlabsLiquidityManager", deployedAddress)
+            // const res = await contractInstance.initialize(
+            //     "0x10ed43c718714eb63d5aa57b78b54704e256024e", // pancake router v2
+            //     [
+            //         "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+            //         "0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7"
+            //     ], // (brews-bnb) path
+            //   )
+            //   console.log('initialize BrewlabsLiquidityManager', res)
     
             // verify
             await sleep(60)
