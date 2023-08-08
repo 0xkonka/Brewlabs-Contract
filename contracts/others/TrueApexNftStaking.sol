@@ -14,10 +14,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface ArbSys {
     /**
-    * @notice Get Arbitrum block number (distinct from L1 block number; Arbitrum genesis block has block number 0)
-    * @return block number as int
-     */ 
-    function arbBlockNumber() external view returns (uint);
+     * @notice Get Arbitrum block number (distinct from L1 block number; Arbitrum genesis block has block number 0)
+     * @return block number as int
+     */
+    function arbBlockNumber() external view returns (uint256);
 }
 
 contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
@@ -489,7 +489,7 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         }
     }
 
-    function _blockNumber() internal view returns(uint256) {
+    function _blockNumber() internal view returns (uint256) {
         return ArbSys(address(100)).arbBlockNumber();
     }
 
