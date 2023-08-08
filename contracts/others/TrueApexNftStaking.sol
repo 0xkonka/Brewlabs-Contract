@@ -12,6 +12,14 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+interface ArbSys {
+    /**
+    * @notice Get Arbitrum block number (distinct from L1 block number; Arbitrum genesis block has block number 0)
+    * @return block number as int
+     */ 
+    function arbBlockNumber() external view returns (uint);
+}
+
 contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -99,7 +107,7 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
      * @param _tokenIds: list of tokenId to stake
      */
     function deposit(uint256[] memory _tokenIds) external payable nonReentrant {
-        require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
+        require(startBlock > 0 && startBlock < _blockNumber(), "Staking hasn't started yet");
         require(_tokenIds.length > 0, "must add at least one tokenId");
         require(_tokenIds.length <= oneTimeLimit, "cannot exceed one-time limit");
 
@@ -214,13 +222,13 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     }
 
     function _updateEthRewardRate() internal {
-        if (bonusEndBlock <= block.number) return;
+        if (bonusEndBlock <= _blockNumber()) return;
 
         uint256 remainRewards = availableRewardTokens(1) + paidRewards[1];
         if (remainRewards > shouldTotalPaid[1]) {
             remainRewards = remainRewards - shouldTotalPaid[1];
 
-            uint256 remainBlocks = bonusEndBlock - block.number;
+            uint256 remainBlocks = bonusEndBlock - _blockNumber();
             rewardsPerBlock[1] = remainRewards / remainBlocks;
             emit NewRewardsPerBlock(rewardsPerBlock);
         }
@@ -288,8 +296,8 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         UserInfo storage user = userInfo[_user];
 
         uint256 adjustedTokenPerShare = accTokenPerShares[_index];
-        if (block.number > lastRewardBlock && totalStaked > 0 && lastRewardBlock > 0) {
-            uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
+        if (_blockNumber() > lastRewardBlock && totalStaked > 0 && lastRewardBlock > 0) {
+            uint256 multiplier = _getMultiplier(lastRewardBlock, _blockNumber());
             uint256 rewards = multiplier * rewardsPerBlock[_index];
 
             adjustedTokenPerShare += (rewards * PRECISION_FACTOR) / totalStaked;
@@ -303,7 +311,7 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
      */
     function increaseEmissionRate(uint256 _amount) external onlyOwner {
         require(startBlock > 0, "pool is not started");
-        require(bonusEndBlock > block.number, "pool was already finished");
+        require(bonusEndBlock > _blockNumber(), "pool was already finished");
         require(_amount > 0, "invalid amount");
 
         _updatePool();
@@ -314,7 +322,7 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         if (remainRewards > shouldTotalPaid[0]) {
             remainRewards = remainRewards - shouldTotalPaid[0];
 
-            uint256 remainBlocks = bonusEndBlock - block.number;
+            uint256 remainBlocks = bonusEndBlock - _blockNumber();
             rewardsPerBlock[0] = remainRewards / remainBlocks;
             emit NewRewardsPerBlock(rewardsPerBlock);
         }
@@ -325,7 +333,7 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     * @dev Only callable by owner. Needs to be for emergency.
     */
     function emergencyRewardWithdraw(uint256 _amount, uint8 _index) external onlyOwner {
-        require(block.number > bonusEndBlock, "Pool is running");
+        require(_blockNumber() > bonusEndBlock, "Pool is running");
         if (_index == 0) {
             require(availableRewardTokens(0) >= _amount, "Insufficient reward tokens");
             if (_amount == 0) _amount = availableRewardTokens(0);
@@ -342,7 +350,7 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     function startReward() external onlyOwner {
         require(startBlock == 0, "Pool was already started");
 
-        startBlock = block.number + 100;
+        startBlock = _blockNumber() + 100;
         bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
         lastRewardBlock = startBlock;
 
@@ -369,14 +377,14 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             _transferTokens(earnedTokens[1], msg.sender, remainRewards);
         }
 
-        bonusEndBlock = block.number;
+        bonusEndBlock = _blockNumber();
         emit RewardsStop(bonusEndBlock);
     }
 
     function updateEndBlock(uint256 _endBlock) external onlyOwner {
         require(startBlock > 0, "Pool is not started");
-        require(bonusEndBlock > block.number, "Pool was already finished");
-        require(_endBlock > block.number && _endBlock > startBlock, "Invalid end block");
+        require(bonusEndBlock > _blockNumber(), "Pool was already finished");
+        require(_endBlock > _blockNumber() && _endBlock > startBlock, "Invalid end block");
 
         bonusEndBlock = _endBlock;
         emit EndBlockUpdated(_endBlock);
@@ -401,7 +409,7 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         duration = _duration;
         if (startBlock > 0) {
             bonusEndBlock = startBlock + duration * BLOCKS_PER_DAY;
-            require(bonusEndBlock > block.number, "invalid duration");
+            require(bonusEndBlock > _blockNumber(), "invalid duration");
         }
         emit DurationUpdated(_duration);
     }
@@ -439,13 +447,13 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     * @notice Update reward variables of the given pool to be up-to-date.
     */
     function _updatePool() internal {
-        if (block.number <= lastRewardBlock || lastRewardBlock == 0) return;
+        if (_blockNumber() <= lastRewardBlock || lastRewardBlock == 0) return;
         if (totalStaked == 0) {
-            lastRewardBlock = block.number;
+            lastRewardBlock = _blockNumber();
             return;
         }
 
-        uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
+        uint256 multiplier = _getMultiplier(lastRewardBlock, _blockNumber());
         uint256 _reward = multiplier * rewardsPerBlock[0];
         accTokenPerShares[0] += (_reward * PRECISION_FACTOR) / totalStaked;
         shouldTotalPaid[0] += _reward;
@@ -454,7 +462,7 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         accTokenPerShares[1] += (_reward * PRECISION_FACTOR) / totalStaked;
         shouldTotalPaid[1] += _reward;
 
-        lastRewardBlock = block.number;
+        lastRewardBlock = _blockNumber();
     }
 
     /**
@@ -479,6 +487,10 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         if (msg.value > performanceFee) {
             payable(msg.sender).transfer(msg.value - performanceFee);
         }
+    }
+
+    function _blockNumber() internal view returns(uint256) {
+        return ArbSys(address(100)).arbBlockNumber();
     }
 
     /**
