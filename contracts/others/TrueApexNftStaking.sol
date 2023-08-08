@@ -67,8 +67,8 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
     event RewardsStop(uint256 blockNumber);
     event EndBlockUpdated(uint256 blockNumber);
 
-    event ServiceInfoUpadted(address _addr, uint256 _fee);
-    event DurationUpdated(uint256 _duration);
+    event ServiceInfoUpadted(address addr, uint256 fee);
+    event DurationUpdated(uint256 duration);
 
     constructor() {}
 
@@ -94,10 +94,10 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         PRECISION_FACTOR = uint256(10 ** 30);
     }
 
-    /*
-    * @notice Deposit staked tokens and collect reward tokens (if any)
-    * @param _amount: amount to withdraw (in earnedToken)
-    */
+    /**
+     * @notice Deposit staked tokens and collect reward tokens (if any)
+     * @param _tokenIds: list of tokenId to stake
+     */
     function deposit(uint256[] memory _tokenIds) external payable nonReentrant {
         require(startBlock > 0 && startBlock < block.number, "Staking hasn't started yet");
         require(_tokenIds.length > 0, "must add at least one tokenId");
@@ -117,7 +117,7 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             stakingNft.safeTransferFrom(msg.sender, address(this), tokenId);
             user.tokenIds.push(tokenId);
         }
-        user.amount = user.amount + _tokenIds.length;
+        user.amount += _tokenIds.length;
         user.rewardDebt[0] = (user.amount * accTokenPerShares[0]) / PRECISION_FACTOR;
         user.rewardDebt[1] = (user.amount * accTokenPerShares[1]) / PRECISION_FACTOR;
 
@@ -128,10 +128,10 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         _updateEthRewardRate();
     }
 
-    /*
-    * @notice Withdraw staked tokenIds and collect reward tokens
-    * @param _amount: number of tokenIds to unstake
-    */
+    /**
+     * @notice Withdraw staked tokenIds and collect reward tokens
+     * @param _amount: number of tokenIds to unstake
+     */
     function withdraw(uint256 _amount) external payable nonReentrant {
         require(_amount > 0, "Amount should be greator than 0");
         require(_amount <= oneTimeLimit, "cannot exceed one-time limit");
@@ -171,12 +171,10 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         _transferPerformanceFee();
         _updatePool();
 
-        if (user.amount == 0) return;
-
-        _transferRewards(msg.sender, _index);
-
-        user.rewardDebt[_index] = (user.amount * accTokenPerShares[_index]) / PRECISION_FACTOR;
-
+        if (user.amount > 0) {
+            _transferRewards(msg.sender, _index);
+            user.rewardDebt[_index] = (user.amount * accTokenPerShares[_index]) / PRECISION_FACTOR;
+        }
         _updateEthRewardRate();
     }
 
@@ -184,20 +182,19 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         _transferPerformanceFee();
         _updatePool();
 
-        if (userInfo[msg.sender].amount == 0) return;
+        if (userInfo[msg.sender].amount > 0) {
+            _transferRewards(msg.sender, 0);
+            _transferRewards(msg.sender, 1);
 
-        _transferRewards(msg.sender, 0);
-        _transferRewards(msg.sender, 1);
-
-        UserInfo storage user = userInfo[msg.sender];
-        user.rewardDebt[0] = (user.amount * accTokenPerShares[0]) / PRECISION_FACTOR;
-        user.rewardDebt[1] = (user.amount * accTokenPerShares[1]) / PRECISION_FACTOR;
-
+            UserInfo storage user = userInfo[msg.sender];
+            user.rewardDebt[0] = (user.amount * accTokenPerShares[0]) / PRECISION_FACTOR;
+            user.rewardDebt[1] = (user.amount * accTokenPerShares[1]) / PRECISION_FACTOR;
+        }
         _updateEthRewardRate();
     }
 
     function _transferRewards(address _user, uint8 _index) internal {
-        UserInfo memory user = userInfo[_user];
+        UserInfo storage user = userInfo[_user];
         uint256 pending = (user.amount * accTokenPerShares[_index]) / PRECISION_FACTOR - user.rewardDebt[_index];
         if (pending == 0) return;
 
@@ -228,11 +225,11 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
             emit NewRewardsPerBlock(rewardsPerBlock);
         }
     }
-    /*
-    * @notice Withdraw staked NFTs without caring about rewards
-    * @dev Needs to be for emergency.
-    */
 
+    /**
+     * @notice Withdraw staked NFTs without caring about rewards
+     * @dev Needs to be for emergency.
+     */
     function emergencyWithdraw() external nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
         uint256 _amount = user.amount;
@@ -281,12 +278,12 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         return adjustedShouldTotalPaid - remainRewards;
     }
 
-    /*
-    * @notice View function to see pending reward on frontend.
-    * @param _user: user address
-    * @param _index: index of earning token (0 - earning token, 1 - eth) 
-    * @return Pending reward for a given user
-    */
+    /**
+     * @notice View function to see pending reward on frontend.
+     * @param _user: user address
+     * @param _index: index of earning token (0 - earning token, 1 - eth)
+     * @return Pending reward for a given user
+     */
     function pendingReward(address _user, uint8 _index) external view returns (uint256) {
         UserInfo storage user = userInfo[_user];
 
@@ -385,12 +382,12 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         emit EndBlockUpdated(_endBlock);
     }
 
-    /*
-    * @notice Update reward per block
-    * @dev Only callable by owner.
-    * @param _rewardsPerBlock: the reward per block
-    * @param _index: index of reward token
-    */
+    /**
+     * @notice Update reward per block
+     * @dev Only callable by owner.
+     * @param _rewardsPerBlock: the reward per block
+     * @param _index: index of reward token
+     */
     function updateRewardsPerBlock(uint256 _rewardsPerBlock, uint8 _index) external onlyOwner {
         _updatePool();
         rewardsPerBlock[_index] = _rewardsPerBlock;
@@ -460,11 +457,11 @@ contract TrueApexNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
         lastRewardBlock = block.number;
     }
 
-    /*
-    * @notice Return reward multiplier over the given _from to _to block.
-    * @param _from: block to start
-    * @param _to: block to finish
-    */
+    /**
+     * @notice Return reward multiplier over the given _from to _to block.
+     * @param _from: block to start
+     * @param _to: block to finish
+     */
     function _getMultiplier(uint256 _from, uint256 _to) internal view returns (uint256) {
         if (_to <= bonusEndBlock) {
             return _to - _from;
