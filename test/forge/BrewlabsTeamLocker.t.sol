@@ -230,7 +230,7 @@ contract BrewlabsTeamLockerTest is Test {
 
     function test_removeLiquidity() public {
         vm.createSelectFork("https://bsc-dataseed.binance.org/");
-        
+
         BrewlabsTeamLocker _locker = new BrewlabsTeamLocker();
 
         MockErc20 token0 = new MockErc20(18);
@@ -245,7 +245,9 @@ contract BrewlabsTeamLockerTest is Test {
         token1.mint(address(this), 5 ether);
         token0.approve(swapRouter, 10 ether);
         token1.approve(swapRouter, 5 ether);
-        IUniRouter02(swapRouter).addLiquidity(address(token0), address(token1), 10 ether, 5 ether, 0, 0, address(_locker), block.timestamp + 200);
+        IUniRouter02(swapRouter).addLiquidity(
+            address(token0), address(token1), 10 ether, 5 ether, 0, 0, address(_locker), block.timestamp + 200
+        );
 
         address pair = IUniV2Factory(IUniRouter02(swapRouter).factory()).getPair(address(token0), address(token1));
         uint256 liquidity = MockErc20(pair).balanceOf(address(_locker));
@@ -255,7 +257,7 @@ contract BrewlabsTeamLockerTest is Test {
         address[] memory pairs = new address[](1);
         pairs[0] = pair;
         _locker.removeLiquidity(pairs, block.timestamp + 200);
-        
+
         emit log_named_uint("token0", token0.balanceOf(address(_locker)));
         emit log_named_uint("token1", token1.balanceOf(address(_locker)));
     }

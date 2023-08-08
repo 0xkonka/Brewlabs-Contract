@@ -57,6 +57,8 @@ contract ProjectXLocker is Ownable {
     function addDistribution(address _distributor, uint256 _allocation, uint256 _duration) external onlyOwner {
         require(isDistributor[_distributor] == false, "Already set");
 
+        _updatePool();
+
         isDistributor[_distributor] = true;
         distributors.push(_distributor);
 
@@ -95,8 +97,9 @@ contract ProjectXLocker is Ownable {
     function updateDistribution(address _distributor, uint256 _allocation, uint256 _duration) external onlyOwner {
         require(isDistributor[_distributor] == true, "Not found");
 
-        Distribution storage _distribution = distributions[_distributor];
+        _updatePool();
 
+        Distribution storage _distribution = distributions[_distributor];
         require(_distribution.unlockBlock > block.number, "Cannot update");
         totalAllocated -= _distribution.alloc;
 
@@ -195,6 +198,11 @@ contract ProjectXLocker is Ownable {
 
         accReflectionPerShare += reflectionAmt * PRECISION_FACTOR / totalAllocated;
         allocatedReflections += reflectionAmt;
+    }
+
+    function emergencyWithdraw() external onlyOwner {
+        IERC20(token).safeTransfer(msg.sender, IERC20(token).balanceOf(address(this)));
+        IERC20(reflectionToken).safeTransfer(msg.sender, IERC20(token).balanceOf(address(this)));
     }
 
     /**
