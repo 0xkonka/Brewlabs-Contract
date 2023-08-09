@@ -17,17 +17,12 @@ contract TrueApexNftStakingTest is Test {
     Utils internal utils;
     uint256[2] internal rewardPerBlock;
 
-    uint256 mainnetFork;
-    string MAINNET_RPC_URL = "https://arb1.arbitrum.io/rpc";
-
     event Deposit(address indexed user, uint256[] tokenIds);
     event Withdraw(address indexed user, uint256[] tokenIds);
-    event Claim(address indexed user, uint256 amount);
+    event Claim(address indexed user, address indexed token, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256[] tokenIds);
 
     function setUp() public {
-        mainnetFork = vm.createSelectFork(MAINNET_RPC_URL);
-
         token = new MockErc20(18);
         nft = new MockErc721();
         nftStaking = new TrueApexNftStaking();
@@ -65,188 +60,160 @@ contract TrueApexNftStakingTest is Test {
         vm.stopPrank();
     }
 
-    // function test_notFirstDeposit() public {
-    //     address user = address(0x1234);
-    //     vm.deal(user, 1 ether);
+    function test_notFirstDeposit() public {
+        address user = address(0x1234);
+        vm.deal(user, 1 ether);
+        vm.deal(address(nftStaking), 1 ether);
 
-    //     vm.startPrank(user);
+        vm.startPrank(user);
+        nft.setApprovalForAll(address(nftStaking), true);
 
-    //     nft.mint(0, user);
-    //     nft.mint(1, user);
-    //     nft.mint(1, user);
-    //     nft.mint(2, user);
+        uint256[] memory _tokenIds = new uint256[](4);
+        for (uint256 i = 0; i < 4; i++) {
+            _tokenIds[i] = nft.mint(user);
+        }
+        nftStaking.deposit{value: 0.00089 ether}(_tokenIds);
 
-    //     nft.setApprovalForAll(address(nftStaking), true);
+        assertEq(nftStaking.rewardsPerSecond(1), uint256(1 ether) / (365 * 86400 - 1));
 
-    //     uint256[] memory _tokenIds = new uint256[](4);
-    //     for (uint256 i = 0; i < 4; i++) {
-    //         _tokenIds[i] = i + 1;
-    //     }
-    //     nftStaking.deposit{value: 0.0035 ether}(_tokenIds);
-    //     (,, uint256[3] memory _amounts) = nftStaking.stakedInfo(user);
+        vm.warp(block.timestamp + 100);
+        uint256 accTokenPerShare0 = 100 * nftStaking.rewardsPerSecond(0) * 10**30 / 4;
+        uint256 accTokenPerShare1 = 100 * nftStaking.rewardsPerSecond(1) * 10**30 / 4;
+        uint256 pending0 = accTokenPerShare0 * 4 / 10**30;
+        uint256 pending1 = accTokenPerShare1 * 4 / 10**30;
+        
+        _tokenIds = new uint256[](1);
+        _tokenIds[0] = nft.mint(user);
 
-    //     utils.mineBlocks(10);
+        vm.expectEmit(true, true, false, true);
+        emit Claim(user, address(token), pending0);
+        vm.expectEmit(true, true, false, true);
+        emit Claim(user, address(0), pending1);
+        nftStaking.deposit{value: 0.00089 ether}(_tokenIds);
 
-    //     uint256 pending;
-    //     for (uint256 i = 0; i < 3; i++) {
-    //         pending += 10 * _amounts[i] * rewardPerBlock[i];
-    //     }
+        vm.stopPrank();
+    }
 
-    //     nft.mint(1, user);
-    //     _tokenIds = new uint256[](1);
-    //     _tokenIds[0] = 5;
+    function test_claim() public {
+        address user = address(0x1234);
+        vm.deal(user, 1 ether);
+        vm.deal(address(nftStaking), 1 ether);
 
-    //     vm.expectEmit(true, false, false, true);
-    //     emit Claim(user, pending);
-    //     nftStaking.deposit{value: 0.0035 ether}(_tokenIds);
+        vm.startPrank(user);
+        nft.setApprovalForAll(address(nftStaking), true);
 
-    //     vm.stopPrank();
-    // }
+        uint256[] memory _tokenIds = new uint256[](4);
+        for (uint256 i = 0; i < 4; i++) {
+            _tokenIds[i] = nft.mint(user);
+        }
+        nftStaking.deposit{value: 0.00089 ether}(_tokenIds);
 
-    // function test_claim() public {
-    //     address user = address(0x1234);
-    //     vm.deal(user, 1 ether);
+        vm.warp(block.timestamp + 100);
+        uint256 accTokenPerShare0 = 100 * nftStaking.rewardsPerSecond(0) * 10**30 / 4;
+        uint256 accTokenPerShare1 = 100 * nftStaking.rewardsPerSecond(1) * 10**30 / 4;
+        
+        nftStaking.withdraw{value: 0.00089 ether}(1);
 
-    //     vm.startPrank(user);
+        vm.warp(block.timestamp + 74);
+        uint256 debt0 = 3 * accTokenPerShare0 / 10**30;
+        uint256 debt1 = 3 * accTokenPerShare1 / 10**30;
+        accTokenPerShare0 += 74 * nftStaking.rewardsPerSecond(0) * 10**30 / 3;
+        accTokenPerShare1 += 74 * nftStaking.rewardsPerSecond(1) * 10**30 / 3;
+        uint256 pending0 = accTokenPerShare0 * 3 / 10**30 - debt0;
+        uint256 pending1 = accTokenPerShare1 * 3 / 10**30 - debt1;
 
-    //     nft.mint(0, user);
-    //     nft.mint(1, user);
-    //     nft.mint(1, user);
-    //     nft.mint(2, user);
+        vm.expectEmit(true, true, false, true);
+        emit Claim(user, address(token), pending0);
+        nftStaking.claimReward{value: 0.00089 ether}(0);
 
-    //     nft.setApprovalForAll(address(nftStaking), true);
+        vm.expectEmit(true, true, false, true);
+        emit Claim(user, address(0), pending1);
+        nftStaking.claimReward{value: 0.00089 ether}(1);
+        vm.stopPrank();
+    }
 
-    //     uint256[] memory _tokenIds = new uint256[](4);
-    //     for (uint256 i = 0; i < 4; i++) {
-    //         _tokenIds[i] = i + 1;
-    //     }
-    //     nftStaking.deposit{value: 0.0035 ether}(_tokenIds);
+    function test_withdraw() public {
+        address user = address(0x1234);
+        vm.deal(user, 1 ether);
+        vm.deal(address(nftStaking), 1 ether);
 
-    //     utils.mineBlocks(10);
+        vm.startPrank(user);
+        nft.setApprovalForAll(address(nftStaking), true);
 
-    //     nft.mint(1, user);
-    //     _tokenIds = new uint256[](1);
-    //     _tokenIds[0] = 5;
+        uint256[] memory _tokenIds = new uint256[](4);
+        for (uint256 i = 0; i < 4; i++) {
+            _tokenIds[i] = nft.mint(user);
+        }
+        nftStaking.deposit{value: 0.00089 ether}(_tokenIds);
 
-    //     nftStaking.deposit{value: 0.0035 ether}(_tokenIds);
+        vm.warp(block.timestamp + 100);
+        uint256 accTokenPerShare0 = 100 * nftStaking.rewardsPerSecond(0) * 10**30 / 4;
+        uint256 accTokenPerShare1 = 100 * nftStaking.rewardsPerSecond(1) * 10**30 / 4;
+        
+        _tokenIds = new uint256[](1);
+        _tokenIds[0] = nft.mint(user);
+        nftStaking.deposit{value: 0.00089 ether}(_tokenIds);
 
-    //     utils.mineBlocks(74);
-    //     (,, uint256[3] memory _amounts) = nftStaking.stakedInfo(user);
-    //     uint256 pending;
-    //     for (uint256 i = 0; i < 3; i++) {
-    //         pending += 74 * _amounts[i] * rewardPerBlock[i];
-    //     }
+        vm.warp(block.timestamp + 574);
+        uint256 debt0 = 5 * accTokenPerShare0 / 10**30;
+        uint256 debt1 = 5 * accTokenPerShare1 / 10**30;
+        accTokenPerShare0 += 574 * nftStaking.rewardsPerSecond(0) * 10**30 / 5;
+        accTokenPerShare1 += 574 * nftStaking.rewardsPerSecond(1) * 10**30 / 5;
+        uint256 pending0 = accTokenPerShare0 * 5 / 10**30 - debt0;
+        uint256 pending1 = accTokenPerShare1 * 5 / 10**30 - debt1;
 
-    //     vm.expectEmit(true, false, false, true);
-    //     emit Claim(user, pending);
-    //     nftStaking.claimReward{value: 0.0035 ether}();
-    //     vm.stopPrank();
-    // }
+        _tokenIds = new uint256[](3);
+        for (uint256 i = 3; i > 0; i--) {
+            _tokenIds[3 - i] = i + 2;
+        }
 
-    // function test_withdraw() public {
-    //     address user = address(0x1234);
-    //     vm.deal(user, 1 ether);
+        vm.expectEmit(true, true, false, true);
+        emit Claim(user, address(token), pending0);
+        vm.expectEmit(true, true, false, true);
+        emit Claim(user, address(0), pending1);
+        vm.expectEmit(true, false, false, true);
+        emit Withdraw(user, _tokenIds);
+        nftStaking.withdraw{value: 0.00089 ether}(3);
 
-    //     vm.startPrank(user);
+        (uint256 amount, ) = nftStaking.stakedInfo(user);
+        assertEq(amount, 2);
 
-    //     nft.mint(0, user);
-    //     nft.mint(1, user);
-    //     nft.mint(1, user);
-    //     nft.mint(2, user);
+        vm.stopPrank();
+    }
 
-    //     nft.setApprovalForAll(address(nftStaking), true);
+    function test_emergencyWithdraw() public {
+        address user = address(0x1234);
+        vm.deal(user, 1 ether);
+        vm.deal(address(nftStaking), 1 ether);
 
-    //     uint256[] memory _tokenIds = new uint256[](4);
-    //     for (uint256 i = 0; i < 4; i++) {
-    //         _tokenIds[i] = i + 1;
-    //     }
-    //     nftStaking.deposit{value: 0.0035 ether}(_tokenIds);
+        vm.startPrank(user);
+        nft.setApprovalForAll(address(nftStaking), true);
 
-    //     utils.mineBlocks(10);
+        uint256[] memory _tokenIds = new uint256[](4);
+        for (uint256 i = 0; i < 4; i++) {
+            _tokenIds[i] = nft.mint(user);
+        }
+        nftStaking.deposit{value: 0.00089 ether}(_tokenIds);
 
-    //     nft.mint(1, user);
-    //     _tokenIds = new uint256[](1);
-    //     _tokenIds[0] = 5;
+        vm.warp(block.timestamp + 100);
+        _tokenIds = new uint256[](1);
+        _tokenIds[0] = nft.mint(user);
+        nftStaking.deposit{value: 0.00089 ether}(_tokenIds);
 
-    //     nftStaking.deposit{value: 0.0035 ether}(_tokenIds);
+        vm.warp(block.timestamp + 574);
+        _tokenIds = new uint256[](5);
+        for(uint256 i = 5; i > 0; i--) {
+            _tokenIds[5 - i] = i;
+        }
+        vm.expectEmit(true, false, false, true);
+        emit EmergencyWithdraw(user, _tokenIds);
+        nftStaking.emergencyWithdraw();
+        
+        assertEq(nftStaking.rewardsPerSecond(1), address(nftStaking).balance / (365 * 86400 - 101));
 
-    //     utils.mineBlocks(74);
-    //     (,, uint256[3] memory _amounts) = nftStaking.stakedInfo(user);
-    //     uint256 pending;
-    //     for (uint256 i = 0; i < 3; i++) {
-    //         pending += 74 * _amounts[i] * rewardPerBlock[i];
-    //     }
+        vm.warp(block.timestamp + 10);
+        assertEq(nftStaking.pendingReward(user, 0), 0);
 
-    //     _tokenIds = new uint256[](3);
-    //     for (uint256 i = 3; i > 0; i--) {
-    //         _tokenIds[3 - i] = i + 2;
-    //     }
-
-    //     vm.expectEmit(true, false, false, true);
-    //     emit Claim(user, pending);
-    //     vm.expectEmit(true, false, false, true);
-    //     emit Withdraw(user, _tokenIds);
-    //     nftStaking.withdraw{value: 0.0035 ether}(3);
-
-    //     (,, _amounts) = nftStaking.stakedInfo(user);
-    //     assertEq(_amounts[0], 1);
-    //     assertEq(_amounts[1], 1);
-    //     assertEq(_amounts[2], 0);
-
-    //     vm.stopPrank();
-    // }
-
-    // function test_emergencyWithdraw() public {
-    //     address user = address(0x1234);
-    //     vm.deal(user, 1 ether);
-
-    //     vm.startPrank(user);
-
-    //     nft.mint(0, user);
-    //     nft.mint(1, user);
-    //     nft.mint(1, user);
-    //     nft.mint(2, user);
-
-    //     nft.setApprovalForAll(address(nftStaking), true);
-
-    //     uint256[] memory _tokenIds = new uint256[](4);
-    //     for (uint256 i = 0; i < 4; i++) {
-    //         _tokenIds[i] = i + 1;
-    //     }
-    //     nftStaking.deposit{value: 0.0035 ether}(_tokenIds);
-
-    //     utils.mineBlocks(10);
-
-    //     nft.mint(1, user);
-    //     _tokenIds = new uint256[](1);
-    //     _tokenIds[0] = 5;
-
-    //     nftStaking.deposit{value: 0.0035 ether}(_tokenIds);
-
-    //     utils.mineBlocks(74);
-    //     (,, uint256[3] memory _amounts) = nftStaking.stakedInfo(user);
-    //     uint256 pending;
-    //     for (uint256 i = 0; i < 3; i++) {
-    //         pending += 74 * _amounts[i] * rewardPerBlock[i];
-    //     }
-
-    //     _tokenIds = new uint256[](5);
-    //     for (uint256 i = 5; i > 0; i--) {
-    //         _tokenIds[5 - i] = i;
-    //     }
-
-    //     vm.expectEmit(true, false, false, true);
-    //     emit EmergencyWithdraw(user, _tokenIds);
-    //     nftStaking.emergencyWithdraw();
-
-    //     (,, _amounts) = nftStaking.stakedInfo(user);
-    //     assertEq(_amounts[0], 0);
-    //     assertEq(_amounts[1], 0);
-    //     assertEq(_amounts[2], 0);
-
-    //     utils.mineBlocks(10);
-    //     assertEq(nftStaking.pendingReward(user), 0);
-
-    //     vm.stopPrank();
-    // }
+        vm.stopPrank();
+    }
 }
