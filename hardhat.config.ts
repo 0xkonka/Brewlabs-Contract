@@ -14,6 +14,8 @@ const {
   testMnemonics,
 } = require("./.secrets.js");
 
+require("./tasks/rescueTokens");
+
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
