@@ -9,20 +9,19 @@ const { formatEther, formatUnits, parseEther } = require("ethers/lib/utils.js");
 const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay * 1000));
 task("rescue-token", "Make transactions")
   .addParam("count", "number to transactions", 10, types.int)
-  .setAction(async function ({ fromIndex, count }, hre, _) {
-    const { getUnnamedAccounts, deployments, ethers, network } = hre;
+  .setAction(async function ({ count }, hre, _) {
+    const { getUnnamedAccounts, deployments, ethers } = hre;
 
     const {deploy} = deployments;
     let accounts = await getUnnamedAccounts();
     let account = accounts[0];
+    console.log(`account : `, account);
 
     for (let i = 0; i < count; i++) {
       try {
-        console.log(`account ${fromIndex + i}: `, account);
-
         let nonce = await ethers.provider.getTransactionCount(account, "latest");
         console.log("nonce: ", nonce);
-
+        return;
         if (nonce <= 487) {
             let gasPrice = await ethers.provider.getGasPrice();
             gasPrice = gasPrice.mul(110).div(100);
