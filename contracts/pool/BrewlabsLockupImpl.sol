@@ -280,7 +280,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         while (i != 0 && stakes[i - 1].end > end && i >= _firstIndex) {
             // shift it back one
             stakes[i] = stakes[i - 1];
-            i -= 1;
+            i = i - 1;
         }
 
         Lockup storage lockup = lockups[_stakeType];
@@ -362,6 +362,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         }
 
         uint256 realAmount = _amount - remained;
+
         user.firstIndex = firstIndex;
         user.amount = user.amount - realAmount;
         lockup.totalStaked = lockup.totalStaked - realAmount;
@@ -475,12 +476,13 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
             if (stake.stakeType != _stakeType || stake.amount == 0) continue;
 
             uint256 _pending = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR - stake.rewardDebt;
-            pending = pending + _pending;
+            pending += _pending;
 
             if (address(stakingToken) != address(rewardToken) && _pending > 0) {
-                pending = _safeSwap(pending, address(rewardToken), address(stakingToken), address(this), _trade);
+                _pending = _safeSwap(_pending, address(rewardToken), address(stakingToken), address(this), _trade);
             }
-            compounded = compounded + _pending;
+
+            compounded += _pending;
 
             stake.amount = stake.amount + _pending;
             stake.rewardDebt = (stake.amount * lockup.accTokenPerShare) / PRECISION_FACTOR;
@@ -690,14 +692,11 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         Stake[] memory stakes = userStakes[_account];
         Lockup memory lockup = lockups[_stakeType];
 
-        if (lockup.totalStaked == 0) return 0;
-
         uint256 adjustedTokenPerShare = lockup.accTokenPerShare;
-        if (block.number > lockup.lastRewardBlock && lockup.totalStaked != 0 && lockup.lastRewardBlock > 0) {
-            uint256 multiplier = _getMultiplier(lockup.lastRewardBlock, block.number);
-            uint256 reward = multiplier * lockup.rate;
-
-            adjustedTokenPerShare = lockup.accTokenPerShare + (reward * PRECISION_FACTOR) / lockup.totalStaked;
+        if (block.number > lockup.lastRewardBlock && lockup.totalStaked > 0 && lockup.lastRewardBlock > 0) {
+            adjustedTokenPerShare += (
+                lockup.rate * _getMultiplier(lockup.lastRewardBlock, block.number) * PRECISION_FACTOR
+            ) / lockup.totalStaked;
         }
 
         uint256 pending = 0;
@@ -1076,9 +1075,8 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         uint256 beforeAmount = IERC20(_toToken).balanceOf(_to);
         _trade.amountIn = _amountIn;
         swapAggregator.swapNoSplit(_trade, _to, block.timestamp + 600);
-        uint256 afterAmount = IERC20(_toToken).balanceOf(_to);
 
-        return afterAmount - beforeAmount;
+        return IERC20(_toToken).balanceOf(_to) - beforeAmount;
     }
 
     receive() external payable {}

@@ -34,6 +34,28 @@ interface IBrewlabsDiscountMgr {
     function discountOf(address user) external view returns (uint256);
 }
 
+interface IBrewlabsIndexData {
+    function precomputeZapIn(
+        address _aggregator,
+        address _token,
+        uint256 _amount,
+        IERC20[] memory _tokens,
+        uint256[] memory _percents,
+        uint256 _gasPrice
+    ) external view returns (IBrewlabsAggregator.FormattedOffer[] memory queries);
+    function precomputeZapOut(
+        address _aggregator,
+        IERC20[] memory _tokens,
+        uint256[] memory amounts,
+        address _token,
+        uint256 _gasPrice
+    ) external view returns (IBrewlabsAggregator.FormattedOffer[] memory queries);
+    function expectedEth(address _aggregator, IERC20[] memory _tokens, uint256[] memory _amounts)
+        external
+        view
+        returns (uint256 amountOut);
+}
+
 // BrewlabsIndex is index contracts that offer a range of token collections to buy as "Brewlabs Index"
 // most likely top 100 tokens that do not require tax slippage.
 // Ideally the index tokens will buy 2-4 tokens (they will mostly be pegged tokens of the top 100 tokens that we will choose).
@@ -63,6 +85,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
     IERC20[] public tokens;
 
     IBrewlabsAggregator public swapAggregator;
+    IBrewlabsIndexData private indexData;
 
     // Info of each user.
     struct UserInfo {
@@ -159,6 +182,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         // initialize default variables
         FEE_DENOMINATOR = 10000;
         PRICE_FEED = 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE; // BNB-USD FEED
+        indexData = IBrewlabsIndexData(0x603D4DfeCA058AAc64eD2AA16C501bD7c956263a);
         swapAggregator = IBrewlabsAggregator(_aggregator);
         WNATIVE = swapAggregator.WNATIVE();
         NUM_TOKENS = _tokens.length;
@@ -187,22 +211,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         view
         returns (IBrewlabsAggregator.FormattedOffer[] memory queries)
     {
-        queries = new IBrewlabsAggregator.FormattedOffer[](NUM_TOKENS + 1);
-        uint256 ethAmount = _amount;
-        if (_token != address(0x0)) {
-            queries[0] = swapAggregator.findBestPathWithGas(_amount, _token, WNATIVE, 3, _gasPrice);
-            uint256[] memory _amounts = queries[0].amounts;
-            ethAmount = _amounts[_amounts.length - 1];
-        }
-
-        for (uint8 i = 0; i < NUM_TOKENS; i++) {
-            if (i >= _percents.length) break;
-
-            uint256 amountIn = (ethAmount * _percents[i]) / FEE_DENOMINATOR;
-            if (amountIn == 0 || address(tokens[i]) == WNATIVE) continue;
-
-            queries[i + 1] = swapAggregator.findBestPathWithGas(amountIn, WNATIVE, address(tokens[i]), 3, _gasPrice);
-        }
+        return indexData.precomputeZapIn(address(swapAggregator), _token, _amount, tokens, _percents, _gasPrice);
     }
 
     /**
@@ -268,8 +277,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
             amount += amountIn;
         }
-        uint256 usdAmount = amount * price / 1 ether;
 
+        uint256 usdAmount = amount * price / 1 ether;
         user.usdAmount += usdAmount;
         emit TokenZappedIn(msg.sender, amount, _percents, amountOuts, usdAmount, brewsFee + deployerFee);
 
@@ -292,11 +301,10 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         if (allowedMethod == 1) {
             amount = _safeSwapForETH(_amount, _token, _trade);
         } else {
-            amount = _amount;
-
             address wrapper = factory.wrappers(_token);
             if (_token == WNATIVE) {
                 IWETH(WNATIVE).withdraw(_amount);
+                amount = _amount;
             } else {
                 IERC20(_token).approve(wrapper, _amount);
                 amount = IWrapper(wrapper).withdraw(_amount);
@@ -329,13 +337,11 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
                 }
 
                 IBrewlabsAggregator.Trade memory _trade = _trades[i];
-                uint256[] memory _amounts = new uint256[](_trade.path.length);
-                _amounts[0] = user.amounts[i];
+                uint256 _amount = user.amounts[i];
                 for (uint256 j = 0; j < _trade.adapters.length; j++) {
-                    _amounts[j + 1] =
-                        IAdapter(_trade.adapters[j]).query(_amounts[j], _trade.path[j], _trade.path[j + 1]);
+                    _amount = IAdapter(_trade.adapters[j]).query(_amount, _trade.path[j], _trade.path[j + 1]);
                 }
-                expectedAmt += _amounts[_trade.path.length - 1];
+                expectedAmt += _amount;
             }
         }
         uint256 expectedUsdAmt = (expectedAmt * price / 1 ether);
@@ -393,27 +399,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         view
         returns (IBrewlabsAggregator.FormattedOffer[] memory queries)
     {
-        queries = new IBrewlabsAggregator.FormattedOffer[](NUM_TOKENS + 1);
-
         UserInfo memory user = users[msg.sender];
-
-        uint256 ethAmount = 0;
-        uint256[] memory amounts = user.amounts;
-        for (uint256 i = 0; i < NUM_TOKENS; i++) {
-            if (amounts[i] == 0) continue;
-            if (address(tokens[i]) == WNATIVE) {
-                ethAmount += amounts[i];
-                continue;
-            }
-
-            queries[i] = swapAggregator.findBestPathWithGas(amounts[i], address(tokens[i]), WNATIVE, 3, _gasPrice);
-            uint256[] memory _amounts = queries[i].amounts;
-            ethAmount += _amounts[_amounts.length - 1];
-        }
-
-        if (_token != address(0x0)) {
-            queries[NUM_TOKENS] = swapAggregator.findBestPathWithGas(ethAmount, WNATIVE, _token, 3, _gasPrice);
-        }
+        return indexData.precomputeZapOut(address(swapAggregator), tokens, user.amounts, _token, _gasPrice);
     }
 
     /**
@@ -429,8 +416,8 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         uint256 ethAmount;
         for (uint256 i = 0; i < NUM_TOKENS; i++) {
             uint256 claimAmount = user.amounts[i];
+            if (claimAmount == 0) continue;
             totalStaked[i] -= claimAmount;
-            if (user.amounts[i] == 0) continue;
 
             uint256 amountOut;
             if (address(tokens[i]) == WNATIVE) {
@@ -724,7 +711,6 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
 
         treasury = _addr;
         performanceFee = _fee;
-
         emit ServiceInfoChanged(_addr, _fee);
     }
 
@@ -764,21 +750,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      * @param amounts: amounts to swap
      */
     function _expectedEth(uint256[] memory amounts) internal view returns (uint256 amountOut) {
-        uint256 aggregatorFee = swapAggregator.BREWS_FEE();
-
-        IBrewlabsAggregator.FormattedOffer memory query;
-        for (uint8 i = 0; i < NUM_TOKENS; i++) {
-            if (amounts[i] == 0) continue;
-
-            if (address(tokens[i]) == WNATIVE) {
-                amountOut += amounts[i];
-            } else {
-                query = swapAggregator.findBestPath(amounts[i], address(tokens[i]), WNATIVE, 3);
-                uint256 _amountOut = query.amounts[query.amounts.length - 1];
-                if (aggregatorFee > 0) _amountOut = _amountOut * (FEE_DENOMINATOR - aggregatorFee) / FEE_DENOMINATOR;
-                amountOut += _amountOut;
-            }
-        }
+        return indexData.expectedEth(address(swapAggregator), tokens, amounts);
     }
 
     function _getDiscount(address _user) internal view returns (uint256) {

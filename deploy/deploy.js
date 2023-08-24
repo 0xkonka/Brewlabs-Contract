@@ -30,6 +30,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             index: false,
             indexNft: false,
             deployerNft: false,
+            indexData: false,
             indexImpl: false,
             indexFactory: false,
             flaskNft: false,
@@ -139,6 +140,19 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             })
         }
         
+        if(config.indexData) {
+            Utils.infoMsg("Deploying BrewlabsIndexData contract");
+            let deployed = await deploy('BrewlabsIndexData', 
+                {
+                    from: account,
+                    args: [],
+                    log:  false
+                });
+    
+            let deployedAddress = deployed.address;
+            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+        }
+
         if(config.indexImpl) {
             Utils.infoMsg("Deploying BrewlabsIndex contract");
             let deployed = await deploy('BrewlabsIndex', 
