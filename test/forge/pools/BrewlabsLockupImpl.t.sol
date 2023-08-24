@@ -113,7 +113,8 @@ contract BrewlabsLockupImplTest is Test {
 
     function trySwap(address token, uint256 amount, address to) internal {
         IBrewlabsAggregator swapAggregator = pool.swapAggregator();
-        IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(amount, WBNB, token, 3);
+        IBrewlabsAggregator.FormattedOffer memory query =
+            swapAggregator.findBestPathWithGas(amount, WBNB, token, 3, tx.gasprice);
 
         IBrewlabsAggregator.Trade memory _trade;
         _trade.amountIn = amount;
@@ -121,7 +122,7 @@ contract BrewlabsLockupImplTest is Test {
         _trade.adapters = query.adapters;
         _trade.path = query.path;
 
-        swapAggregator.swapNoSplitFromETH{value: amount}(_trade, to);
+        swapAggregator.swapNoSplitFromETH{value: amount}(_trade, to, block.timestamp + 300);
     }
 
     function tryDeposit(address _user, uint256 _amount) internal {

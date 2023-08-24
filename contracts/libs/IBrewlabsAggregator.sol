@@ -22,8 +22,15 @@ interface IBrewlabsAggregator {
         external
         view
         returns (FormattedOffer memory);
+    function findBestPathWithGas(
+        uint256 _amountIn,
+        address _tokenIn,
+        address _tokenOut,
+        uint256 _maxSteps,
+        uint256 _gasPrice
+    ) external view returns (FormattedOffer memory);
 
-    function swapNoSplit(Trade memory _trade, address _to) external;
-    function swapNoSplitFromETH(Trade memory _trade, address _to) external payable;
-    function swapNoSplitToETH(Trade memory _trade, address _to) external;
+    function swapNoSplit(Trade memory _trade, address _to, uint256 _deadline) external;
+    function swapNoSplitFromETH(Trade memory _trade, address _to, uint256 _deadline) external payable;
+    function swapNoSplitToETH(Trade memory _trade, address _to, uint256 _deadline) external;
 }

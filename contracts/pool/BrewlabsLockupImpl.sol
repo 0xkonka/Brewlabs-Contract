@@ -436,7 +436,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         }
     }
 
-    function precomputeCompound(uint8 _stakeType, bool isDividend)
+    function precomputeCompound(uint8 _stakeType, bool isDividend, uint256 _gasPrice)
         external
         view
         returns (IBrewlabsAggregator.FormattedOffer memory offer)
@@ -448,10 +448,11 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         if (pending == 0) return offer;
 
         if (!isDividend) {
-            offer = swapAggregator.findBestPath(pending, address(rewardToken), address(stakingToken), 3);
+            offer =
+                swapAggregator.findBestPathWithGas(pending, address(rewardToken), address(stakingToken), 3, _gasPrice);
         } else {
-            offer = swapAggregator.findBestPath(
-                pending, dividendToken == address(0x0) ? WNATIVE : dividendToken, address(stakingToken), 3
+            offer = swapAggregator.findBestPathWithGas(
+                pending, dividendToken == address(0x0) ? WNATIVE : dividendToken, address(stakingToken), 3, _gasPrice
             );
         }
     }
@@ -1074,7 +1075,7 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
 
         uint256 beforeAmount = IERC20(_toToken).balanceOf(_to);
         _trade.amountIn = _amountIn;
-        swapAggregator.swapNoSplit(_trade, _to);
+        swapAggregator.swapNoSplit(_trade, _to, block.timestamp + 600);
         uint256 afterAmount = IERC20(_toToken).balanceOf(_to);
 
         return afterAmount - beforeAmount;

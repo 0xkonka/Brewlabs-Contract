@@ -12,6 +12,10 @@ import {IBrewlabsAggregator} from "../libs/IBrewlabsAggregator.sol";
 import {IWETH} from "../libs/IWETH.sol";
 import {IWrapper} from "../libs/IWrapper.sol";
 
+interface IAdapter {
+    function query(uint256, address, address) external view returns (uint256);
+}
+
 interface IBrewlabsIndexFactory {
     function brewlabsFee() external view returns (uint256);
     function feeLimits(uint256 index) external view returns (uint256);
@@ -178,7 +182,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         _transferOwnership(_owner);
     }
 
-    function precomputeZapIn(address _token, uint256 _amount, uint256[] memory _percents)
+    function precomputeZapIn(address _token, uint256 _amount, uint256[] memory _percents, uint256 _gasPrice)
         external
         view
         returns (IBrewlabsAggregator.FormattedOffer[] memory queries)
@@ -186,7 +190,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         queries = new IBrewlabsAggregator.FormattedOffer[](NUM_TOKENS + 1);
         uint256 ethAmount = _amount;
         if (_token != address(0x0)) {
-            queries[0] = swapAggregator.findBestPath(_amount, _token, WNATIVE, 3);
+            queries[0] = swapAggregator.findBestPathWithGas(_amount, _token, WNATIVE, 3, _gasPrice);
             uint256[] memory _amounts = queries[0].amounts;
             ethAmount = _amounts[_amounts.length - 1];
         }
@@ -197,7 +201,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             uint256 amountIn = (ethAmount * _percents[i]) / FEE_DENOMINATOR;
             if (amountIn == 0 || address(tokens[i]) == WNATIVE) continue;
 
-            queries[i + 1] = swapAggregator.findBestPath(amountIn, WNATIVE, address(tokens[i]), 3);
+            queries[i + 1] = swapAggregator.findBestPathWithGas(amountIn, WNATIVE, address(tokens[i]), 3, _gasPrice);
         }
     }
 
@@ -305,14 +309,35 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
      *         If the user exits the index in a loss then there is no fee.
      *         If the user exists the index in a profit, processing fee will be applied.
      */
-    function claimTokens(uint256 _percent) external onlyInitialized nonReentrant {
+    function claimTokens(uint256 _percent, IBrewlabsAggregator.Trade[] memory _trades)
+        external
+        onlyInitialized
+        nonReentrant
+    {
         require(_percent > 0 && _percent <= FEE_DENOMINATOR, "Invalid percent");
         UserInfo storage user = users[msg.sender];
         require(user.usdAmount > 0, "No available tokens");
 
         uint256 discount = _getDiscount(msg.sender);
         uint256 price = getPriceFromChainlink();
-        uint256 expectedAmt = _expectedEth(user.amounts);
+        uint256 expectedAmt;
+        {
+            for (uint256 i = 0; i < NUM_TOKENS; i++) {
+                if (address(tokens[i]) == WNATIVE) {
+                    expectedAmt += user.amounts[i];
+                    continue;
+                }
+
+                IBrewlabsAggregator.Trade memory _trade = _trades[i];
+                uint256[] memory _amounts = new uint256[](_trade.path.length);
+                _amounts[0] = user.amounts[i];
+                for (uint256 j = 0; j < _trade.adapters.length; j++) {
+                    _amounts[j + 1] =
+                        IAdapter(_trade.adapters[j]).query(_amounts[j], _trade.path[j], _trade.path[j + 1]);
+                }
+                expectedAmt += _amounts[_trade.path.length - 1];
+            }
+        }
         uint256 expectedUsdAmt = (expectedAmt * price / 1 ether);
 
         bool bCommission = expectedUsdAmt > user.usdAmount;
@@ -363,7 +388,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         emit TokenClaimed(msg.sender, amounts, claimedUsdAmount, commission);
     }
 
-    function precomputeZapOut(address _token)
+    function precomputeZapOut(address _token, uint256 _gasPrice)
         external
         view
         returns (IBrewlabsAggregator.FormattedOffer[] memory queries)
@@ -381,13 +406,13 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
                 continue;
             }
 
-            queries[i] = swapAggregator.findBestPath(amounts[i], address(tokens[i]), WNATIVE, 3);
+            queries[i] = swapAggregator.findBestPathWithGas(amounts[i], address(tokens[i]), WNATIVE, 3, _gasPrice);
             uint256[] memory _amounts = queries[i].amounts;
             ethAmount += _amounts[_amounts.length - 1];
         }
 
         if (_token != address(0x0)) {
-            queries[NUM_TOKENS] = swapAggregator.findBestPath(ethAmount, WNATIVE, _token, 3);
+            queries[NUM_TOKENS] = swapAggregator.findBestPathWithGas(ethAmount, WNATIVE, _token, 3, _gasPrice);
         }
     }
 
@@ -750,7 +775,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
             } else {
                 query = swapAggregator.findBestPath(amounts[i], address(tokens[i]), WNATIVE, 3);
                 uint256 _amountOut = query.amounts[query.amounts.length - 1];
-                if (aggregatorFee > 0) _amountOut = _amountOut * (10000 - aggregatorFee) / 10000;
+                if (aggregatorFee > 0) _amountOut = _amountOut * (FEE_DENOMINATOR - aggregatorFee) / FEE_DENOMINATOR;
                 amountOut += _amountOut;
             }
         }
@@ -776,7 +801,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         _trade.amountIn = _amountIn;
 
         uint256 beforeAmt = IERC20(_token).balanceOf(_to);
-        swapAggregator.swapNoSplitFromETH{value: _amountIn}(_trade, _to);
+        swapAggregator.swapNoSplitFromETH{value: _amountIn}(_trade, _to, block.timestamp + 3600);
         uint256 afterAmt = IERC20(_token).balanceOf(_to);
 
         return afterAmt - beforeAmt;
@@ -796,7 +821,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         IERC20(_token).safeApprove(address(swapAggregator), _amountIn);
 
         uint256 beforeAmt = address(this).balance;
-        swapAggregator.swapNoSplitToETH(_trade, address(this));
+        swapAggregator.swapNoSplitToETH(_trade, address(this), block.timestamp + 3600);
 
         return address(this).balance - beforeAmt;
     }

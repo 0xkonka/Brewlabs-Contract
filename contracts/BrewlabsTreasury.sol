@@ -48,7 +48,7 @@ contract BrewlabsTreasury is Ownable {
     uint256 private sumLiquidityWithdrawals = 0;
 
     address public swapRouter;
-    IBrewlabsAggregator public swapAggregator = IBrewlabsAggregator(0xce7C5A34CC7aE17D3d17a9728ab9673f77724743);
+    IBrewlabsAggregator public swapAggregator = IBrewlabsAggregator(0x260C865B96C6e70A25228635F8123C3A7ab0b4e2);
 
     event Initialized(address token, address dividendToken, address router);
 
@@ -440,7 +440,7 @@ contract BrewlabsTreasury is Ownable {
         _trade.path = query.path;
 
         uint256 beforeAmt = IERC20(_token).balanceOf(_to);
-        swapAggregator.swapNoSplitFromETH{value: _amountIn}(_trade, _to);
+        swapAggregator.swapNoSplitFromETH{value: _amountIn}(_trade, _to, block.timestamp + 600);
         uint256 afterAmt = IERC20(_token).balanceOf(_to);
 
         return afterAmt - beforeAmt;
@@ -468,7 +468,7 @@ contract BrewlabsTreasury is Ownable {
         IERC20(_tokenIn).safeApprove(address(swapAggregator), _amountIn);
 
         uint256 beforeAmt = IERC20(_tokenOut).balanceOf(_to);
-        swapAggregator.swapNoSplitFromETH(_trade, _to);
+        swapAggregator.swapNoSplitFromETH(_trade, _to, block.timestamp + 600);
         uint256 afterAmt = IERC20(_tokenOut).balanceOf(_to);
 
         return afterAmt - beforeAmt;

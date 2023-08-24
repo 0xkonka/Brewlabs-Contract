@@ -20,6 +20,7 @@ contract Claim is Ownable {
      * @param _amount: amount of the token to withdraw
      * @dev This function is only callable by admin.
      */
+
     function rescueTokens(address toAddr, address _token, uint256 _amount) external onlyOwner {
         if (_token == address(0x0)) {
             payable(toAddr).transfer(_amount);

@@ -77,11 +77,11 @@ contract TrueApexNftStakingTest is Test {
         assertEq(nftStaking.rewardsPerSecond(1), uint256(1 ether) / (365 * 86400 - 1));
 
         vm.warp(block.timestamp + 100);
-        uint256 accTokenPerShare0 = 100 * nftStaking.rewardsPerSecond(0) * 10**30 / 4;
-        uint256 accTokenPerShare1 = 100 * nftStaking.rewardsPerSecond(1) * 10**30 / 4;
-        uint256 pending0 = accTokenPerShare0 * 4 / 10**30;
-        uint256 pending1 = accTokenPerShare1 * 4 / 10**30;
-        
+        uint256 accTokenPerShare0 = 100 * nftStaking.rewardsPerSecond(0) * 10 ** 30 / 4;
+        uint256 accTokenPerShare1 = 100 * nftStaking.rewardsPerSecond(1) * 10 ** 30 / 4;
+        uint256 pending0 = accTokenPerShare0 * 4 / 10 ** 30;
+        uint256 pending1 = accTokenPerShare1 * 4 / 10 ** 30;
+
         _tokenIds = new uint256[](1);
         _tokenIds[0] = nft.mint(user);
 
@@ -109,18 +109,18 @@ contract TrueApexNftStakingTest is Test {
         nftStaking.deposit{value: 0.00089 ether}(_tokenIds);
 
         vm.warp(block.timestamp + 100);
-        uint256 accTokenPerShare0 = 100 * nftStaking.rewardsPerSecond(0) * 10**30 / 4;
-        uint256 accTokenPerShare1 = 100 * nftStaking.rewardsPerSecond(1) * 10**30 / 4;
-        
+        uint256 accTokenPerShare0 = 100 * nftStaking.rewardsPerSecond(0) * 10 ** 30 / 4;
+        uint256 accTokenPerShare1 = 100 * nftStaking.rewardsPerSecond(1) * 10 ** 30 / 4;
+
         nftStaking.withdraw{value: 0.00089 ether}(1);
 
         vm.warp(block.timestamp + 74);
-        uint256 debt0 = 3 * accTokenPerShare0 / 10**30;
-        uint256 debt1 = 3 * accTokenPerShare1 / 10**30;
-        accTokenPerShare0 += 74 * nftStaking.rewardsPerSecond(0) * 10**30 / 3;
-        accTokenPerShare1 += 74 * nftStaking.rewardsPerSecond(1) * 10**30 / 3;
-        uint256 pending0 = accTokenPerShare0 * 3 / 10**30 - debt0;
-        uint256 pending1 = accTokenPerShare1 * 3 / 10**30 - debt1;
+        uint256 debt0 = 3 * accTokenPerShare0 / 10 ** 30;
+        uint256 debt1 = 3 * accTokenPerShare1 / 10 ** 30;
+        accTokenPerShare0 += 74 * nftStaking.rewardsPerSecond(0) * 10 ** 30 / 3;
+        accTokenPerShare1 += 74 * nftStaking.rewardsPerSecond(1) * 10 ** 30 / 3;
+        uint256 pending0 = accTokenPerShare0 * 3 / 10 ** 30 - debt0;
+        uint256 pending1 = accTokenPerShare1 * 3 / 10 ** 30 - debt1;
 
         vm.expectEmit(true, true, false, true);
         emit Claim(user, address(token), pending0);
@@ -147,20 +147,20 @@ contract TrueApexNftStakingTest is Test {
         nftStaking.deposit{value: 0.00089 ether}(_tokenIds);
 
         vm.warp(block.timestamp + 100);
-        uint256 accTokenPerShare0 = 100 * nftStaking.rewardsPerSecond(0) * 10**30 / 4;
-        uint256 accTokenPerShare1 = 100 * nftStaking.rewardsPerSecond(1) * 10**30 / 4;
-        
+        uint256 accTokenPerShare0 = 100 * nftStaking.rewardsPerSecond(0) * 10 ** 30 / 4;
+        uint256 accTokenPerShare1 = 100 * nftStaking.rewardsPerSecond(1) * 10 ** 30 / 4;
+
         _tokenIds = new uint256[](1);
         _tokenIds[0] = nft.mint(user);
         nftStaking.deposit{value: 0.00089 ether}(_tokenIds);
 
         vm.warp(block.timestamp + 574);
-        uint256 debt0 = 5 * accTokenPerShare0 / 10**30;
-        uint256 debt1 = 5 * accTokenPerShare1 / 10**30;
-        accTokenPerShare0 += 574 * nftStaking.rewardsPerSecond(0) * 10**30 / 5;
-        accTokenPerShare1 += 574 * nftStaking.rewardsPerSecond(1) * 10**30 / 5;
-        uint256 pending0 = accTokenPerShare0 * 5 / 10**30 - debt0;
-        uint256 pending1 = accTokenPerShare1 * 5 / 10**30 - debt1;
+        uint256 debt0 = 5 * accTokenPerShare0 / 10 ** 30;
+        uint256 debt1 = 5 * accTokenPerShare1 / 10 ** 30;
+        accTokenPerShare0 += 574 * nftStaking.rewardsPerSecond(0) * 10 ** 30 / 5;
+        accTokenPerShare1 += 574 * nftStaking.rewardsPerSecond(1) * 10 ** 30 / 5;
+        uint256 pending0 = accTokenPerShare0 * 5 / 10 ** 30 - debt0;
+        uint256 pending1 = accTokenPerShare1 * 5 / 10 ** 30 - debt1;
 
         _tokenIds = new uint256[](3);
         for (uint256 i = 3; i > 0; i--) {
@@ -175,7 +175,7 @@ contract TrueApexNftStakingTest is Test {
         emit Withdraw(user, _tokenIds);
         nftStaking.withdraw{value: 0.00089 ether}(3);
 
-        (uint256 amount, ) = nftStaking.stakedInfo(user);
+        (uint256 amount,) = nftStaking.stakedInfo(user);
         assertEq(amount, 2);
 
         vm.stopPrank();
@@ -202,13 +202,13 @@ contract TrueApexNftStakingTest is Test {
 
         vm.warp(block.timestamp + 574);
         _tokenIds = new uint256[](5);
-        for(uint256 i = 5; i > 0; i--) {
+        for (uint256 i = 5; i > 0; i--) {
             _tokenIds[5 - i] = i;
         }
         vm.expectEmit(true, false, false, true);
         emit EmergencyWithdraw(user, _tokenIds);
         nftStaking.emergencyWithdraw();
-        
+
         assertEq(nftStaking.rewardsPerSecond(1), address(nftStaking).balance / (365 * 86400 - 101));
 
         vm.warp(block.timestamp + 10);

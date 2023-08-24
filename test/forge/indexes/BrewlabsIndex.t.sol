@@ -135,21 +135,26 @@ contract BrewlabsIndexTest is Test {
 
             uint256 _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[0] / FEE_DENOMINATOR;
             IBrewlabsAggregator.FormattedOffer memory query =
-                swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(0), 3);
+                swapAggregator.findBestPathWithGas(_ethAmount, WBNB, index.tokens(0), 3, tx.gasprice);
             _amounts[0] = query.amounts[query.amounts.length - 1];
             if (fee > 0) _amounts[0] = _amounts[0] * (10000 - fee) / 10000;
 
             _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[1] / FEE_DENOMINATOR;
-            query = swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(1), 3);
+            query = swapAggregator.findBestPathWithGas(_ethAmount, WBNB, index.tokens(1), 3, tx.gasprice);
             _amounts[1] = query.amounts[query.amounts.length - 1];
             if (fee > 0) _amounts[1] = _amounts[1] * (10000 - fee) / 10000;
         }
 
-        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapIn(address(0), ethAmount, percents);
+        IBrewlabsAggregator.FormattedOffer[] memory queries =
+            index.precomputeZapIn(address(0), ethAmount, percents, tx.gasprice);
         IBrewlabsAggregator.Trade[] memory _trades = new IBrewlabsAggregator.Trade[](percents.length + 1);
         for (uint256 i = 0; i < percents.length + 1; i++) {
             _trades[i].adapters = queries[i].adapters;
             _trades[i].path = queries[i].path;
+            if (queries[i].amounts.length > 0) {
+                _trades[i].amountIn = queries[i].amounts[0];
+                _trades[i].amountOut = queries[i].amounts[queries[i].amounts.length - 1] * 9900 / 10000;
+            }
         }
 
         vm.expectEmit(true, false, false, false);
@@ -212,12 +217,13 @@ contract BrewlabsIndexTest is Test {
 
             _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[1] / FEE_DENOMINATOR;
             IBrewlabsAggregator.FormattedOffer memory query =
-                swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(1), 3);
+                swapAggregator.findBestPathWithGas(_ethAmount, WBNB, index.tokens(1), 3, tx.gasprice);
             _amounts[1] = query.amounts[query.amounts.length - 1];
             if (fee > 0) _amounts[1] = _amounts[1] * (10000 - fee) / 10000;
         }
 
-        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapIn(address(0), ethAmount, percents);
+        IBrewlabsAggregator.FormattedOffer[] memory queries =
+            index.precomputeZapIn(address(0), ethAmount, percents, tx.gasprice);
         IBrewlabsAggregator.Trade[] memory _trades = new IBrewlabsAggregator.Trade[](percents.length + 1);
         for (uint256 i = 0; i < percents.length + 1; i++) {
             _trades[i].adapters = queries[i].adapters;
@@ -267,7 +273,8 @@ contract BrewlabsIndexTest is Test {
 
         uint256[] memory _amounts = new uint256[](5);
 
-        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapIn(address(0), ethAmount, percents);
+        IBrewlabsAggregator.FormattedOffer[] memory queries =
+            index.precomputeZapIn(address(0), ethAmount, percents, tx.gasprice);
         IBrewlabsAggregator.Trade[] memory _trades = new IBrewlabsAggregator.Trade[](percents.length + 1);
         for (uint256 i = 0; i < percents.length + 1; i++) {
             _trades[i].adapters = queries[i].adapters;
@@ -313,7 +320,8 @@ contract BrewlabsIndexTest is Test {
             IBrewlabsAggregator swapAggregator = IBrewlabsAggregator(index.swapAggregator());
             uint256 fee = swapAggregator.BREWS_FEE();
 
-            IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(amountIn, USDT, WBNB, 3);
+            IBrewlabsAggregator.FormattedOffer memory query =
+                swapAggregator.findBestPathWithGas(amountIn, USDT, WBNB, 3, tx.gasprice);
             ethAmount = query.amounts[query.amounts.length - 1];
             if (fee > 0) ethAmount = ethAmount * (10000 - fee) / 10000;
         }
@@ -333,19 +341,20 @@ contract BrewlabsIndexTest is Test {
 
             uint256 _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[0] / FEE_DENOMINATOR;
             IBrewlabsAggregator.FormattedOffer memory query =
-                swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(0), 3);
+                swapAggregator.findBestPathWithGas(_ethAmount, WBNB, index.tokens(0), 3, tx.gasprice);
             _amounts[0] = query.amounts[query.amounts.length - 1];
             if (fee > 0) _amounts[0] = _amounts[0] * (10000 - fee) / 10000;
 
             _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[1] / FEE_DENOMINATOR;
-            query = swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(1), 3);
+            query = swapAggregator.findBestPathWithGas(_ethAmount, WBNB, index.tokens(1), 3, tx.gasprice);
             _amounts[1] = query.amounts[query.amounts.length - 1];
             if (fee > 0) _amounts[1] = _amounts[1] * (10000 - fee) / 10000;
         }
 
         IERC20(USDT).approve(address(index), amountIn);
 
-        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapIn(USDT, amountIn, percents);
+        IBrewlabsAggregator.FormattedOffer[] memory queries =
+            index.precomputeZapIn(USDT, amountIn, percents, tx.gasprice);
         IBrewlabsAggregator.Trade[] memory _trades = new IBrewlabsAggregator.Trade[](percents.length + 1);
         for (uint256 i = 0; i < percents.length + 1; i++) {
             _trades[i].adapters = queries[i].adapters;
@@ -409,7 +418,8 @@ contract BrewlabsIndexTest is Test {
         percents[0] = 5000;
         percents[1] = 5000;
 
-        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapIn(address(0), amount, percents);
+        IBrewlabsAggregator.FormattedOffer[] memory queries =
+            index.precomputeZapIn(address(0), amount, percents, tx.gasprice);
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](percents.length + 1);
         for (uint256 i = 0; i < percents.length + 1; i++) {
             trades[i].adapters = queries[i].adapters;
@@ -472,10 +482,19 @@ contract BrewlabsIndexTest is Test {
         uint256 prevBalanceForToken0 = IERC20(token0).balanceOf(user);
         uint256 prevBalanceForToken1 = IERC20(token1).balanceOf(user);
 
-        utils.mineBlocks(10);
-        vm.expectEmit(true, false, false, false);
-        emit TokenClaimed(user, _claimAmounts, claimedUsdAmount, commission);
-        index.claimTokens(percent);
+        {
+            IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0), tx.gasprice);
+            IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length - 1);
+            for (uint256 i = 0; i < queries.length - 1; i++) {
+                trades[i].adapters = queries[i].adapters;
+                trades[i].path = queries[i].path;
+            }
+
+            utils.mineBlocks(10);
+            vm.expectEmit(true, false, false, false);
+            emit TokenClaimed(user, _claimAmounts, claimedUsdAmount, commission);
+            index.claimTokens(percent, trades);
+        }
 
         assertEq(_claimAmounts[0] - _claimFees[0], IERC20(token0).balanceOf(user) - prevBalanceForToken0);
         assertEq(_claimAmounts[1] - _claimFees[1], IERC20(token1).balanceOf(user) - prevBalanceForToken1);
@@ -523,11 +542,19 @@ contract BrewlabsIndexTest is Test {
         (uint256[] memory _claimAmounts,, uint256 commission) = getClaimAmounts(user, percent);
         uint256 claimedUsdAmount = (usdAmount * percent) / FEE_DENOMINATOR;
 
-        utils.mineBlocks(10);
-        vm.expectEmit(true, false, false, false);
-        emit TokenClaimed(user, _claimAmounts, claimedUsdAmount, commission);
-        index.claimTokens(percent);
+        {
+            IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0), tx.gasprice);
+            IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length - 1);
+            for (uint256 i = 0; i < queries.length - 1; i++) {
+                trades[i].adapters = queries[i].adapters;
+                trades[i].path = queries[i].path;
+            }
 
+            utils.mineBlocks(10);
+            vm.expectEmit(true, false, false, false);
+            emit TokenClaimed(user, _claimAmounts, claimedUsdAmount, commission);
+            index.claimTokens(percent, trades);
+        }
         (uint256[] memory _amounts, uint256 _usdAmount) = index.userInfo(user);
         assertEq(_amounts[0], amounts[0] - _claimAmounts[0]);
         assertEq(_amounts[1], amounts[1] - _claimAmounts[1]);
@@ -585,7 +612,7 @@ contract BrewlabsIndexTest is Test {
             emit log_named_uint("Commission", commission);
         }
 
-        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
+        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0), tx.gasprice);
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
         for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
@@ -649,7 +676,7 @@ contract BrewlabsIndexTest is Test {
             ethAmount -= commission + brewsFee;
         }
 
-        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
+        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0), tx.gasprice);
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
         for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
@@ -700,12 +727,13 @@ contract BrewlabsIndexTest is Test {
             IBrewlabsAggregator swapAggregator = IBrewlabsAggregator(index.swapAggregator());
             uint256 fee = swapAggregator.BREWS_FEE();
 
-            IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(ethAmount, WBNB, USDT, 3);
+            IBrewlabsAggregator.FormattedOffer memory query =
+                swapAggregator.findBestPathWithGas(ethAmount, WBNB, USDT, 3, tx.gasprice);
             usdtAmount = query.amounts[query.amounts.length - 1];
             if (fee > 0) usdtAmount = usdtAmount * (10000 - fee) / 10000;
         }
 
-        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(USDT);
+        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(USDT, tx.gasprice);
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
         for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
@@ -824,7 +852,7 @@ contract BrewlabsIndexTest is Test {
             ethAmount -= commission + brewsFee;
         }
 
-        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
+        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0), tx.gasprice);
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
         for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
@@ -884,7 +912,7 @@ contract BrewlabsIndexTest is Test {
         vm.startPrank(user);
         tryZapIn(address(0), 0.5 ether);
 
-        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
+        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0), tx.gasprice);
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
         for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
@@ -915,7 +943,7 @@ contract BrewlabsIndexTest is Test {
         vm.startPrank(user);
         tryZapIn(address(0), 0.5 ether);
 
-        queries = index.precomputeZapOut(address(0));
+        queries = index.precomputeZapOut(address(0), tx.gasprice);
         trades = new IBrewlabsAggregator.Trade[](queries.length);
         for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;
@@ -959,7 +987,7 @@ contract BrewlabsIndexTest is Test {
         vm.startPrank(user);
         tryZapIn(address(0), 0.5 ether);
 
-        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0));
+        IBrewlabsAggregator.FormattedOffer[] memory queries = index.precomputeZapOut(address(0), tx.gasprice);
         IBrewlabsAggregator.Trade[] memory trades = new IBrewlabsAggregator.Trade[](queries.length);
         for (uint256 i = 0; i < queries.length; i++) {
             trades[i].adapters = queries[i].adapters;

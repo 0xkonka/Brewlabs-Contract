@@ -51,7 +51,7 @@ contract WarPigsTreasury is Ownable {
     uint256 public performanceLpFee = 5000; // 50%
     address public feeWallet = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
 
-    address public brewlabsAggregator = 0xce7C5A34CC7aE17D3d17a9728ab9673f77724743;
+    address public brewlabsAggregator = 0x260C865B96C6e70A25228635F8123C3A7ab0b4e2;
     address public uniRouterAddress;
 
     event Initialized(address token, address dividendToken, address router);
@@ -488,7 +488,7 @@ contract WarPigsTreasury is Ownable {
         _trade.path = query.path;
 
         uint256 beforeAmt = IERC20(_token).balanceOf(_to);
-        IBrewlabsAggregator(brewlabsAggregator).swapNoSplitFromETH{value: _amountIn}(_trade, _to);
+        IBrewlabsAggregator(brewlabsAggregator).swapNoSplitFromETH{value: _amountIn}(_trade, _to, block.timestamp + 600);
         uint256 afterAmt = IERC20(_token).balanceOf(_to);
 
         return afterAmt - beforeAmt;
@@ -517,7 +517,7 @@ contract WarPigsTreasury is Ownable {
         IERC20(_tokenIn).safeApprove(brewlabsAggregator, _amountIn);
 
         uint256 beforeAmt = IERC20(_tokenOut).balanceOf(_to);
-        IBrewlabsAggregator(brewlabsAggregator).swapNoSplitFromETH(_trade, _to);
+        IBrewlabsAggregator(brewlabsAggregator).swapNoSplitFromETH(_trade, _to, block.timestamp + 600);
         uint256 afterAmt = IERC20(_tokenOut).balanceOf(_to);
 
         return afterAmt - beforeAmt;

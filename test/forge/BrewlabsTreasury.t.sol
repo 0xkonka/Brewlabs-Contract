@@ -8,7 +8,7 @@ import {Utils} from "./utils/Utils.sol";
 
 contract BrewlabsTreasuryTest is Test {
     address swapRouter = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
-    address brewlabsAggregator = 0x482ae8a4ffb3e63574ED838A09b194B4490A2907;
+    address brewlabsAggregator = 0x260C865B96C6e70A25228635F8123C3A7ab0b4e2;
     address internal WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address internal BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
     address internal BREWLABS = 0x6aAc56305825f712Fd44599E59f2EdE51d42C3e7;

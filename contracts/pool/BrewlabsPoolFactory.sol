@@ -89,7 +89,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
 
         __Ownable_init();
 
-        swapAggregator = 0xb87B0c7A5aD2f3c1A4909a7768C7AF22F20c494b;
+        swapAggregator = 0x260C865B96C6e70A25228635F8123C3A7ab0b4e2;
 
         payingToken = token;
         serviceFee = price;
