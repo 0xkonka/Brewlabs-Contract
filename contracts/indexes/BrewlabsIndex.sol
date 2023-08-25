@@ -40,16 +40,12 @@ interface IBrewlabsIndexData {
         address _token,
         uint256 _amount,
         IERC20[] memory _tokens,
-        uint256[] memory _percents,
-        uint256 _gasPrice
+        uint256[] memory _percents
     ) external view returns (IBrewlabsAggregator.FormattedOffer[] memory queries);
-    function precomputeZapOut(
-        address _aggregator,
-        IERC20[] memory _tokens,
-        uint256[] memory amounts,
-        address _token,
-        uint256 _gasPrice
-    ) external view returns (IBrewlabsAggregator.FormattedOffer[] memory queries);
+    function precomputeZapOut(address _aggregator, IERC20[] memory _tokens, uint256[] memory amounts, address _token)
+        external
+        view
+        returns (IBrewlabsAggregator.FormattedOffer[] memory queries);
     function expectedEth(address _aggregator, IERC20[] memory _tokens, uint256[] memory _amounts)
         external
         view
@@ -182,7 +178,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         // initialize default variables
         FEE_DENOMINATOR = 10000;
         PRICE_FEED = 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE; // BNB-USD FEED
-        indexData = IBrewlabsIndexData(0x603D4DfeCA058AAc64eD2AA16C501bD7c956263a);
+        indexData = IBrewlabsIndexData(0xF4B2eF51A965bCA7D61ab2c4C81D5c607180D2F1);
         swapAggregator = IBrewlabsAggregator(_aggregator);
         WNATIVE = swapAggregator.WNATIVE();
         NUM_TOKENS = _tokens.length;
@@ -206,12 +202,12 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         _transferOwnership(_owner);
     }
 
-    function precomputeZapIn(address _token, uint256 _amount, uint256[] memory _percents, uint256 _gasPrice)
+    function precomputeZapIn(address _token, uint256 _amount, uint256[] memory _percents)
         external
         view
         returns (IBrewlabsAggregator.FormattedOffer[] memory queries)
     {
-        return indexData.precomputeZapIn(address(swapAggregator), _token, _amount, tokens, _percents, _gasPrice);
+        return indexData.precomputeZapIn(address(swapAggregator), _token, _amount, tokens, _percents);
     }
 
     /**
@@ -394,13 +390,13 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         emit TokenClaimed(msg.sender, amounts, claimedUsdAmount, commission);
     }
 
-    function precomputeZapOut(address _token, uint256 _gasPrice)
+    function precomputeZapOut(address _token)
         external
         view
         returns (IBrewlabsAggregator.FormattedOffer[] memory queries)
     {
         UserInfo memory user = users[msg.sender];
-        return indexData.precomputeZapOut(address(swapAggregator), tokens, user.amounts, _token, _gasPrice);
+        return indexData.precomputeZapOut(address(swapAggregator), tokens, user.amounts, _token);
     }
 
     /**

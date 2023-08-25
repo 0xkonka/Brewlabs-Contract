@@ -375,7 +375,7 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         user.reflectionDebt = (user.amount * accDividendPerShare) / PRECISION_FACTOR_REFLECTION;
     }
 
-    function precomputeCompound(bool isDividend, uint256 _gasPrice)
+    function precomputeCompound(bool isDividend)
         external
         view
         returns (IBrewlabsAggregator.FormattedOffer memory offer)
@@ -387,11 +387,10 @@ contract BrewlabsStakingImpl is Ownable, ReentrancyGuard {
         if (pending == 0) return offer;
 
         if (!isDividend) {
-            offer =
-                swapAggregator.findBestPathWithGas(pending, address(rewardToken), address(stakingToken), 3, _gasPrice);
+            offer = swapAggregator.findBestPath(pending, address(rewardToken), address(stakingToken), 3);
         } else {
-            offer = swapAggregator.findBestPathWithGas(
-                pending, dividendToken == address(0x0) ? WNATIVE : dividendToken, address(stakingToken), 3, _gasPrice
+            offer = swapAggregator.findBestPath(
+                pending, dividendToken == address(0x0) ? WNATIVE : dividendToken, address(stakingToken), 3
             );
         }
     }

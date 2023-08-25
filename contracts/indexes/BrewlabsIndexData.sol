@@ -14,8 +14,7 @@ contract BrewlabsIndexData {
         address _token,
         uint256 _amount,
         IERC20[] memory _tokens,
-        uint256[] memory _percents,
-        uint256 _gasPrice
+        uint256[] memory _percents
     ) external view returns (IBrewlabsAggregator.FormattedOffer[] memory queries) {
         address WNATIVE = IBrewlabsAggregator(_aggregator).WNATIVE();
         uint256 NUM_TOKENS = _tokens.length;
@@ -24,7 +23,7 @@ contract BrewlabsIndexData {
 
         uint256 ethAmount = _amount;
         if (_token != address(0x0)) {
-            queries[0] = IBrewlabsAggregator(_aggregator).findBestPathWithGas(_amount, _token, WNATIVE, 3, _gasPrice);
+            queries[0] = IBrewlabsAggregator(_aggregator).findBestPath(_amount, _token, WNATIVE, 3);
             uint256[] memory _amounts = queries[0].amounts;
             ethAmount = _amounts[_amounts.length - 1];
         }
@@ -35,19 +34,15 @@ contract BrewlabsIndexData {
             uint256 amountIn = (ethAmount * _percents[i]) / FEE_DENOMINATOR;
             if (amountIn == 0 || address(_tokens[i]) == WNATIVE) continue;
 
-            queries[i + 1] = IBrewlabsAggregator(_aggregator).findBestPathWithGas(
-                amountIn, WNATIVE, address(_tokens[i]), 3, _gasPrice
-            );
+            queries[i + 1] = IBrewlabsAggregator(_aggregator).findBestPath(amountIn, WNATIVE, address(_tokens[i]), 3);
         }
     }
 
-    function precomputeZapOut(
-        address _aggregator,
-        IERC20[] memory _tokens,
-        uint256[] memory amounts,
-        address _token,
-        uint256 _gasPrice
-    ) external view returns (IBrewlabsAggregator.FormattedOffer[] memory queries) {
+    function precomputeZapOut(address _aggregator, IERC20[] memory _tokens, uint256[] memory amounts, address _token)
+        external
+        view
+        returns (IBrewlabsAggregator.FormattedOffer[] memory queries)
+    {
         address WNATIVE = IBrewlabsAggregator(_aggregator).WNATIVE();
         uint256 NUM_TOKENS = _tokens.length;
 
@@ -61,16 +56,13 @@ contract BrewlabsIndexData {
                 continue;
             }
 
-            queries[i] = IBrewlabsAggregator(_aggregator).findBestPathWithGas(
-                amounts[i], address(_tokens[i]), WNATIVE, 3, _gasPrice
-            );
+            queries[i] = IBrewlabsAggregator(_aggregator).findBestPath(amounts[i], address(_tokens[i]), WNATIVE, 3);
             uint256[] memory _amounts = queries[i].amounts;
             ethAmount += _amounts[_amounts.length - 1];
         }
 
         if (_token != address(0x0)) {
-            queries[NUM_TOKENS] =
-                IBrewlabsAggregator(_aggregator).findBestPathWithGas(ethAmount, WNATIVE, _token, 3, _gasPrice);
+            queries[NUM_TOKENS] = IBrewlabsAggregator(_aggregator).findBestPath(ethAmount, WNATIVE, _token, 3);
         }
     }
 

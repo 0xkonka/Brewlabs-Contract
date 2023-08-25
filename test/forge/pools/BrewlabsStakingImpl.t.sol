@@ -97,8 +97,7 @@ contract BrewlabsStakingImplTest is Test {
 
     function trySwap(address token, uint256 amount, address to) internal {
         IBrewlabsAggregator swapAggregator = pool.swapAggregator();
-        IBrewlabsAggregator.FormattedOffer memory query =
-            swapAggregator.findBestPathWithGas(amount, WBNB, token, 3, tx.gasprice);
+        IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(amount, WBNB, token, 3);
 
         IBrewlabsAggregator.Trade memory _trade;
         _trade.amountIn = amount;
@@ -407,7 +406,7 @@ contract BrewlabsStakingImplTest is Test {
 
         uint256 tokenBal = stakingToken.balanceOf(address(0x1));
 
-        IBrewlabsAggregator.FormattedOffer memory query = pool.precomputeCompound(false, tx.gasprice);
+        IBrewlabsAggregator.FormattedOffer memory query = pool.precomputeCompound(false);
         IBrewlabsAggregator.Trade memory trade;
         trade.adapters = query.adapters;
         trade.path = query.path;
@@ -490,7 +489,7 @@ contract BrewlabsStakingImplTest is Test {
 
         vm.startPrank(_user);
 
-        IBrewlabsAggregator.FormattedOffer memory query = _pool.precomputeCompound(true, tx.gasprice);
+        IBrewlabsAggregator.FormattedOffer memory query = _pool.precomputeCompound(true);
         IBrewlabsAggregator.Trade memory trade;
         trade.adapters = query.adapters;
         trade.path = query.path;

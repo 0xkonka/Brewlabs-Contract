@@ -51,11 +51,11 @@ interface IBrewlabsIndex {
     function getPendingCommissions() external view returns (uint256[] memory);
     function totalCommissions() external view returns (uint256);
 
-    function precomputeZapIn(address token, uint256 amount, uint256[] memory percents, uint256 _gasPrice)
+    function precomputeZapIn(address token, uint256 amount, uint256[] memory percents)
         external
         view
         returns (IBrewlabsAggregator.FormattedOffer[] memory queries);
-    function precomputeZapOut(address token, uint256 _gasPrice)
+    function precomputeZapOut(address token)
         external
         view
         returns (IBrewlabsAggregator.FormattedOffer[] memory queries);
