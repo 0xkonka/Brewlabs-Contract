@@ -460,6 +460,58 @@ contract BrewlabsFlaskNftTest is Test {
         assertEq(tokenIds.length, 0);
     }
 
+    function test_withdrawFromStaking() public {
+        address user = address(0x12345);
+        vm.deal(user, 0.5 ether);
+
+        nft.mintTo(user, 6, 1);
+
+        vm.startPrank(user);
+        nft.setApprovalForAll(address(nftStaking), true);
+
+        uint256 performanceFee = nftStaking.performanceFee();
+
+        // stake flask NFT
+        uint256[] memory _tokenIds = new uint256[](1);
+        _tokenIds[0] = 1;
+        nftStaking.deposit{value: performanceFee}(_tokenIds);
+
+        // check mirror nft
+        assertEq(nft.totalSupply(), 1);
+        assertEq(mirrorNft.totalSupply(), 1);
+        assertEq(mirrorNft.ownerOf(_tokenIds[0]), user);
+
+        // check staking info
+        (uint256 amount, uint256[] memory tokenIds) = nftStaking.stakedInfo(user);
+        assertEq(amount, 1);
+        assertEq(tokenIds.length, 1);
+        assertEq(tokenIds[0], _tokenIds[0]);
+        emit log_named_string("Mirror NFT Metadata", mirrorNft.tokenURI(_tokenIds[0]));
+
+        vm.expectRevert("Cannot transfer");
+        mirrorNft.transferFrom(user, address(0x11111111), _tokenIds[0]);
+
+        vm.stopPrank();
+
+        utils.mineBlocks(100);
+        uint256 pendingReward = nftStaking.pendingReward(user);
+
+        // withdraw
+        vm.startPrank(user);
+        nftStaking.withdraw{value: performanceFee}(1);
+        vm.stopPrank();
+        assertEq(nft.balanceOf(user), 1);
+        assertEq(mirrorNft.balanceOf(user), 0);
+
+        assertEq(nft.totalSupply(), 1);
+        assertEq(mirrorNft.totalSupply(), 0);
+
+        assertEq(earnToken.balanceOf(user), pendingReward);
+        (amount, tokenIds) = nftStaking.stakedInfo(user);
+        assertEq(amount, 0);
+        assertEq(tokenIds.length, 0);
+    }
+
     function test_checkMirrorNft() public {
         address user = address(0x12345);
         vm.deal(user, 1 ether);
