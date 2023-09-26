@@ -335,8 +335,8 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         }
 
         if(config.nftStaking) {          
-            let flaskNft = "";
-            let mirrorNft = "";
+            let flaskNft = "0x680650268F8f307bC19b6DA6A9aaAe18D3bEF468";
+            let mirrorNft = "0xBA43929FFEeFcf9e32081896DA6f332DAaE5bd5B";
             if(flaskNft === "" || mirrorNft === "") {
                 Utils.errorMsg("Flask NFT or Mirror NFT were not be set");
                 return
@@ -350,10 +350,10 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                     log:  false
                 });
     
-            let deployedAddress = deployed.address;
-            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+            let nftStakingAddr = deployed.address;
+            Utils.successMsg(`Contract Address: ${nftStakingAddr}`);
             
-            let contractInstance = await ethers.getContractAt("BrewlabsNftStaking", deployed.address)
+            let contractInstance = await ethers.getContractAt("BrewlabsNftStaking", nftStakingAddr)
             let tx = await contractInstance.initialize(flaskNft, mirrorNft, "0x0000000000000000000000000000000000000000", "0")
             await tx.wait();
 
@@ -361,18 +361,18 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             await tx.wait();
             
             contractInstance = await ethers.getContractAt("BrewlabsMirrorNft", mirrorNft);
-            tx = await contractInstance.setAdmin(deployed.address)
+            tx = await contractInstance.setAdmin(nftStakingAddr)
             await tx.wait()
 
             contractInstance = await ethers.getContractAt("BrewlabsFlaskNft", flaskNft);
-            tx = await contractInstance.setNftStakingContract(deployed.address)
+            tx = await contractInstance.setNftStakingContract(nftStakingAddr)
             await tx.wait()
 
-            // await hre.run("verify:verify", {
-            //     address: deployedAddress,
-            //     contract: "contracts/BrewlabsNftStaking.sol:BrewlabsNftStaking",
-            //     constructorArguments: [],
-            // })
+            await hre.run("verify:verify", {
+                address: nftStakingAddr,
+                contract: "contracts/BrewlabsNftStaking.sol:BrewlabsNftStaking",
+                constructorArguments: [],
+            })
         }
 
         if(config.farmImpl) {

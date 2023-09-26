@@ -28,7 +28,7 @@ contract BrewlabsNftStaking is Ownable, IERC721Receiver, ReentrancyGuard {
 
     // Whether it is initialized
     bool public isInitialized;
-    uint256 public duration = 365; // 365 days
+    uint256 public duration = 270; // 270 days
 
     // The block number when staking starts.
     uint256 public startBlock;
