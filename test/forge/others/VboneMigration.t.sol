@@ -51,4 +51,47 @@ contract VboneMigrationTest is Test {
         assertEq(vbone.balanceOf(alice), 0);
         assertEq(vboneWarmhole.balanceOf(alice), 5 ether);
     }
+
+    function testFail_migrationWithZeroAmount() external {
+        vm.startPrank(alice);
+        migration.migrate(0);
+    }
+
+    function testFail_migrationWhenNotEnabled() external {
+        VboneMigration _migration = new VboneMigration(vbone, vboneWarmhole);
+
+        vbone.mint(address(_migration), 1000 * 10 ** 6);
+        vboneWarmhole.mint(address(_migration), 1000 ether);
+
+        uint256 amount = 5 * 10 ** 6;
+        vbone.mint(alice, amount);
+
+        vm.startPrank(alice);
+        vbone.approve(address(_migration), amount);
+
+        _migration.migrate(amount);
+        vm.stopPrank();
+    }
+
+    function test_migrateToVbone() external {
+        uint256 amount = 11 ether;
+        vboneWarmhole.mint(bob, amount);
+
+        vm.startPrank(bob);
+        vboneWarmhole.approve(address(migration), amount);
+
+        vm.expectEmit(true, true, true, true);
+        emit MigratedToVbone(bob, amount, 11 * 10**6);
+
+        migration.migrateToVbone(amount);
+        vm.stopPrank();
+
+        assertEq(vbone.balanceOf(bob), 11 * 10**6);
+        assertEq(vboneWarmhole.balanceOf(bob), 0);
+    }
+    
+    function testFail_migrationToVboneWithZeroAmount() external {
+        vm.startPrank(alice);
+        migration.migrateToVbone(0);
+    }
 }

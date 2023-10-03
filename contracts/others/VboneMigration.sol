@@ -62,7 +62,7 @@ contract VboneMigration is Ownable, ReentrancyGuard {
         emit Migrated(msg.sender, amount, mAmount);
     }
 
-    function migrateToVBone(uint256 _amount) external onlyActive nonReentrant {
+    function migrateToVbone(uint256 _amount) external onlyActive nonReentrant {
         require(_amount > 0, "Invalid amount");
         uint256 beforeBalance = vboneWormhole.balanceOf(address(this));
         vboneWormhole.safeTransferFrom(msg.sender, address(this), _amount);
@@ -72,7 +72,7 @@ contract VboneMigration is Ownable, ReentrancyGuard {
 
         uint256 mAmount =
             (amount * 10 ** vboneDecimals * MIGRATION_PRECISION) / 10 ** vboneWormholeDecimals / migrationRate;
-        vboneWormhole.safeTransfer(msg.sender, mAmount);
+        vbone.safeTransfer(msg.sender, mAmount);
 
         emit MigratedToVbone(msg.sender, amount, mAmount);
     }
