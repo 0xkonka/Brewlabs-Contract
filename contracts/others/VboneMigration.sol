@@ -11,17 +11,17 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
-contract VBoneMigration is Ownable, ReentrancyGuard {
+contract VboneMigration is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 public constant MIGRATION_PRECISION = 10000;
 
     bool public enabled = false;
 
-    IERC20 public vBone;
-    IERC20 public vBoneWormhole;
-    uint8 public vBoneDecimals;
-    uint8 public vBoneWormholeDecimals;
+    IERC20 public vbone;
+    IERC20 public vboneWormhole;
+    uint8 public vboneDecimals;
+    uint8 public vboneWormholeDecimals;
     uint256 public migrationRate = 10000;
 
     event Enabled();
@@ -37,40 +37,42 @@ contract VBoneMigration is Ownable, ReentrancyGuard {
 
     /**
      * @notice constructor
-     * @param _vBone: token address
-     * @param _vBoneWormhole: reflection token address
+     * @param _vbone: token address
+     * @param _vboneWormhole: reflection token address
      */
-    constructor(IERC20 _vBone, IERC20 _vBoneWormhole) {
-        vBone = _vBone;
-        vBoneWormhole = _vBoneWormhole;
-        vBoneDecimals = IERC20Metadata(address(vBone)).decimals();
-        vBoneWormholeDecimals = IERC20Metadata(address(vBoneWormhole)).decimals();
+    constructor(IERC20 _vbone, IERC20 _vboneWormhole) {
+        vbone = _vbone;
+        vboneWormhole = _vboneWormhole;
+        vboneDecimals = IERC20Metadata(address(vbone)).decimals();
+        vboneWormholeDecimals = IERC20Metadata(address(vboneWormhole)).decimals();
     }
 
     function migrate(uint256 _amount) external onlyActive nonReentrant {
-        uint256 beforeBalance = vBone.balanceOf(address(this));
-        vBone.safeTransferFrom(msg.sender, address(this), _amount);
-        uint256 afterBalance = vBone.balanceOf(address(this));
+        require(_amount > 0, "Invalid amount");
+        uint256 beforeBalance = vbone.balanceOf(address(this));
+        vbone.safeTransferFrom(msg.sender, address(this), _amount);
+        uint256 afterBalance = vbone.balanceOf(address(this));
 
         uint256 amount = afterBalance - beforeBalance;
 
         uint256 mAmount =
-            amount * 10 ** vBoneDecimals * migrationRate / 10 ** vBoneWormholeDecimals / MIGRATION_PRECISION;
-        vBoneWormhole.safeTransfer(msg.sender, mAmount);
+            (amount * 10 ** vboneWormholeDecimals * migrationRate) / 10 ** vboneDecimals / MIGRATION_PRECISION;
+        vboneWormhole.safeTransfer(msg.sender, mAmount);
 
         emit Migrated(msg.sender, amount, mAmount);
     }
 
     function migrateToVBone(uint256 _amount) external onlyActive nonReentrant {
-        uint256 beforeBalance = vBoneWormhole.balanceOf(address(this));
-        vBoneWormhole.safeTransferFrom(msg.sender, address(this), _amount);
-        uint256 afterBalance = vBoneWormhole.balanceOf(address(this));
+        require(_amount > 0, "Invalid amount");
+        uint256 beforeBalance = vboneWormhole.balanceOf(address(this));
+        vboneWormhole.safeTransferFrom(msg.sender, address(this), _amount);
+        uint256 afterBalance = vboneWormhole.balanceOf(address(this));
 
         uint256 amount = afterBalance - beforeBalance;
 
         uint256 mAmount =
-            amount * 10 ** vBoneWormholeDecimals * MIGRATION_PRECISION / 10 ** vBoneDecimals / migrationRate;
-        vBoneWormhole.safeTransfer(msg.sender, mAmount);
+            (amount * 10 ** vboneDecimals * MIGRATION_PRECISION) / 10 ** vboneWormholeDecimals / migrationRate;
+        vboneWormhole.safeTransfer(msg.sender, mAmount);
 
         emit MigratedToVbone(msg.sender, amount, mAmount);
     }
