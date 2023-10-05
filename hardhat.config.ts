@@ -75,7 +75,7 @@ module.exports = {
     bsc_mainnet: {
       url: `https://bsc-dataseed.binance.org/`,
       chainId: 56,
-      //gasPrice: 20000000000,
+      gasPrice: 4000000000,
       accounts: [accountPrivateKey["bsc"]],
     },
 
