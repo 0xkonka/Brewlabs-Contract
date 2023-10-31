@@ -113,7 +113,7 @@ contract BrewlabsLockupImplTest is Test {
 
     function trySwap(address token, uint256 amount, address to) internal {
         IBrewlabsAggregator swapAggregator = pool.swapAggregator();
-        IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(amount, WBNB, token, 3);
+        IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(amount, WBNB, token, 2);
 
         IBrewlabsAggregator.Trade memory _trade;
         _trade.amountIn = amount;

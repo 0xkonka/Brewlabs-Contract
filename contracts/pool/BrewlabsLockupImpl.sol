@@ -449,10 +449,10 @@ contract BrewlabsLockupImpl is Ownable, ReentrancyGuard {
         if (pending == 0) return offer;
 
         if (!isDividend) {
-            offer = swapAggregator.findBestPath(pending, address(rewardToken), address(stakingToken), 3);
+            offer = swapAggregator.findBestPath(pending, address(rewardToken), address(stakingToken), 2);
         } else {
             offer = swapAggregator.findBestPath(
-                pending, dividendToken == address(0x0) ? WNATIVE : dividendToken, address(stakingToken), 3
+                pending, dividendToken == address(0x0) ? WNATIVE : dividendToken, address(stakingToken), 2
             );
         }
     }

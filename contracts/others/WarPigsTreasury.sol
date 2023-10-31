@@ -506,7 +506,7 @@ contract WarPigsTreasury is Ownable {
         returns (uint256)
     {
         IBrewlabsAggregator.FormattedOffer memory query =
-            IBrewlabsAggregator(brewlabsAggregator).findBestPath(_amountIn, _tokenIn, _tokenOut, 3);
+            IBrewlabsAggregator(brewlabsAggregator).findBestPath(_amountIn, _tokenIn, _tokenOut, 2);
 
         IBrewlabsAggregator.Trade memory _trade;
         _trade.amountIn = _amountIn;

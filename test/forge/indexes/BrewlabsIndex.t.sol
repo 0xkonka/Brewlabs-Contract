@@ -135,12 +135,12 @@ contract BrewlabsIndexTest is Test {
 
             uint256 _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[0] / FEE_DENOMINATOR;
             IBrewlabsAggregator.FormattedOffer memory query =
-                swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(0), 3);
+                swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(0), 2);
             _amounts[0] = query.amounts[query.amounts.length - 1];
             if (fee > 0) _amounts[0] = _amounts[0] * (10000 - fee) / 10000;
 
             _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[1] / FEE_DENOMINATOR;
-            query = swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(1), 3);
+            query = swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(1), 2);
             _amounts[1] = query.amounts[query.amounts.length - 1];
             if (fee > 0) _amounts[1] = _amounts[1] * (10000 - fee) / 10000;
         }
@@ -216,7 +216,7 @@ contract BrewlabsIndexTest is Test {
 
             _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[1] / FEE_DENOMINATOR;
             IBrewlabsAggregator.FormattedOffer memory query =
-                swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(1), 3);
+                swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(1), 2);
             _amounts[1] = query.amounts[query.amounts.length - 1];
             if (fee > 0) _amounts[1] = _amounts[1] * (10000 - fee) / 10000;
         }
@@ -317,7 +317,7 @@ contract BrewlabsIndexTest is Test {
             IBrewlabsAggregator swapAggregator = IBrewlabsAggregator(index.swapAggregator());
             uint256 fee = swapAggregator.BREWS_FEE();
 
-            IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(amountIn, USDT, WBNB, 3);
+            IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(amountIn, USDT, WBNB, 2);
             ethAmount = query.amounts[query.amounts.length - 1];
             if (fee > 0) ethAmount = ethAmount * (10000 - fee) / 10000;
         }
@@ -337,12 +337,12 @@ contract BrewlabsIndexTest is Test {
 
             uint256 _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[0] / FEE_DENOMINATOR;
             IBrewlabsAggregator.FormattedOffer memory query =
-                swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(0), 3);
+                swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(0), 2);
             _amounts[0] = query.amounts[query.amounts.length - 1];
             if (fee > 0) _amounts[0] = _amounts[0] * (10000 - fee) / 10000;
 
             _ethAmount = (ethAmount - (brewsFee + deployerFee)) * percents[1] / FEE_DENOMINATOR;
-            query = swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(1), 3);
+            query = swapAggregator.findBestPath(_ethAmount, WBNB, index.tokens(1), 2);
             _amounts[1] = query.amounts[query.amounts.length - 1];
             if (fee > 0) _amounts[1] = _amounts[1] * (10000 - fee) / 10000;
         }
@@ -721,7 +721,7 @@ contract BrewlabsIndexTest is Test {
             IBrewlabsAggregator swapAggregator = IBrewlabsAggregator(index.swapAggregator());
             uint256 fee = swapAggregator.BREWS_FEE();
 
-            IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(ethAmount, WBNB, USDT, 3);
+            IBrewlabsAggregator.FormattedOffer memory query = swapAggregator.findBestPath(ethAmount, WBNB, USDT, 2);
             usdtAmount = query.amounts[query.amounts.length - 1];
             if (fee > 0) usdtAmount = usdtAmount * (10000 - fee) / 10000;
         }

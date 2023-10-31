@@ -23,7 +23,7 @@ contract BrewlabsIndexData {
 
         uint256 ethAmount = _amount;
         if (_token != address(0x0)) {
-            queries[0] = IBrewlabsAggregator(_aggregator).findBestPath(_amount, _token, WNATIVE, 3);
+            queries[0] = IBrewlabsAggregator(_aggregator).findBestPath(_amount, _token, WNATIVE, 2);
             uint256[] memory _amounts = queries[0].amounts;
             ethAmount = _amounts[_amounts.length - 1];
         }
@@ -34,7 +34,7 @@ contract BrewlabsIndexData {
             uint256 amountIn = (ethAmount * _percents[i]) / FEE_DENOMINATOR;
             if (amountIn == 0 || address(_tokens[i]) == WNATIVE) continue;
 
-            queries[i + 1] = IBrewlabsAggregator(_aggregator).findBestPath(amountIn, WNATIVE, address(_tokens[i]), 3);
+            queries[i + 1] = IBrewlabsAggregator(_aggregator).findBestPath(amountIn, WNATIVE, address(_tokens[i]), 2);
         }
     }
 
@@ -56,13 +56,13 @@ contract BrewlabsIndexData {
                 continue;
             }
 
-            queries[i] = IBrewlabsAggregator(_aggregator).findBestPath(amounts[i], address(_tokens[i]), WNATIVE, 3);
+            queries[i] = IBrewlabsAggregator(_aggregator).findBestPath(amounts[i], address(_tokens[i]), WNATIVE, 2);
             uint256[] memory _amounts = queries[i].amounts;
             ethAmount += _amounts[_amounts.length - 1];
         }
 
         if (_token != address(0x0)) {
-            queries[NUM_TOKENS] = IBrewlabsAggregator(_aggregator).findBestPath(ethAmount, WNATIVE, _token, 3);
+            queries[NUM_TOKENS] = IBrewlabsAggregator(_aggregator).findBestPath(ethAmount, WNATIVE, _token, 2);
         }
     }
 
@@ -83,7 +83,7 @@ contract BrewlabsIndexData {
             if (address(_tokens[i]) == WNATIVE) {
                 amountOut += _amounts[i];
             } else {
-                query = IBrewlabsAggregator(_aggregator).findBestPath(_amounts[i], address(_tokens[i]), WNATIVE, 3);
+                query = IBrewlabsAggregator(_aggregator).findBestPath(_amounts[i], address(_tokens[i]), WNATIVE, 2);
                 uint256 _amountOut = query.amounts[query.amounts.length - 1];
                 if (aggregatorFee > 0) _amountOut = _amountOut * (FEE_DENOMINATOR - aggregatorFee) / FEE_DENOMINATOR;
                 amountOut += _amountOut;
