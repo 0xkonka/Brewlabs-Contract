@@ -3,8 +3,11 @@ pragma solidity ^0.8.4;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IBrewlabsDiscountManager} from "../libs/IBrewlabsDiscountManager.sol";
 
 contract BrewlabsAirdropNft is Ownable {
+    uint256 public constant DISCOUNT_MAX = 10_000;
+
     uint256 public commission = 0.00066 ether;
     uint256 public commissionLimit = 3 ether;
     uint256 public maxTxLimit = 200;
@@ -15,6 +18,7 @@ contract BrewlabsAirdropNft is Ownable {
     /* list of addresses for no fee */
     address[] private whitelist;
 
+    address discountMgr;
     address public feeAddress = 0x408c4aDa67aE1244dfeC7D609dea3c232843189A;
 
     /* events */
@@ -24,6 +28,7 @@ contract BrewlabsAirdropNft is Ownable {
     event AddedToDicountList(address token);
     event RemovedFromDicountList(address token);
 
+    event DiscountMgrUpdated(address addr);
     event FeeAddressUpdated(address addr);
 
     event CommissionUpdated(uint256 amount);
@@ -58,6 +63,10 @@ contract BrewlabsAirdropNft is Ownable {
 
         if (isInDiscountList(token)) return fee / 2;
 
+        if (discountMgr != address(0)) {
+            uint256 discount = IBrewlabsDiscountManager(discountMgr).discountOf(msg.sender);
+            fee = fee * (DISCOUNT_MAX - discount) / DISCOUNT_MAX;
+        }
         return fee;
     }
 
@@ -139,6 +148,13 @@ contract BrewlabsAirdropNft is Ownable {
         emit FeeAddressUpdated(addr);
     }
 
+    function setDiscountMgrAddress(address addr) external onlyOwner {
+        require(addr == address(0) || isContract(addr), "Invalid discount manager");
+        discountMgr = addr;
+
+        emit DiscountMgrUpdated(addr);
+    }
+
     function setCommission(uint256 _commission) external onlyOwner {
         require(_commission > 0, "Invalid amount");
         commission = _commission;
@@ -158,5 +174,13 @@ contract BrewlabsAirdropNft is Ownable {
         maxTxLimit = _txLimit;
 
         emit CommissionTxLimitUpdated(_txLimit);
+    }
+
+    function isContract(address _addr) internal view returns (bool) {
+        uint32 size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return (size > 0);
     }
 }

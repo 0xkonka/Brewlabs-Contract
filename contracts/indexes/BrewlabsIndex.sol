@@ -668,7 +668,7 @@ contract BrewlabsIndex is Ownable, ERC721Holder, ReentrancyGuard {
         require(address(_indexData) != address(0x0), "Invalid indexData");
         indexData = IBrewlabsIndexData(_indexData);
     }
-    
+
     /**
      * @notice Update processing fee.
      * @param _depositfee: deposit fee in point
