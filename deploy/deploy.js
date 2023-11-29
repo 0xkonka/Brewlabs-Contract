@@ -41,6 +41,9 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
             farmFactory: false,
             oldFarm: false,
 
+            tokenImpl: false,
+            tokenFactory: false,
+
             staking: false,
             lockupStaking: false,
             lockupStakingV2: false,
@@ -373,6 +376,74 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 contract: "contracts/BrewlabsNftStaking.sol:BrewlabsNftStaking",
                 constructorArguments: [],
             })
+        }
+
+        if(config.tokenImpl) {
+            Utils.infoMsg("Deploying BrewlabsStandardToken contract");
+            let deployed = await deploy('BrewlabsStandardToken', 
+                {
+                    from: account,
+                    args: [],
+                    log:  false
+                });
+    
+            let deployedAddress = deployed.address;
+            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+
+            
+            await hre.run("verify:verify", {
+                address: deployedAddress,
+                contract: "contracts/token/BrewlabsStandardToken.sol:BrewlabsStandardToken",
+                constructorArguments: [],
+            })
+        }
+        
+        if(config.tokenFactory) {
+            Utils.infoMsg("Deploying BrewlabsTokenFactory contract");
+            let implementation = ""
+            let payingToken = "0x0000000000000000000000000000000000000000"
+
+            if(implementation === "") {
+                Utils.successMsg(`Implementation was not set`);
+                return
+            }
+            if(payingToken === "") {
+                Utils.successMsg(`Paying token was not set`);
+                return
+            }
+
+            let deployed = await deploy('BrewlabsTokenFactory', 
+                {
+                    from: account,
+                    args: [],
+                    log: true,
+                    proxy: {
+                        proxyContract: "OpenZeppelinTransparentProxy",        
+                        execute: {
+                            init: {
+                                methodName: "initialize",
+                                args: [
+                                    implementation,
+                                    payingToken,
+                                    ethers.utils.parseUnits("1", 18),
+                                    "0x78Eb67C73EBe18460986910C00B3A1365b402CC7", // default owner of indexes
+                                ],
+                            }
+                        },
+                    },
+                });
+    
+            let deployedAddress = deployed.address;
+            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+
+            await sleep(60)
+
+            // verify
+            // await hre.run("verify:verify", {
+            //     address: deployedAddress,
+            //     contract: "contracts/token/BrewlabsTokenFactory.sol:BrewlabsTokenFactory",
+            //     constructorArguments: [],
+            // })
         }
 
         if(config.farmImpl) {
