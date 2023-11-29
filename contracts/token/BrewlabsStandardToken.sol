@@ -29,7 +29,7 @@ contract BrewlabsStandardToken is ERC20, Ownable {
         _decimals = __decimals;
 
         _mint(__deployer, __totalSupply);
-        transferOwnership(__deployer);
+        _transferOwnership(__deployer);
     }
 
     function name() public view virtual override returns (string memory) {

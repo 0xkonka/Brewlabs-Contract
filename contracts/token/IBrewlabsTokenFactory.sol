@@ -2,14 +2,12 @@
 pragma solidity ^0.8.4;
 
 interface IBrewlabsTokenFactory {
-    function initialize(address impl, address token, uint256 price, address treasuryWallet) external;
+    function initialize(address impl, address token, uint256 price, address locker) external;
 
-    function createBrewlabsStandardToken(
-        string memory name,
-        string memory symbol,
-        uint8 decimals,
-        uint256 totalSupply
-    ) external payable returns (address token);
+    function createBrewlabsStandardToken(string memory name, string memory symbol, uint8 decimals, uint256 totalSupply)
+        external
+        payable
+        returns (address token);
 
     function version(uint256 category) external view returns (uint256);
     function implementation(uint256 category) external view returns (address);
@@ -19,15 +17,20 @@ interface IBrewlabsTokenFactory {
     function treasury() external view returns (address);
 
     function tokenCount() external view returns (uint256);
-    function tokenInfo(uint256 idx) external view returns(address token,
-        uint256 category,
-        uint256 version,
-        string memory name,
-        string memory symbol,
-        uint8   decimals,
-        uint256 totalSupply,
-        address deployer,
-        uint256 createdAt);
+    function tokenInfo(uint256 idx)
+        external
+        view
+        returns (
+            address token,
+            uint256 category,
+            uint256 version,
+            string memory name,
+            string memory symbol,
+            uint8 decimals,
+            uint256 totalSupply,
+            address deployer,
+            uint256 createdAt
+        );
     function whitelist(address addr) external view returns (bool);
 
     function setImplementation(uint256 category, address impl) external;

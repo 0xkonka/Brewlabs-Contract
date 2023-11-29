@@ -19,9 +19,9 @@ contract BrewlabsTokenFactory is OwnableUpgradeable {
         address token;
         uint256 category;
         uint256 version;
-        string  name;
-        string  symbol;
-        uint8   decimals;
+        string name;
+        string symbol;
+        uint8 decimals;
         uint256 totalSupply;
         address deployer;
         uint256 createdAt;
@@ -47,26 +47,25 @@ contract BrewlabsTokenFactory is OwnableUpgradeable {
 
     constructor() {}
 
-    function initialize(address impl, address token, uint256 price, address treasuryWallet) external initializer {
+    function initialize(address impl, address token, uint256 price, address locker) external initializer {
         require(impl != address(0x0), "Invalid implementation");
 
         __Ownable_init();
 
         payingToken = token;
         serviceFee = price;
-        treasury = treasuryWallet;
+        treasury = locker;
         implementation[0] = impl;
         version[0] = 1;
 
         emit SetImplementation(0, impl, 1);
     }
 
-    function createBrewlabsStandardToken(
-        string memory name,
-        string memory symbol,
-        uint8 decimals,
-        uint256 totalSupply
-    ) external payable returns (address token) {
+    function createBrewlabsStandardToken(string memory name, string memory symbol, uint8 decimals, uint256 totalSupply)
+        external
+        payable
+        returns (address token)
+    {
         uint256 category = 0;
         require(implementation[category] != address(0x0), "Not initialized yet");
 
@@ -74,43 +73,23 @@ contract BrewlabsTokenFactory is OwnableUpgradeable {
             _transferServiceFee();
         }
 
-        bytes32 salt =
-            keccak256(abi.encodePacked(msg.sender, name, symbol, decimals, block.number, block.timestamp));
+        bytes32 salt = keccak256(abi.encodePacked(msg.sender, name, symbol, decimals, block.number, block.timestamp));
 
         token = Clones.cloneDeterministic(implementation[category], salt);
         (bool success,) = token.call(
             abi.encodeWithSignature(
-                "initialize(string memory,string memory,uint8,uint256,address)",
-                name,symbol,decimals, totalSupply,
-                msg.sender
+                "initialize(string,string,uint8,uint256,address)", name, symbol, decimals, totalSupply, msg.sender
             )
         );
         require(success, "Initialization failed");
 
         tokenInfo.push(
             TokenInfo(
-                token,
-                category,
-                version[category],
-                name,
-                symbol,
-                decimals,
-                totalSupply,
-                msg.sender,
-                block.timestamp
+                token, category, version[category], name, symbol, decimals, totalSupply, msg.sender, block.timestamp
             )
         );
 
-        emit StandardTokenCreated(
-            token,
-            category,
-            version[category],
-            name,
-            symbol,
-            decimals,
-            totalSupply,
-            msg.sender
-        );
+        emit StandardTokenCreated(token, category, version[category], name, symbol, decimals, totalSupply, msg.sender);
     }
 
     function tokenCount() external view returns (uint256) {
