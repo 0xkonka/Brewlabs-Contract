@@ -5,8 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../libs/IUniRouter02.sol";
-import "../libs/IWETH.sol";
+import {IBrewlabsSwapFeeManager} from "../libs/IBrewlabsSwapFeeManager.sol";
 
 contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -44,7 +43,7 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
     uint256 public performanceFee;
     uint256 public rewardFee;
 
-    address public factory;
+    address feeManager;
     address public deployer;
     address public operator;
 
@@ -64,18 +63,6 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
     uint256[2] public paidRewards;
     uint256[2] private shouldTotalPaid;
 
-    // swap router and path
-    struct SwapSetting {
-        address swapRouter;
-        address[] earnedToToken0;
-        address[] earnedToToken1;
-        address[] reflectionToToken0;
-        address[] reflectionToToken1;
-        bool enabled;
-    }
-
-    SwapSetting public swapSettings;
-
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
     event Claim(address indexed user, uint256[2] amount);
@@ -87,8 +74,9 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
     event RewardsStop(uint256 blockNumber);
     event EndBlockChanged(uint256 blockNumber);
 
-    event ServiceInfoChanged(address addr, uint256 fee);
     event DurationChanged(uint256 duration);
+    event FeeManagerChanged(address newMgr);
+    event ServiceInfoChanged(address addr, uint256 fee);
     event SetAutoAdjustableForRewardRate(bool status);
     event SetRewardFee(uint256 fee);
     event OperatorTransferred(address oldOperator, address newOperator);
@@ -109,6 +97,7 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
      * @param _rewardsPerBlock: rewards per block (in rewardToken)
      * @param _depositFee: deposit fee
      * @param _withdrawFee: withdraw fee
+     * @param _feeManager: withdraw fee
      * @param _owner: owner address
      * @param _deployer: owner address
      */
@@ -120,6 +109,7 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
         uint256 _withdrawFee,
         uint256 _duration,
         address _owner,
+        address _feeManager,
         address _deployer
     ) external {
         require(!isInitialized, "Already initialized");
@@ -141,7 +131,7 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
         rewardTokens = _rewardTokens;
         rewardsPerBlock = _rewardsPerBlock;
 
-        factory = msg.sender;
+        feeManager = _feeManager;
         deployer = _deployer;
         operator = _deployer;
 
@@ -163,31 +153,10 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
         require(startBlock > 0 && startBlock < block.number, "Farming hasn't started yet");
         require(_amount > 0, "Amount should be greator than 0");
 
-        UserInfo storage user = userInfo[msg.sender];
-
         _transferPerformanceFee();
-        _updatePool();
+        _claimReward();
 
-        if (user.amount > 0) {
-            uint256[2] memory pending;
-            pending[0] = (user.amount * accTokensPerShare[0]) / PRECISION_FACTOR - user.rewardDebt;
-            pending[1] = (user.amount * accTokensPerShare[1]) / PRECISION_FACTOR - user.rewardDebt1;
-            if (pending[0] > 0 || pending[1] > 0) {
-                require(availableRewardTokens(0) >= pending[0], "Insufficient reward1 tokens");
-                require(availableRewardTokens(1) >= pending[1], "Insufficient reward1 tokens");
-                paidRewards[0] = paidRewards[0] + pending[0];
-                paidRewards[1] = paidRewards[1] + pending[1];
-
-                pending[0] = (pending[0] * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-                pending[1] = (pending[1] * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-                totalEarned[0] = (totalEarned[0] > pending[0]) ? totalEarned[0] - pending[0] : 0;
-                totalEarned[1] = (totalEarned[1] > pending[1]) ? totalEarned[1] - pending[1] : 0;
-
-                rewardTokens[0].safeTransfer(address(msg.sender), pending[0]);
-                rewardTokens[1].safeTransfer(address(msg.sender), pending[1]);
-                emit Claim(msg.sender, pending);
-            }
-        }
+        UserInfo storage user = userInfo[msg.sender];
 
         uint256 beforeAmt = lpToken.balanceOf(address(this));
         lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
@@ -207,7 +176,7 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
 
         emit Deposit(msg.sender, realAmount);
 
-        _updateRewardRate();
+        if(rewardFee > 0) _updateRewardRate();
     }
 
     /**
@@ -221,26 +190,7 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
         require(user.amount >= _amount, "Amount to withdraw too high");
 
         _transferPerformanceFee();
-        _updatePool();
-
-        uint256[2] memory pending;
-        pending[0] = (user.amount * accTokensPerShare[0]) / PRECISION_FACTOR - user.rewardDebt;
-        pending[1] = (user.amount * accTokensPerShare[1]) / PRECISION_FACTOR - user.rewardDebt1;
-        if (pending[0] > 0 || pending[1] > 0) {
-            require(availableRewardTokens(0) >= pending[0], "Insufficient reward1 tokens");
-            require(availableRewardTokens(1) >= pending[1], "Insufficient reward1 tokens");
-            paidRewards[0] = paidRewards[0] + pending[0];
-            paidRewards[1] = paidRewards[1] + pending[1];
-
-            pending[0] = (pending[0] * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-            pending[1] = (pending[1] * (PERCENT_PRECISION - rewardFee)) / PERCENT_PRECISION;
-            totalEarned[0] = (totalEarned[0] > pending[0]) ? totalEarned[0] - pending[0] : 0;
-            totalEarned[1] = (totalEarned[1] > pending[1]) ? totalEarned[1] - pending[1] : 0;
-
-            rewardTokens[0].safeTransfer(address(msg.sender), pending[0]);
-            rewardTokens[1].safeTransfer(address(msg.sender), pending[1]);
-            emit Claim(msg.sender, pending);
-        }
+        _claimReward();
 
         if (withdrawFee > 0) {
             uint256 fee = (_amount * withdrawFee) / PERCENT_PRECISION;
@@ -256,16 +206,26 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
         user.rewardDebt1 = (user.amount * accTokensPerShare[1]) / PRECISION_FACTOR;
         emit Withdraw(msg.sender, _amount);
 
-        _updateRewardRate();
+        if(rewardFee > 0) _updateRewardRate();
     }
 
     function claimReward() external payable nonReentrant {
-        UserInfo storage user = userInfo[msg.sender];
-        if (user.amount == 0) return;
-
         _transferPerformanceFee();
+        _claimReward();
+
+        UserInfo storage user = userInfo[msg.sender];
+        user.rewardDebt = (user.amount * accTokensPerShare[0]) / PRECISION_FACTOR;
+        user.rewardDebt1 = (user.amount * accTokensPerShare[1]) / PRECISION_FACTOR;
+    }
+
+    function _claimReward() internal {
+        _claimLpFees();
+        _updateRewardRate();
         _updatePool();
 
+        UserInfo storage user = userInfo[msg.sender];        
+        if (user.amount == 0) return;
+        
         uint256[2] memory pending;
         pending[0] = (user.amount * accTokensPerShare[0]) / PRECISION_FACTOR - user.rewardDebt;
         pending[1] = (user.amount * accTokensPerShare[1]) / PRECISION_FACTOR - user.rewardDebt1;
@@ -284,9 +244,6 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
             rewardTokens[1].safeTransfer(address(msg.sender), pending[1]);
             emit Claim(msg.sender, pending);
         }
-
-        user.rewardDebt = (user.amount * accTokensPerShare[0]) / PRECISION_FACTOR;
-        user.rewardDebt1 = (user.amount * accTokensPerShare[1]) / PRECISION_FACTOR;
     }
 
     function _transferPerformanceFee() internal {
@@ -527,6 +484,10 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
         emit SetRewardFee(_fee);
     }
 
+    function setFeeManager(address _feeManager) external onlyOwner {
+        feeManager = _feeManager;
+    }
+
     function transferOperator(address _operator) external onlyAdmin {
         require(_operator != address(0x0), "invalid address");
         emit OperatorTransferred(operator, _operator);
@@ -543,23 +504,6 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
 
         feeAddress = _feeAddr;
         emit SetSettings(_depositFee, _withdrawFee, _feeAddr);
-    }
-
-    // Update the given pool's compound parameters. Can only be called by the owner.
-    function setSwapSetting(
-        address _uniRouter,
-        address[] memory _earnedToToken0,
-        address[] memory _earnedToToken1,
-        address[] memory _reflectionToToken0,
-        address[] memory _reflectionToToken1,
-        bool _enabled
-    ) external onlyOwner {
-        swapSettings.enabled = _enabled;
-        swapSettings.swapRouter = _uniRouter;
-        swapSettings.earnedToToken0 = _earnedToToken0;
-        swapSettings.earnedToToken1 = _earnedToToken1;
-        swapSettings.reflectionToToken0 = _reflectionToToken0;
-        swapSettings.reflectionToToken1 = _reflectionToToken1;
     }
 
     /**
@@ -584,6 +528,12 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
         shouldTotalPaid[1] = shouldTotalPaid[1] + _reward;
     }
 
+    function _claimLpFees() internal {
+        if(feeManager == address(0x0)) return;
+
+        try IBrewlabsSwapFeeManager(feeManager).claim(address(lpToken)) {} catch {}
+    }
+
     /**
      * @notice Return reward multiplier over the given _from to _to block.
      * @param _from: block to start
@@ -597,36 +547,6 @@ contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
         } else {
             return bonusEndBlock - _from;
         }
-    }
-
-    function _safeSwap(uint256 _amountIn, address[] memory _path, address _to) internal returns (uint256) {
-        uint256 beforeAmt = IERC20(_path[_path.length - 1]).balanceOf(address(this));
-
-        IERC20(_path[0]).safeApprove(swapSettings.swapRouter, _amountIn);
-        IUniRouter02(swapSettings.swapRouter).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            _amountIn, 0, _path, _to, block.timestamp + 600
-        );
-        uint256 afterAmt = IERC20(_path[_path.length - 1]).balanceOf(address(this));
-        return afterAmt - beforeAmt;
-    }
-
-    function _addLiquidity(
-        address _uniRouter,
-        address _token0,
-        address _token1,
-        uint256 _tokenAmt0,
-        uint256 _tokenAmt1,
-        address _to
-    ) internal returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
-        IERC20(_token0).safeIncreaseAllowance(_uniRouter, _tokenAmt0);
-        IERC20(_token1).safeIncreaseAllowance(_uniRouter, _tokenAmt1);
-
-        (amountA, amountB, liquidity) = IUniRouter02(_uniRouter).addLiquidity(
-            _token0, _token1, _tokenAmt0, _tokenAmt1, 0, 0, _to, block.timestamp + 600
-        );
-
-        IERC20(_token0).safeApprove(_uniRouter, uint256(0));
-        IERC20(_token1).safeApprove(_uniRouter, uint256(0));
     }
 
     receive() external payable {}
