@@ -7,7 +7,7 @@ import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 
 import {IBrewlabsSwapFeeManager} from "../libs/IBrewlabsSwapFeeManager.sol";
 
-contract BrewlabsFarmDualImpl is Ownable, ReentrancyGuard {
+contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // Whether it is initialized
