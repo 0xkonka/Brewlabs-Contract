@@ -324,14 +324,14 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
         return rewardTokens[idx].balanceOf(address(this));
     }
 
-    function insufficientRewards() public view returns (uint256) {
-        uint256 adjustedShouldTotalPaid = shouldTotalPaid[0];
-        uint256 remainRewards = availableRewardTokens(0) + paidRewards[0];
+    function insufficientRewards(uint8 idx) public view returns (uint256) {
+        uint256 adjustedShouldTotalPaid = shouldTotalPaid[idx];
+        uint256 remainRewards = availableRewardTokens(idx) + paidRewards[idx];
 
         if (startBlock == 0) {
             adjustedShouldTotalPaid =
                 adjustedShouldTotalPaid +
-                rewardsPerBlock[0] *
+                rewardsPerBlock[idx] *
                 duration *
                 BLOCKS_PER_DAY;
         } else {
@@ -341,7 +341,7 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
             );
             adjustedShouldTotalPaid =
                 adjustedShouldTotalPaid +
-                rewardsPerBlock[0] *
+                rewardsPerBlock[idx] *
                 remainBlocks;
         }
 
@@ -491,7 +491,7 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
     function startReward() external onlyAdmin {
         require(startBlock == 0, "Pool was already started");
         require(
-            insufficientRewards() == 0,
+            insufficientRewards(0) == 0 && insufficientRewards(1) == 0,
             "All reward tokens have not been deposited"
         );
 
