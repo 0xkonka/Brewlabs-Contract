@@ -61,7 +61,7 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
     uint256[2] private totalRewardStaked;
 
     uint256[2] public paidRewards;
-    uint256[2] private shouldTotalPaid;
+    uint256[2] public shouldTotalPaid;
 
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
@@ -241,8 +241,8 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
 
     function _claimReward() internal {
         _claimLpFees();
-        _updateRewardRate();
         _updatePool();
+        _updateRewardRate();
 
         UserInfo storage user = userInfo[msg.sender];
         if (user.amount == 0) return;
@@ -259,7 +259,7 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
         if (pending[0] > 0 || pending[1] > 0) {
             require(
                 availableRewardTokens(0) >= pending[0],
-                "Insufficient reward1 tokens"
+                "Insufficient reward0 tokens"
             );
             require(
                 availableRewardTokens(1) >= pending[1],
@@ -458,7 +458,7 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
         );
 
         if (_amount == 0) _amount = availableRewardTokens(idx);
-        rewardTokens[0].safeTransfer(address(msg.sender), _amount);
+        rewardTokens[idx].safeTransfer(address(msg.sender), _amount);
     }
 
     /**
