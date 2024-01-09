@@ -61,7 +61,7 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
     uint256[2] private totalRewardStaked;
 
     uint256[2] public paidRewards;
-    uint256[2] public shouldTotalPaid;
+    uint256[2] private shouldTotalPaid;
 
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
