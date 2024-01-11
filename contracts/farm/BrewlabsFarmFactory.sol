@@ -53,7 +53,12 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
     constructor() {}
 
-    function initialize(address impl, address token, uint256 price, address farmOwner) external initializer {
+    function initialize(
+        address impl,
+        address token,
+        uint256 price,
+        address farmOwner
+    ) external initializer {
         require(impl != address(0x0), "Invalid implementation");
 
         __Ownable_init();
@@ -81,7 +86,10 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
     ) external payable returns (address farm) {
         uint256 category = 0;
 
-        require(implementation[category] != address(0x0), "Not initialized yet");
+        require(
+            implementation[category] != address(0x0),
+            "Not initialized yet"
+        );
 
         require(isContract(lpToken), "Invalid LP token");
         require(isContract(rewardToken), "Invalid reward token");
@@ -92,11 +100,19 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
             _transferServiceFee();
         }
 
-        bytes32 salt =
-            keccak256(abi.encodePacked(msg.sender, lpToken, rewardToken, duration, block.number, block.timestamp));
+        bytes32 salt = keccak256(
+            abi.encodePacked(
+                msg.sender,
+                lpToken,
+                rewardToken,
+                duration,
+                block.number,
+                block.timestamp
+            )
+        );
 
         farm = Clones.cloneDeterministic(implementation[category], salt);
-        (bool success,) = farm.call(
+        (bool success, ) = farm.call(
             abi.encodeWithSignature(
                 "initialize(address,address,address,uint256,uint256,uint256,uint256,bool,address,address)",
                 lpToken,
@@ -146,7 +162,10 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
         return farmInfo.length;
     }
 
-    function setImplementation(uint256 category, address impl) external onlyOwner {
+    function setImplementation(
+        uint256 category,
+        address impl
+    ) external onlyOwner {
         require(isContract(impl), "Invalid implementation");
         implementation[category] = impl;
         version[category] = version[category] + 1;
@@ -205,7 +224,11 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
             require(msg.value >= serviceFee, "Not enough fee");
             payable(treasury).transfer(serviceFee);
         } else {
-            IERC20(payingToken).safeTransferFrom(msg.sender, treasury, serviceFee);
+            IERC20(payingToken).safeTransferFrom(
+                msg.sender,
+                treasury,
+                serviceFee
+            );
         }
     }
 
