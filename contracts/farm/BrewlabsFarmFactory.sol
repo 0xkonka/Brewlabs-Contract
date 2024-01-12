@@ -31,6 +31,7 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
     FarmInfo[] public farmInfo;
     mapping(address => bool) public whitelist;
+    address public feeManager;
 
     event FarmCreated(
         address indexed farm,
@@ -53,6 +54,10 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
     constructor() {}
 
+    function reinitialize() external reinitializer(2) {
+        feeManager = 0x9dF9d5A7597cd4BF781d4FA9b98077376F6643AD;
+    }
+
     function initialize(
         address impl,
         address token,
@@ -70,8 +75,95 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
         implementation[0] = impl;
         version[0] = 1;
-
+        feeManager = 0x9dF9d5A7597cd4BF781d4FA9b98077376F6643AD;
         emit SetImplementation(0, impl, 1);
+    }
+
+    function createBrewlabsDualFarm(
+        address lpToken,
+        address[2] memory rewardTokens,
+        uint256[2] memory rewardsPerBlock,
+        uint256 depositFee,
+        uint256 withdrawFee,
+        uint256 duration
+    ) external payable returns (address farm) {
+        uint256 category = 1;
+
+        require(
+            implementation[category] != address(0x0),
+            "Not initialized yet"
+        );
+
+        require(isContract(lpToken), "Invalid LP token");
+        require(
+            isContract(rewardTokens[0]) && isContract(rewardTokens[1]),
+            "Invalid reward token"
+        );
+        require(depositFee <= 2000, "Invalid deposit fee");
+        require(withdrawFee <= 2000, "Invalid withdraw fee");
+
+        if (!whitelist[msg.sender]) {
+            _transferServiceFee();
+        }
+
+        bytes32 salt = keccak256(
+            abi.encodePacked(
+                msg.sender,
+                lpToken,
+                rewardTokens,
+                rewardsPerBlock,
+                depositFee,
+                withdrawFee,
+                duration,
+                block.number,
+                block.timestamp
+            )
+        );
+
+        farm = Clones.cloneDeterministic(implementation[category], salt);
+        (bool success, ) = farm.call(
+            abi.encodeWithSignature(
+                "initialize(address,address[2],uint256[2],uint256,uint256,uint256,address,address,address)",
+                lpToken,
+                rewardTokens,
+                rewardsPerBlock,
+                depositFee,
+                withdrawFee,
+                duration,
+                farmDefaultOwner,
+                feeManager,
+                msg.sender
+            )
+        );
+        require(success, "Initialization failed");
+
+        farmInfo.push(
+            FarmInfo(
+                farm,
+                category,
+                version[category],
+                lpToken,
+                rewardTokens[0],
+                rewardTokens[1],
+                false,
+                msg.sender,
+                block.timestamp
+            )
+        );
+
+        emit FarmCreated(
+            farm,
+            category,
+            version[category],
+            lpToken,
+            rewardTokens[0],
+            rewardTokens[1],
+            rewardsPerBlock[0],
+            depositFee,
+            withdrawFee,
+            false,
+            msg.sender
+        );
     }
 
     function createBrewlabsFarm(
