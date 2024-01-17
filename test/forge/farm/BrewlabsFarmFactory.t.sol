@@ -38,6 +38,19 @@ contract BrewlabsFarmFactoryTest is Test {
         bool hasDividend,
         address deployer
     );
+
+    event DualFarmCreated(
+        address indexed farm,
+        uint256 category,
+        uint256 version,
+        address lpToken,
+        address[2] rewardTokens,
+        uint256[2] rewardsPerBlock,
+        uint256 depositFee,
+        uint256 withdrawFee,
+        address deployer
+    );
+
     event SetFarmOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(uint256 category, address impl, uint256 version);
@@ -226,22 +239,22 @@ contract BrewlabsFarmFactoryTest is Test {
         factory.setPayingToken(address(0));
         factory.addToWhitelist(deployer);
         BrewlabsDualFarmImpl impl = new BrewlabsDualFarmImpl();
+        factory.reinitialize();
         factory.setImplementation(1, address(impl));
+        assertEq(factory.version(1), 2);
         vm.deal(deployer, 10 ether);
         vm.startPrank(deployer);
 
         vm.expectEmit(false, false, false, true);
-        emit FarmCreated(
+        emit DualFarmCreated(
             address(0),
             1,
-            1,
+            2,
             address(lpToken),
-            address(rewardToken),
-            address(rewardToken1),
-            0,
+            [address(rewardToken), address(rewardToken1)],
+            [uint256(0), uint256(0)],
             100,
             100,
-            false,
             deployer
         );
         address farm = factory.createBrewlabsDualFarm(

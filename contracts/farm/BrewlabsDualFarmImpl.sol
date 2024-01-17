@@ -653,5 +653,13 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
         }
     }
 
+    /**
+     * @notice Retrun reward per block for first reward token
+     * @dev so it supports interface same as original farm
+     */
+    function rewardPerBlock() public view returns (uint256) {
+        return rewardsPerBlock[0];
+    }
+
     receive() external payable {}
 }

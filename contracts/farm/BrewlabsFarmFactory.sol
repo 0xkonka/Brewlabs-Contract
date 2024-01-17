@@ -46,6 +46,17 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
         bool hasDividend,
         address deployer
     );
+    event DualFarmCreated(
+        address indexed farm,
+        uint256 category,
+        uint256 version,
+        address lpToken,
+        address[2] rewardTokens,
+        uint256[2] rewardsPerBlock,
+        uint256 depositFee,
+        uint256 withdrawFee,
+        address deployer
+    );
     event SetFarmOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(uint256 category, address impl, uint256 version);
@@ -55,6 +66,7 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
     constructor() {}
 
     function reinitialize() external reinitializer(2) {
+        version[1] = 1;
         feeManager = 0x9dF9d5A7597cd4BF781d4FA9b98077376F6643AD;
     }
 
@@ -75,7 +87,6 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
         implementation[0] = impl;
         version[0] = 1;
-        feeManager = 0x9dF9d5A7597cd4BF781d4FA9b98077376F6643AD;
         emit SetImplementation(0, impl, 1);
     }
 
@@ -151,17 +162,15 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
             )
         );
 
-        emit FarmCreated(
+        emit DualFarmCreated(
             farm,
             category,
             version[category],
             lpToken,
-            rewardTokens[0],
-            rewardTokens[1],
-            rewardsPerBlock[0],
+            rewardTokens,
+            rewardsPerBlock,
             depositFee,
             withdrawFee,
-            false,
             msg.sender
         );
     }
