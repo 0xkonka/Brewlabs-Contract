@@ -31,6 +31,7 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
     FarmInfo[] public farmInfo;
     mapping(address => bool) public whitelist;
+    address public feeManager;
 
     event FarmCreated(
         address indexed farm,
@@ -45,6 +46,17 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
         bool hasDividend,
         address deployer
     );
+    event DualFarmCreated(
+        address indexed farm,
+        uint256 category,
+        uint256 version,
+        address lpToken,
+        address[2] rewardTokens,
+        uint256[2] rewardsPerBlock,
+        uint256 depositFee,
+        uint256 withdrawFee,
+        address deployer
+    );
     event SetFarmOwner(address newOwner);
     event SetPayingInfo(address token, uint256 price);
     event SetImplementation(uint256 category, address impl, uint256 version);
@@ -53,7 +65,17 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
     constructor() {}
 
-    function initialize(address impl, address token, uint256 price, address farmOwner) external initializer {
+    function reinitialize() external reinitializer(2) {
+        version[1] = 1;
+        feeManager = 0x9dF9d5A7597cd4BF781d4FA9b98077376F6643AD;
+    }
+
+    function initialize(
+        address impl,
+        address token,
+        uint256 price,
+        address farmOwner
+    ) external initializer {
         require(impl != address(0x0), "Invalid implementation");
 
         __Ownable_init();
@@ -65,8 +87,92 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
 
         implementation[0] = impl;
         version[0] = 1;
-
         emit SetImplementation(0, impl, 1);
+    }
+
+    function createBrewlabsDualFarm(
+        address lpToken,
+        address[2] memory rewardTokens,
+        uint256[2] memory rewardsPerBlock,
+        uint256 depositFee,
+        uint256 withdrawFee,
+        uint256 duration
+    ) external payable returns (address farm) {
+        uint256 category = 1;
+
+        require(
+            implementation[category] != address(0x0),
+            "Not initialized yet"
+        );
+
+        require(isContract(lpToken), "Invalid LP token");
+        require(
+            isContract(rewardTokens[0]) && isContract(rewardTokens[1]),
+            "Invalid reward token"
+        );
+        require(depositFee <= 2000, "Invalid deposit fee");
+        require(withdrawFee <= 2000, "Invalid withdraw fee");
+
+        if (!whitelist[msg.sender]) {
+            _transferServiceFee();
+        }
+
+        bytes32 salt = keccak256(
+            abi.encodePacked(
+                msg.sender,
+                lpToken,
+                rewardTokens,
+                rewardsPerBlock,
+                depositFee,
+                withdrawFee,
+                duration,
+                block.number,
+                block.timestamp
+            )
+        );
+
+        farm = Clones.cloneDeterministic(implementation[category], salt);
+        (bool success, ) = farm.call(
+            abi.encodeWithSignature(
+                "initialize(address,address[2],uint256[2],uint256,uint256,uint256,address,address,address)",
+                lpToken,
+                rewardTokens,
+                rewardsPerBlock,
+                depositFee,
+                withdrawFee,
+                duration,
+                farmDefaultOwner,
+                feeManager,
+                msg.sender
+            )
+        );
+        require(success, "Initialization failed");
+
+        farmInfo.push(
+            FarmInfo(
+                farm,
+                category,
+                version[category],
+                lpToken,
+                rewardTokens[0],
+                rewardTokens[1],
+                false,
+                msg.sender,
+                block.timestamp
+            )
+        );
+
+        emit DualFarmCreated(
+            farm,
+            category,
+            version[category],
+            lpToken,
+            rewardTokens,
+            rewardsPerBlock,
+            depositFee,
+            withdrawFee,
+            msg.sender
+        );
     }
 
     function createBrewlabsFarm(
@@ -81,7 +187,10 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
     ) external payable returns (address farm) {
         uint256 category = 0;
 
-        require(implementation[category] != address(0x0), "Not initialized yet");
+        require(
+            implementation[category] != address(0x0),
+            "Not initialized yet"
+        );
 
         require(isContract(lpToken), "Invalid LP token");
         require(isContract(rewardToken), "Invalid reward token");
@@ -92,11 +201,19 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
             _transferServiceFee();
         }
 
-        bytes32 salt =
-            keccak256(abi.encodePacked(msg.sender, lpToken, rewardToken, duration, block.number, block.timestamp));
+        bytes32 salt = keccak256(
+            abi.encodePacked(
+                msg.sender,
+                lpToken,
+                rewardToken,
+                duration,
+                block.number,
+                block.timestamp
+            )
+        );
 
         farm = Clones.cloneDeterministic(implementation[category], salt);
-        (bool success,) = farm.call(
+        (bool success, ) = farm.call(
             abi.encodeWithSignature(
                 "initialize(address,address,address,uint256,uint256,uint256,uint256,bool,address,address)",
                 lpToken,
@@ -146,7 +263,10 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
         return farmInfo.length;
     }
 
-    function setImplementation(uint256 category, address impl) external onlyOwner {
+    function setImplementation(
+        uint256 category,
+        address impl
+    ) external onlyOwner {
         require(isContract(impl), "Invalid implementation");
         implementation[category] = impl;
         version[category] = version[category] + 1;
@@ -205,7 +325,11 @@ contract BrewlabsFarmFactory is OwnableUpgradeable {
             require(msg.value >= serviceFee, "Not enough fee");
             payable(treasury).transfer(serviceFee);
         } else {
-            IERC20(payingToken).safeTransferFrom(msg.sender, treasury, serviceFee);
+            IERC20(payingToken).safeTransferFrom(
+                msg.sender,
+                treasury,
+                serviceFee
+            );
         }
     }
 

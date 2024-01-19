@@ -114,3 +114,5 @@ cache/validations.json
 package-lock.json
 scripts/*.csv
 scripts/*.json
+.DS_Store
+fast.test.ts

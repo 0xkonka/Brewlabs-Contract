@@ -38,6 +38,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
 
             farm: false,
             farmImpl: false,
+            dualFarmImpl: false,
             farmFactory: false,
             oldFarm: false,
 
@@ -449,6 +450,19 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
         if(config.farmImpl) {
             Utils.infoMsg("Deploying BrewlabsFarmImpl contract");
             let deployed = await deploy('BrewlabsFarmImpl', 
+                {
+                    from: account,
+                    args: [],
+                    log:  false
+                });
+    
+            let deployedAddress = deployed.address;
+            Utils.successMsg(`Contract Address: ${deployedAddress}`);
+        }
+
+        if(config.dualFarmImpl) {
+            Utils.infoMsg("Deploying BrewlabsDualFarmImpl contract");
+            let deployed = await deploy('BrewlabsDualFarmImpl', 
                 {
                     from: account,
                     args: [],
