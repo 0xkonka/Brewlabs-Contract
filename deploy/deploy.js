@@ -471,6 +471,14 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
     
             let deployedAddress = deployed.address;
             Utils.successMsg(`Contract Address: ${deployedAddress}`);
+            await sleep(60);
+
+            // verify
+            await hre.run("verify:verify", {
+                address: deployedAddress,
+                contract: "contracts/farm/BrewlabsDualFarmImpl.sol:BrewlabsDualFarmImpl",
+                constructorArguments: [],
+            });
         }
         
         if(config.farmFactory) {
@@ -1331,6 +1339,7 @@ module.exports = async ({getUnnamedAccounts, deployments, ethers, network}) => {
                 "0xb3ac46fE1A14589F5fB4EA735DA723cD12a3438A", // _reflecteddToken (BLVT)
               )
             console.log('initialize BlocVaultVesting', res)
+
     
             // verify
             await sleep(60)

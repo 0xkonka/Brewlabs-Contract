@@ -6,6 +6,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IBrewlabsSwapFeeManager} from "../libs/IBrewlabsSwapFeeManager.sol";
+import "../libs/IWETH.sol";
 
 contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -17,7 +18,7 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
     uint256 private PERCENT_PRECISION;
     uint256 public PRECISION_FACTOR;
     uint256 public MAX_FEE;
-
+    address internal constant WETH_ADDRESS = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
     // The staked token
     IERC20 public lpToken;
     IERC20[2] public rewardTokens;
@@ -125,13 +126,13 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
         isInitialized = true;
 
         PERCENT_PRECISION = 10000;
-        BLOCKS_PER_DAY = 28800;
+        BLOCKS_PER_DAY = 39723;
         MAX_FEE = 2000;
         PRECISION_FACTOR = 10 ** 18;
 
         duration = _duration;
         treasury = 0x5Ac58191F3BBDF6D037C6C6201aDC9F99c93C53A;
-        performanceFee = 0.0035 ether;
+        performanceFee = 1.3 ether;
 
         lpToken = _lpToken;
         rewardTokens = _rewardTokens;
@@ -244,7 +245,7 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
         _updatePool();
         _updateRewardRate();
 
-        UserInfo storage user = userInfo[msg.sender];
+        UserInfo memory user = userInfo[msg.sender];
         if (user.amount == 0) return;
 
         uint256[2] memory pending;
@@ -257,34 +258,28 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
             PRECISION_FACTOR -
             user.rewardDebt1;
         if (pending[0] > 0 || pending[1] > 0) {
-            require(
-                availableRewardTokens(0) >= pending[0],
-                "Insufficient reward0 tokens"
-            );
-            require(
-                availableRewardTokens(1) >= pending[1],
-                "Insufficient reward1 tokens"
-            );
-            paidRewards[0] = paidRewards[0] + pending[0];
-            paidRewards[1] = paidRewards[1] + pending[1];
-
-            pending[0] =
-                (pending[0] * (PERCENT_PRECISION - rewardFee)) /
-                PERCENT_PRECISION;
-            pending[1] =
-                (pending[1] * (PERCENT_PRECISION - rewardFee)) /
-                PERCENT_PRECISION;
-            totalEarned[0] = (totalEarned[0] > pending[0])
-                ? totalEarned[0] - pending[0]
-                : 0;
-            totalEarned[1] = (totalEarned[1] > pending[1])
-                ? totalEarned[1] - pending[1]
-                : 0;
-
-            rewardTokens[0].safeTransfer(address(msg.sender), pending[0]);
-            rewardTokens[1].safeTransfer(address(msg.sender), pending[1]);
+            if (pending[0] > 0) _claimRewardToken(0, pending[0]);
+            if (pending[1] > 0) _claimRewardToken(1, pending[1]);
             emit Claim(msg.sender, pending);
         }
+    }
+
+    function _claimRewardToken(uint8 idx, uint256 pending) internal {
+        require(
+            availableRewardTokens(idx) >= pending,
+            "Insufficient reward tokens"
+        );
+        paidRewards[idx] = paidRewards[idx] + pending;
+        pending =
+            (pending * (PERCENT_PRECISION - rewardFee)) /
+            PERCENT_PRECISION;
+        totalEarned[idx] = (totalEarned[idx] > pending)
+            ? totalEarned[idx] - pending
+            : 0;
+        if (address(rewardTokens[idx]) == WETH_ADDRESS) {
+            IWETH(WETH_ADDRESS).withdraw(pending);
+            payable(msg.sender).transfer(pending);
+        } else rewardTokens[idx].safeTransfer(msg.sender, pending);
     }
 
     function _transferPerformanceFee() internal {
@@ -374,7 +369,7 @@ contract BrewlabsDualFarmImpl is Ownable, ReentrancyGuard {
                     totalStaked);
             adjustedTokenPerShare[1] =
                 accTokensPerShare[1] +
-                ((multiplier * rewardsPerBlock[0] * PRECISION_FACTOR) /
+                ((multiplier * rewardsPerBlock[1] * PRECISION_FACTOR) /
                     totalStaked);
         }
 
