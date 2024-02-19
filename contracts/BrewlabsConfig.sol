@@ -8,6 +8,7 @@ contract BrewlabsConfig is OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
     event RegisterFarm(address indexed farm);
+    event RegisterDualFarm(address indexed farm);
     event RegisterPool(address indexed pool, bool isLockup);
     event RegisterMultiPool(address indexed pool);
 
@@ -19,6 +20,10 @@ contract BrewlabsConfig is OwnableUpgradeable {
 
     function regFarm(address farm) external onlyOwner {
         emit RegisterFarm(farm);
+    }
+
+    function regDualFarm(address farm) external onlyOwner {
+        emit RegisterDualFarm(farm);
     }
 
     function regPool(address pool, bool isLockup) external onlyOwner {
