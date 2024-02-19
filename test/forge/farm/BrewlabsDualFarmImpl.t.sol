@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
+import "solmate/tokens/WETH.sol";
 
 import {MockErc20} from "../../../contracts/mocks/MockErc20.sol";
 import {BrewlabsDualFarmImpl, IERC20} from "../../../contracts/farm/BrewlabsDualFarmImpl.sol";
@@ -15,7 +16,7 @@ contract BrewlabsDualFarmImplBase is Test {
 
     BrewlabsDualFarmImpl internal farm;
 
-    uint256 internal BLOCKS_PER_DAY = 28800;
+    uint256 internal BLOCKS_PER_DAY = 39723;
     uint16 internal DEPOSIT_FEE = 10;
     uint16 internal WITHDRAW_FEE = 20;
 
@@ -358,7 +359,7 @@ contract BrewlabsDualFarmImplTest is BrewlabsDualFarmImplBase {
         tryDeposit(address(0x1), 0.1 ether);
         assertLe(lastRewardBlock, block.number);
 
-        vm.deal(address(0x1), 1 ether);
+        vm.deal(address(0x1), 2 ether);
         vm.startPrank(address(0x1));
         // deposit did not be made yet
         uint256 lastRewardBlock2 = farm.lastRewardBlock();
@@ -392,7 +393,9 @@ contract BrewlabsDualFarmImplTest is BrewlabsDualFarmImplBase {
             [farm.rewardsPerBlock(0) + 0.1 ether, farm.rewardsPerBlock(1)]
         );
 
-        uint256 expectedRewards = farm.rewardsPerBlock(0) * 365 * 28800;
+        uint256 expectedRewards = farm.rewardsPerBlock(0) *
+            365 *
+            BLOCKS_PER_DAY;
         assertLt(farm.insufficientRewards(0), expectedRewards - rewards);
 
         rewardToken.mint(address(farm), farm.insufficientRewards(0) - 10000);
@@ -479,7 +482,10 @@ contract BrewlabsDualFarmImplTest is BrewlabsDualFarmImplBase {
         rewardToken2.mint(address(_farm), _farm.insufficientRewards(1));
         _farm.startReward();
         assertEq(_farm.startBlock(), block.number + 100);
-        assertEq(_farm.bonusEndBlock(), block.number + 365 * 28800 + 100);
+        assertEq(
+            _farm.bonusEndBlock(),
+            block.number + 365 * BLOCKS_PER_DAY + 100
+        );
 
         vm.expectRevert(abi.encodePacked("Pool was already started"));
         _farm.startReward();
@@ -514,10 +520,7 @@ contract BrewlabsDualFarmImplTest is BrewlabsDualFarmImplBase {
         vm.roll(farm.startBlock());
         vm.expectEmit(true, false, false, true);
         emit NewRewardsPerBlock(
-            [
-                (amount + rewards) / BLOCKS_PER_DAY / 365,
-                1e18
-            ]
+            [(amount + rewards) / BLOCKS_PER_DAY / 365, 1e18]
         );
         farm.increaseEmissionRate(0, amount);
         assertEq(
@@ -578,5 +581,47 @@ contract BrewlabsDualFarmImplTest is BrewlabsDualFarmImplBase {
         farm.rescueTokens(address(0x0));
         assertEq(address(farm).balance, 0);
         assertEq(address(farm.owner()).balance, ownerBalance + 0.5 ether);
+    }
+
+    function test_WETHReward() public {
+        BrewlabsDualFarmImpl _farm = new BrewlabsDualFarmImpl();
+        WETH weth = new WETH();
+        vm.deal(address(weth), 100 ether);
+        _farm.initialize(
+            lpToken,
+            [IERC20(rewardToken), IERC20(address(weth))],
+            [uint256(1e18), uint256(5e13)],
+            DEPOSIT_FEE,
+            WITHDRAW_FEE,
+            365,
+            farm.owner(),
+            address(0x0),
+            farm.owner()
+        );
+
+        rewardToken.mint(address(_farm), _farm.insufficientRewards(0));
+        weth.deposit{value: _farm.insufficientRewards(1)}();
+        weth.transfer(address(_farm), _farm.insufficientRewards(1));
+        _farm.startReward();
+        utils.mineBlocks(20000);
+        address _user = address(0x100);
+        uint256 _amount = 1 ether;
+        lpToken.mint(_user, _amount * 2);
+        vm.deal(_user, _farm.performanceFee() * 2);
+        vm.startPrank(_user);
+        lpToken.approve(address(_farm), _amount * 2);
+        uint256 _depositFee = (_amount * DEPOSIT_FEE) / 10000;
+
+        _farm.deposit{value: _farm.performanceFee()}(_amount);
+        utils.mineBlocks(20000);
+        uint256[2] memory pendings = _farm.pendingRewards(_user);
+        uint256 originalBalance = _user.balance;
+        // _farm.deposit{ value: _farm.performanceFee() }(_amount);
+        _farm.claimReward{value: _farm.performanceFee()}();
+        assertEq(
+            _user.balance + _farm.performanceFee() - originalBalance,
+            pendings[1]
+        );
+        vm.stopPrank();
     }
 }
