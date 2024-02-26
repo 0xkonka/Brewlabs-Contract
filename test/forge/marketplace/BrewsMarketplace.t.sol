@@ -69,7 +69,7 @@ contract BrewsMarketplaceTest is Test {
         );
     }
 
-    function test_listToken() public {
+    function test_standard_listing() public {
         vm.deal(vendor, 1 ether);
         vm.startPrank(vendor);
         sellToken.approve(address(marketplace), 10 * 1e18);
@@ -97,6 +97,33 @@ contract BrewsMarketplaceTest is Test {
         skip(12 hours);
         marketplace.claimPurchase{value: 0.0035 ether}(1, 1);
         assertEq(sellToken.balanceOf(address(marketplace)), (5 * 1e18));
+    }
+
+    function test_constant_vesting() public {
+        vm.deal(vendor, 1 ether);
+        vm.startPrank(vendor);
+        sellToken.approve(address(marketplace), 10 * 1e18);
+        marketplace.listToken{value: 0.0035 ether}(
+            address(sellToken),
+            0,
+            2 * 1e18,
+            10 * 1e18,
+            address(paidToken1)
+        );
+        assertEq(sellToken.balanceOf(address(marketplace)), 10 * 1e18);
+        vm.stopPrank();
+
+        vm.deal(buyer1, 1 ether);
+        vm.startPrank(buyer1);
+        paidToken1.approve(address(marketplace), 20 * 1e18);
+        marketplace.purchase{value: 0.0035 ether}(1, 2 * 1e18);
+        assertEq(
+            paidToken1.balanceOf(vendor),
+            (2 * 2 * 1e18 * (1000 - 3)) / 1000
+        );
+        assertEq(sellToken.balanceOf(buyer1), 2 * 1e18);
+        BrewsMarketplace.MarketInfo memory m = marketplace.getMarket(1);
+        assertEq(m.reserve, 8 * 1e18);
     }
 
     receive() external payable {}

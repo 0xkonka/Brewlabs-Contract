@@ -125,9 +125,22 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 paidTokenAmount = (amount * market.price) / denominator;
         uint256 fee = (_purchaseFee * paidTokenAmount) / PERCENT_PRECISION;
         paidTokenAmount -= fee;
+
+        uint256 claimed;
+        uint256 claimedPaidToken;
+        address to = address(this);
+        if (market.vestingTime == 0) {
+            IERC20Upgradeable(market.sellToken).safeTransfer(
+                msg.sender,
+                amount
+            );
+            claimed = amount;
+            claimedPaidToken = paidTokenAmount;
+            to = market.vendor;
+        }
         IERC20Upgradeable(market.paidToken).safeTransferFrom(
             msg.sender,
-            address(this),
+            to,
             paidTokenAmount
         );
         IERC20Upgradeable(market.paidToken).safeTransferFrom(
@@ -138,10 +151,10 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         Purchase memory p = Purchase({
             buyer: msg.sender,
             buyAmount: amount,
-            claimed: 0,
+            claimed: claimed,
             boughtTime: uint96(block.timestamp),
             paidTokenAmount: paidTokenAmount,
-            claimedPaidToken: 0
+            claimedPaidToken: claimedPaidToken
         });
         ++markets[marketId].purchaseCount;
         purchases[marketId][markets[marketId].purchaseCount] = p;
