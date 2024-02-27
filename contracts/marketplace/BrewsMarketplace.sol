@@ -161,6 +161,19 @@ contract BrewsMarketplace is
         emit ListEvent(m);
     }
 
+    function delist(uint256 marketId) external {
+        MarketInfo memory m = markets[marketId];
+        require(m.reserve > 0, "no remaining token");
+        _withrawListedAsset(
+            m.sellToken,
+            m.vendor,
+            m.reserve,
+            m.assetType,
+            m.tokenId
+        );
+        markets[marketId].reserve = 0;
+    }
+
     function purchase(
         uint256 marketId,
         uint256 amount
@@ -168,11 +181,18 @@ contract BrewsMarketplace is
         _transferPerformanceFee();
         MarketInfo memory market = markets[marketId];
         require(market.reserve >= amount, "insufficient listed amount");
-        markets[marketId].reserve -= amount;
+        unchecked {
+            markets[marketId].reserve = market.reserve - amount;
+        }
+        uint8 sellTokenDecimals;
+        if (market.assetType == AssetType.ERC20)
+            sellTokenDecimals = IERC20MetadataUpgradeable(market.sellToken)
+                .decimals();
+
         uint256 denominator = (10 **
             (18 -
                 IERC20MetadataUpgradeable(market.paidToken).decimals() +
-                IERC20MetadataUpgradeable(market.sellToken).decimals()));
+                sellTokenDecimals));
         uint256 paidTokenAmount = (amount * market.price) / denominator;
         uint256 fee = (_purchaseFee * paidTokenAmount) / PERCENT_PRECISION;
         paidTokenAmount -= fee;
@@ -238,6 +258,7 @@ contract BrewsMarketplace is
                 m.vestingTime -
                 p.claimed;
         }
+        require(claimable > 0, "can't claim");
         _withrawListedAsset(
             m.sellToken,
             msg.sender,
@@ -265,7 +286,7 @@ contract BrewsMarketplace is
                 m.vestingTime -
                 p.claimedPaidToken;
         }
-        require(claimable > 0, "claimed all");
+        require(claimable > 0, "can't claim");
         IERC20Upgradeable(m.paidToken).safeTransfer(msg.sender, claimable);
         purchases[marketId][purchaseId].claimedPaidToken =
             p.claimedPaidToken +
@@ -281,8 +302,30 @@ contract BrewsMarketplace is
     function getPurchase(
         uint256 marketId,
         uint256 purchaseId
-    ) external view returns (Purchase memory) {
-        return purchases[marketId][purchaseId];
+    )
+        external
+        view
+        returns (
+            Purchase memory p,
+            uint256 claimable,
+            uint256 claimablePaidToken
+        )
+    {
+        p = purchases[marketId][purchaseId];
+        MarketInfo memory m = markets[marketId];
+        if (p.boughtTime + m.vestingTime <= block.timestamp) {
+            claimable = p.buyAmount - p.claimed;
+            claimablePaidToken = p.paidTokenAmount - p.claimedPaidToken;
+        } else {
+            claimable =
+                (p.buyAmount * (block.timestamp - p.boughtTime)) /
+                m.vestingTime -
+                p.claimed;
+            claimablePaidToken =
+                (p.paidTokenAmount * (block.timestamp - p.boughtTime)) /
+                m.vestingTime -
+                p.claimedPaidToken;
+        }
     }
 
     function enableSellTokens(

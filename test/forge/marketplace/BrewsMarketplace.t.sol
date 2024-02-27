@@ -55,8 +55,10 @@ contract BrewsMarketplaceTest is Test {
         sellERC1155.mint(vendor, 10);
         sellERC1155.mint(vendor, 10000);
         sellERC721.mint(vendor);
-        address[] memory sellTokens = new address[](1);
+        address[] memory sellTokens = new address[](3);
         sellTokens[0] = address(sellToken);
+        sellTokens[1] = address(sellERC721);
+        sellTokens[2] = address(sellERC1155);
         marketplace.enableSellTokens(sellTokens, true);
         address[] memory paidTokens = new address[](2);
         paidTokens[0] = address(paidToken1);
@@ -139,6 +141,56 @@ contract BrewsMarketplaceTest is Test {
         assertEq(sellToken.balanceOf(buyer1), 2 * 1e18);
         BrewsMarketplace.MarketInfo memory m = marketplace.getMarket(1);
         assertEq(m.reserve, 8 * 1e18);
+    }
+
+    function test_erc721() public {
+        vm.deal(vendor, 1 ether);
+        vm.startPrank(vendor);
+        sellERC721.setApprovalForAll(address(marketplace), true);
+        marketplace.listToken{value: 0.0035 ether}(
+            address(sellERC721),
+            2,
+            2 * 1e18,
+            10 * 1e18,
+            address(paidToken1),
+            BrewsMarketplace.AssetType.ERC721,
+            1
+        );
+        assertEq(sellERC721.ownerOf(1), address(marketplace));
+        BrewsMarketplace.MarketInfo memory m = marketplace.getMarket(1);
+        assertEq(m.sellAmount, 1);
+        vm.stopPrank();
+
+        vm.startPrank(buyer1);
+        vm.deal(buyer1, 1 ether);
+        paidToken1.approve(address(marketplace), 20 * 1e18);
+        marketplace.purchase{value: 0.0035 ether}(1, 1);
+        assertEq(
+            paidToken1.balanceOf(address(marketplace)),
+            (1 * 2 * 1e18 * (1000 - 3)) / 1000
+        );
+        skip(12 hours);
+        vm.expectRevert(bytes("can't claim"));
+        marketplace.claimPurchase{value: 0.0035 ether}(1, 1);
+        skip(36 hours);
+        marketplace.claimPurchase{value: 0.0035 ether}(1, 1);
+        assertEq(sellERC721.ownerOf(1), buyer1);
+        vm.stopPrank();
+        vm.startPrank(vendor);
+        assertEq(paidToken1.balanceOf(vendor), 0);
+        marketplace.claimPaidToken{value: 0.0035 ether}(1, 1);
+        assertEq(paidToken1.balanceOf(vendor), (2 * 1e18 * (1000 - 3)) / 1000);
+        (
+            BrewsMarketplace.Purchase memory p,
+            uint256 claimable,
+            uint256 claimedPaidToken
+        ) = marketplace.getPurchase(1, 1);
+        m = marketplace.getMarket(1);
+        assertEq(claimable, 0);
+        assertEq(claimedPaidToken, 0);
+        assertEq(p.claimed, 1);
+        assertEq(m.reserve, 0);
+        vm.stopPrank();
     }
 
     receive() external payable {}
