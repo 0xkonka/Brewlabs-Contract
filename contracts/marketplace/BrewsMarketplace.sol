@@ -5,10 +5,24 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {IERC20MetadataUpgradeable, IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {IERC1155Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC1155Upgradeable.sol";
+import {IERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC721Upgradeable.sol";
+import {IERC1155ReceiverUpgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC1155ReceiverUpgradeable.sol";
+import {IERC721ReceiverUpgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC721ReceiverUpgradeable.sol";
 
-contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract BrewsMarketplace is
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    IERC1155ReceiverUpgradeable,
+    IERC721ReceiverUpgradeable
+{
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
+    enum AssetType {
+        ERC20,
+        ERC721,
+        ERC1155
+    }
     struct MarketInfo {
         // token address listed on market
         address sellToken;
@@ -18,7 +32,7 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address vendor;
         // listed time
         uint96 listedTime;
-        // listed price, precision 18
+        // listed price, precesion 18
         uint256 price;
         // sell amount
         uint256 sellAmount;
@@ -28,6 +42,10 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 purchaseCount;
         // paid token address
         address paidToken;
+        // asset type
+        AssetType assetType;
+        // token id in the case of nft
+        uint256 tokenId;
     }
 
     struct Purchase {
@@ -40,6 +58,11 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 paidTokenAmount;
         uint256 claimedPaidToken;
     }
+    // constants
+    // function selectors
+    bytes4 private constant ERC1155_ACCEPTED = 0xf23a6e61; // bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))
+    bytes4 private constant ERC1155_BATCH_ACCEPTED = 0xbc197c81; // bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))
+    bytes4 private constant ERC721_RECEIVED = 0x150b7a02; //bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
 
     // variables
     uint256 marketCount;
@@ -79,7 +102,9 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 vestingDays,
         uint256 price,
         uint256 sellAmount,
-        address paidToken
+        address paidToken,
+        AssetType assetType,
+        uint256 tokenId
     ) external payable nonReentrant {
         require(price != 0, "invalid price");
         require(sellAmount >= minAmounts[sellToken], "invalid amount");
@@ -88,6 +113,36 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(vestingDays <= _maxVestingDays, "invalid vesting days");
         _transferPerformanceFee();
 
+        if (assetType == AssetType.ERC20) {
+            uint256 beforeAmt = IERC20Upgradeable(sellToken).balanceOf(
+                address(this)
+            );
+            IERC20Upgradeable(sellToken).safeTransferFrom(
+                msg.sender,
+                address(this),
+                sellAmount
+            );
+            sellAmount =
+                IERC20Upgradeable(sellToken).balanceOf(address(this)) -
+                beforeAmt;
+            tokenId = 0;
+        } else if (assetType == AssetType.ERC721) {
+            IERC721Upgradeable(sellToken).safeTransferFrom(
+                msg.sender,
+                address(this),
+                tokenId,
+                ""
+            );
+            sellAmount = 1;
+        } else {
+            IERC1155Upgradeable(sellToken).safeTransferFrom(
+                msg.sender,
+                address(this),
+                tokenId,
+                sellAmount,
+                ""
+            );
+        }
         marketCount++;
         MarketInfo memory m = MarketInfo({
             sellToken: sellToken,
@@ -98,15 +153,11 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             vendor: msg.sender,
             listedTime: uint96(block.timestamp),
             reserve: sellAmount,
-            purchaseCount: 0
+            purchaseCount: 0,
+            assetType: assetType,
+            tokenId: tokenId
         });
         markets[marketCount] = m;
-
-        IERC20Upgradeable(sellToken).safeTransferFrom(
-            msg.sender,
-            address(this),
-            sellAmount
-        );
         emit ListEvent(m);
     }
 
@@ -130,12 +181,16 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 claimedPaidToken;
         address to = address(this);
         if (market.vestingTime == 0) {
-            IERC20Upgradeable(market.sellToken).safeTransfer(
+            _withrawListedAsset(
+                market.sellToken,
                 msg.sender,
-                amount
+                amount,
+                market.assetType,
+                market.tokenId
             );
             claimed = amount;
             claimedPaidToken = paidTokenAmount;
+            // transfer to vendor for constant bond
             to = market.vendor;
         }
         IERC20Upgradeable(market.paidToken).safeTransferFrom(
@@ -183,7 +238,13 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 m.vestingTime -
                 p.claimed;
         }
-        IERC20Upgradeable(m.sellToken).safeTransfer(msg.sender, claimable);
+        _withrawListedAsset(
+            m.sellToken,
+            msg.sender,
+            claimable,
+            m.assetType,
+            m.tokenId
+        );
         purchases[marketId][purchaseId].claimed = p.claimed + claimable;
     }
 
@@ -204,6 +265,7 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 m.vestingTime -
                 p.claimedPaidToken;
         }
+        require(claimable > 0, "claimed all");
         IERC20Upgradeable(m.paidToken).safeTransfer(msg.sender, claimable);
         purchases[marketId][purchaseId].claimedPaidToken =
             p.claimedPaidToken +
@@ -247,6 +309,33 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
     }
 
+    function _withrawListedAsset(
+        address token,
+        address to,
+        uint256 amount,
+        AssetType assetType,
+        uint256 tokenId
+    ) internal {
+        if (assetType == AssetType.ERC20) {
+            IERC20Upgradeable(token).safeTransfer(to, amount);
+        } else if (assetType == AssetType.ERC721) {
+            IERC721Upgradeable(token).safeTransferFrom(
+                address(this),
+                to,
+                tokenId,
+                ""
+            );
+        } else {
+            IERC1155Upgradeable(token).safeTransferFrom(
+                address(this),
+                to,
+                tokenId,
+                amount,
+                ""
+            );
+        }
+    }
+
     function _transferPerformanceFee() internal {
         require(msg.value >= _performanceFee, "should pay small gas");
 
@@ -254,6 +343,49 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (msg.value > _performanceFee) {
             payable(msg.sender).transfer(msg.value - _performanceFee);
         }
+    }
+
+    function onERC1155Received(
+        address operator,
+        address from,
+        uint256 id,
+        uint256 value,
+        bytes calldata data
+    ) external pure override returns (bytes4) {
+        (operator);
+        (from);
+        (id);
+        (value);
+        (data); // solidity, be quiet please
+        return ERC1155_ACCEPTED;
+    }
+
+    function onERC1155BatchReceived(
+        address operator,
+        address from,
+        uint256[] calldata ids,
+        uint256[] calldata values,
+        bytes calldata data
+    ) external pure override returns (bytes4) {
+        (operator);
+        (from);
+        (ids);
+        (values);
+        (data); // solidity, be quiet please
+        return ERC1155_BATCH_ACCEPTED;
+    }
+
+    function onERC721Received(
+        address operator,
+        address from,
+        uint256 tokenId,
+        bytes calldata data
+    ) external pure override returns (bytes4) {
+        (operator);
+        (from);
+        (tokenId);
+        (data); // solidity, be quiet please
+        return ERC721_RECEIVED;
     }
 
     /**
@@ -275,6 +407,10 @@ contract BrewsMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             IERC20Upgradeable(_token).safeTransfer(msg.sender, _tokenAmount);
         }
     }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    ) external view override returns (bool) {}
 
     receive() external payable {}
 }

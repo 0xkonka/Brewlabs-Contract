@@ -5,6 +5,8 @@ import "forge-std/Test.sol";
 
 import {BrewsMarketplace} from "../../../contracts/marketplace/BrewsMarketplace.sol";
 import {MockErc20} from "../../../contracts/mocks/MockErc20.sol";
+import {MockErc721} from "../../../contracts/mocks/MockErc721.sol";
+import {MockErc1155} from "../../../contracts/mocks/MockErc1155.sol";
 
 import {Utils} from "../utils/Utils.sol";
 
@@ -23,6 +25,9 @@ contract BrewsMarketplaceTest is Test {
     MockErc20 internal sellToken;
     MockErc20 internal paidToken1;
     MockErc20 internal paidToken2;
+    MockErc1155 internal sellERC1155;
+    MockErc721 internal sellERC721;
+
     Utils internal utils;
 
     uint256 mainnetFork;
@@ -41,9 +46,15 @@ contract BrewsMarketplaceTest is Test {
         sellToken = new MockErc20(18);
         paidToken1 = new MockErc20(18);
         paidToken2 = new MockErc20(6);
+        sellERC1155 = new MockErc1155();
+        sellERC721 = new MockErc721();
+
         sellToken.mint(vendor, 100 * 1e18);
         paidToken1.mint(buyer1, 100 * 1e18);
         paidToken2.mint(buyer2, 100 * 1e6);
+        sellERC1155.mint(vendor, 10);
+        sellERC1155.mint(vendor, 10000);
+        sellERC721.mint(vendor);
         address[] memory sellTokens = new address[](1);
         sellTokens[0] = address(sellToken);
         marketplace.enableSellTokens(sellTokens, true);
@@ -65,7 +76,9 @@ contract BrewsMarketplaceTest is Test {
             2,
             price,
             amount,
-            paidToken
+            paidToken,
+            BrewsMarketplace.AssetType.ERC20,
+            0
         );
     }
 
@@ -108,7 +121,9 @@ contract BrewsMarketplaceTest is Test {
             0,
             2 * 1e18,
             10 * 1e18,
-            address(paidToken1)
+            address(paidToken1),
+            BrewsMarketplace.AssetType.ERC20,
+            0
         );
         assertEq(sellToken.balanceOf(address(marketplace)), 10 * 1e18);
         vm.stopPrank();
