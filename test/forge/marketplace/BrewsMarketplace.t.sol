@@ -193,5 +193,61 @@ contract BrewsMarketplaceTest is Test {
         vm.stopPrank();
     }
 
+    function test_erc1155() public {
+        vm.deal(vendor, 1 ether);
+        vm.startPrank(vendor);
+        sellERC1155.setApprovalForAll(address(marketplace), true);
+
+        marketplace.listToken{value: 0.0035 ether}(
+            address(sellERC1155),
+            2,
+            2 * 1e18,
+            5,
+            address(paidToken1),
+            BrewsMarketplace.AssetType.ERC1155,
+            1
+        );
+        assertEq(sellERC1155.balanceOf(address(marketplace), 1), 5);
+        BrewsMarketplace.MarketInfo memory m = marketplace.getMarket(1);
+        assertEq(m.sellAmount, 5);
+        vm.stopPrank();
+
+        vm.startPrank(buyer1);
+        vm.deal(buyer1, 1 ether);
+        paidToken1.approve(address(marketplace), 20 * 1e18);
+        skip(2 days);
+        marketplace.purchase{value: 0.0035 ether}(1, 3);
+        assertEq(
+            paidToken1.balanceOf(address(marketplace)),
+            (3 * 2 * 1e18 * (1000 - 3)) / 1000
+        );
+        skip(12 hours);
+        vm.expectRevert(bytes("can't claim"));
+        marketplace.claimPurchase{value: 0.0035 ether}(1, 1);
+        skip(12 hours);
+        marketplace.claimPurchase{value: 0.0035 ether}(1, 1);
+        assertEq(sellERC1155.balanceOf(buyer1, 1), 1);
+        vm.stopPrank();
+        vm.startPrank(vendor);
+        assertEq(paidToken1.balanceOf(vendor), 0);
+        marketplace.claimPaidToken{value: 0.0035 ether}(1, 1);
+        assertEq(
+            paidToken1.balanceOf(vendor),
+            (3 * 2 * 1e18 * (1000 - 3)) / 1000 / 2
+        );
+        skip(1 days);
+        (
+            BrewsMarketplace.Purchase memory p,
+            uint256 claimable,
+            uint256 claimedPaidToken
+        ) = marketplace.getPurchase(1, 1);
+        m = marketplace.getMarket(1);
+        assertEq(claimable, 2);
+        assertEq(claimedPaidToken, (3 * 2 * 1e18 * (1000 - 3)) / 1000 / 2);
+        assertEq(p.claimed, 1);
+        assertEq(m.reserve, 2);
+        vm.stopPrank();
+    }
+
     receive() external payable {}
 }
