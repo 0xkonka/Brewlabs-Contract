@@ -292,6 +292,8 @@ contract BrewsMarketplaceTest is Test {
         vm.stopPrank();
         vm.deal(vendor, 1 ether);
         vm.startPrank(vendor);
+        vm.expectRevert(bytes("invalid owner"));
+        marketplace.setRoyalty(address(sellERC1155), buyer2, 500);
         sellERC1155.setApprovalForAll(address(marketplace), true);
         assertEq(sellERC1155.owner(), deployer);
         marketplace.listToken{value: 0.0035 ether}(
