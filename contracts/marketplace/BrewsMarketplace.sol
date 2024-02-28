@@ -10,6 +10,10 @@ import {IERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces
 import {IERC1155ReceiverUpgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC1155ReceiverUpgradeable.sol";
 import {IERC721ReceiverUpgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC721ReceiverUpgradeable.sol";
 
+interface IOwnable {
+    function owner() external view returns (address);
+}
+
 contract BrewsMarketplace is
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
@@ -70,6 +74,7 @@ contract BrewsMarketplace is
     bytes4 private constant ERC721_RECEIVED = 0x150b7a02; //bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
     uint256 private constant PERCENT_PRECISION = 10000;
     uint256 private constant MAX_FEE = 2000;
+    uint256 private constant MAX_ROYALTY_FEE = 500;
 
     // variables
     uint256 public marketCount;
@@ -81,6 +86,7 @@ contract BrewsMarketplace is
     address private _treasury;
     // purchase fee percent
     uint256 private _purchaseFee;
+
     // market info by address
     mapping(uint256 => MarketInfo) private markets;
     // purchases by market id
@@ -91,6 +97,10 @@ contract BrewsMarketplace is
     mapping(address => bool) public bSellTokens;
     // whitelist for tokens paid to purchase
     mapping(address => bool) public bPaidTokens;
+    // royalty fee
+    mapping(address => uint256) public royaltyFees;
+    // royalty fee address
+    mapping(address => address) public royaltyFeeAddresses;
 
     // events
     event ListEvent(
@@ -253,10 +263,24 @@ contract BrewsMarketplace is
         require(market.reserve >= amount, "insufficient listed amount");
         unchecked {
             markets[marketId].reserve = market.reserve - amount;
-        }        
+        }
         uint256 paidTokenAmount = (amount * market.price) / market.multiplier;
         uint256 fee = (_purchaseFee * paidTokenAmount) / PERCENT_PRECISION;
-        paidTokenAmount -= fee;
+        if (
+            market.assetType != AssetType.ERC20 &&
+            royaltyFees[market.sellToken] > 0
+        ) {
+            uint256 royaltyFeeAmount = (royaltyFees[market.sellToken] *
+                paidTokenAmount) / PERCENT_PRECISION;
+            IERC20Upgradeable(market.paidToken).safeTransferFrom(
+                msg.sender,
+                royaltyFeeAddresses[market.sellToken],
+                royaltyFeeAmount
+            );
+            paidTokenAmount = paidTokenAmount - royaltyFeeAmount - fee;
+        } else {
+            paidTokenAmount -= fee;
+        }
 
         uint256 claimed;
         uint256 claimedPaidToken;
@@ -447,6 +471,20 @@ contract BrewsMarketplace is
         performanceFee = performanceFee;
 
         emit ServiceInfoChanged(treasury, performanceFee);
+    }
+
+    /**
+     * @notice set royalty for ERC721 and ERC1155
+     */
+    function setRoyalty(
+        address collection,
+        address feeAddress,
+        uint256 fee
+    ) external {
+        require(msg.sender == IOwnable(collection).owner(), "invalid owner");
+        require(fee <= MAX_ROYALTY_FEE, "too big royalty");
+        royaltyFeeAddresses[collection] = feeAddress;
+        royaltyFees[collection] = fee;
     }
 
     function setMinAmounts(

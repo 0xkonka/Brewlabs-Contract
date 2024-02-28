@@ -281,9 +281,63 @@ contract BrewsMarketplaceTest is Test {
         assertEq(sellToken.balanceOf(address(marketplace)), (5 * 1e18));
         vm.stopPrank();
         vm.startPrank(buyer1);
-        vm.deal(buyer1, 1 ether);        
+        vm.deal(buyer1, 1 ether);
         vm.expectRevert(bytes("invalid buyer"));
         marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
+    }
+
+    function test_royalty() public {
+        vm.startPrank(deployer);
+        marketplace.setRoyalty(address(sellERC1155), buyer2, 500);
+        vm.stopPrank();
+        vm.deal(vendor, 1 ether);
+        vm.startPrank(vendor);
+        sellERC1155.setApprovalForAll(address(marketplace), true);
+        assertEq(sellERC1155.owner(), deployer);
+        marketplace.listToken{value: 0.0035 ether}(
+            address(sellERC1155),
+            2,
+            2 * 1e18,
+            5,
+            address(paidToken1),
+            BrewsMarketplace.AssetType.ERC1155,
+            1
+        );
+        BrewsMarketplace.MarketInfo memory m = marketplace.getMarket(1);
+        assertEq(m.sellAmount, 5);
+        vm.stopPrank();
+
+        vm.startPrank(buyer1);
+        vm.deal(buyer1, 1 ether);
+        paidToken1.approve(address(marketplace), 20 * 1e18);
+        skip(2 days);
+        marketplace.purchase{value: 0.0035 ether}(1, 3);
+        assertEq(
+            paidToken1.balanceOf(address(marketplace)),
+            (3 * 2 * 1e18 * (1000 - 53)) / 1000
+        );
+        skip(24 hours);
+        marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
+        assertEq(sellERC1155.balanceOf(buyer1, 1), 1);
+        vm.stopPrank();
+        vm.startPrank(vendor);        
+        marketplace.claimForVendor{value: 0.0035 ether}(1, 1);
+        assertEq(
+            paidToken1.balanceOf(vendor),
+            (3 * 2 * 1e18 * (1000 - 53)) / 1000 / 2
+        );
+        skip(1 days);
+        (
+            BrewsMarketplace.Purchase memory p,
+            uint256 claimable,
+            uint256 claimedPaidToken
+        ) = marketplace.getPurchase(1, 1);
+        m = marketplace.getMarket(1);
+        assertEq(claimable, 2);
+        assertEq(claimedPaidToken, (3 * 2 * 1e18 * (1000 - 53)) / 1000 / 2);
+        assertEq(p.claimed, 1);
+        assertEq(m.reserve, 2);
+        vm.stopPrank();
     }
 
     receive() external payable {}
