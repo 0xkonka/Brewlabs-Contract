@@ -100,17 +100,17 @@ contract BrewsMarketplaceTest is Test {
             (10 * 2 * 1e18 * (1000 - 3)) / 1000
         );
         skip(12 hours);
-        marketplace.claimPurchase{value: 0.0035 ether}(1, 1);
+        marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
         assertEq(sellToken.balanceOf(address(marketplace)), (75 * 1e17));
         // Claim stable coin for vendor
         vm.stopPrank();
         vm.startPrank(vendor);
-        marketplace.claimPaidToken{value: 0.0035 ether}(1, 1);
+        marketplace.claimForVendor{value: 0.0035 ether}(1, 1);
         vm.stopPrank();
 
         vm.startPrank(buyer1);
         skip(12 hours);
-        marketplace.claimPurchase{value: 0.0035 ether}(1, 1);
+        marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
         assertEq(sellToken.balanceOf(address(marketplace)), (5 * 1e18));
     }
 
@@ -171,14 +171,14 @@ contract BrewsMarketplaceTest is Test {
         );
         skip(12 hours);
         vm.expectRevert(bytes("can't claim"));
-        marketplace.claimPurchase{value: 0.0035 ether}(1, 1);
+        marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
         skip(36 hours);
-        marketplace.claimPurchase{value: 0.0035 ether}(1, 1);
+        marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
         assertEq(sellERC721.ownerOf(1), buyer1);
         vm.stopPrank();
         vm.startPrank(vendor);
         assertEq(paidToken1.balanceOf(vendor), 0);
-        marketplace.claimPaidToken{value: 0.0035 ether}(1, 1);
+        marketplace.claimForVendor{value: 0.0035 ether}(1, 1);
         assertEq(paidToken1.balanceOf(vendor), (2 * 1e18 * (1000 - 3)) / 1000);
         (
             BrewsMarketplace.Purchase memory p,
@@ -223,14 +223,14 @@ contract BrewsMarketplaceTest is Test {
         );
         skip(12 hours);
         vm.expectRevert(bytes("can't claim"));
-        marketplace.claimPurchase{value: 0.0035 ether}(1, 1);
+        marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
         skip(12 hours);
-        marketplace.claimPurchase{value: 0.0035 ether}(1, 1);
+        marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
         assertEq(sellERC1155.balanceOf(buyer1, 1), 1);
         vm.stopPrank();
         vm.startPrank(vendor);
         assertEq(paidToken1.balanceOf(vendor), 0);
-        marketplace.claimPaidToken{value: 0.0035 ether}(1, 1);
+        marketplace.claimForVendor{value: 0.0035 ether}(1, 1);
         assertEq(
             paidToken1.balanceOf(vendor),
             (3 * 2 * 1e18 * (1000 - 3)) / 1000 / 2
@@ -247,6 +247,43 @@ contract BrewsMarketplaceTest is Test {
         assertEq(p.claimed, 1);
         assertEq(m.reserve, 2);
         vm.stopPrank();
+    }
+
+    function test_paidTokenWith6Decimals() public {
+        vm.deal(vendor, 1 ether);
+        vm.startPrank(vendor);
+        sellToken.approve(address(marketplace), 10 * 1e18);
+        tryList(address(sellToken), address(paidToken2), 10 * 1e18, 2 * 1e18);
+        BrewsMarketplace.MarketInfo memory m = marketplace.getMarket(1);
+        assertEq(m.multiplier, 10 ** (18 + 18 - 6));
+        assertEq(sellToken.balanceOf(address(marketplace)), 10 * 1e18);
+        vm.stopPrank();
+        vm.startPrank(buyer2);
+        vm.deal(buyer2, 1 ether);
+        paidToken2.approve(address(marketplace), 20 * 1e6);
+        marketplace.purchase{value: 0.0035 ether}(1, 10 * 1e18);
+        assertEq(
+            paidToken2.balanceOf(address(marketplace)),
+            (10 * 2 * 1e6 * (1000 - 3)) / 1000
+        );
+        skip(12 hours);
+        marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
+        assertEq(sellToken.balanceOf(address(marketplace)), (75 * 1e17));
+        // Claim stable coin for vendor
+        vm.stopPrank();
+        vm.startPrank(vendor);
+        marketplace.claimForVendor{value: 0.0035 ether}(1, 1);
+        vm.stopPrank();
+
+        vm.startPrank(buyer2);
+        skip(12 hours);
+        marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
+        assertEq(sellToken.balanceOf(address(marketplace)), (5 * 1e18));
+        vm.stopPrank();
+        vm.startPrank(buyer1);
+        vm.deal(buyer1, 1 ether);        
+        vm.expectRevert(bytes("invalid buyer"));
+        marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
     }
 
     receive() external payable {}

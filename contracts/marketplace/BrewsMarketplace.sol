@@ -17,7 +17,7 @@ contract BrewsMarketplace is
     IERC721ReceiverUpgradeable
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
-
+    // enum and struct definition
     enum AssetType {
         ERC20,
         ERC721,
@@ -32,7 +32,7 @@ contract BrewsMarketplace is
         address vendor;
         // listed time
         uint96 listedTime;
-        // listed price, precesion 18
+        // market price, precesion 18
         uint256 price;
         // sell amount
         uint256 sellAmount;
@@ -46,16 +46,21 @@ contract BrewsMarketplace is
         AssetType assetType;
         // token id in the case of nft
         uint256 tokenId;
+        // multiplier precalculated to calculate paid token amount
+        uint256 multiplier;
     }
 
     struct Purchase {
         address buyer;
+        // bought time
         uint96 boughtTime;
-        // sell token amount
+        // token amount to purchase
         uint256 buyAmount;
+        // claimed token amount of purchased
         uint256 claimed;
         // token amount paid to purchase
         uint256 paidTokenAmount;
+        // claimed amount of paid
         uint256 claimedPaidToken;
     }
     // constants
@@ -63,28 +68,71 @@ contract BrewsMarketplace is
     bytes4 private constant ERC1155_ACCEPTED = 0xf23a6e61; // bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))
     bytes4 private constant ERC1155_BATCH_ACCEPTED = 0xbc197c81; // bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))
     bytes4 private constant ERC721_RECEIVED = 0x150b7a02; //bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
+    uint256 private constant PERCENT_PRECISION = 10000;
+    uint256 private constant MAX_FEE = 2000;
 
     // variables
-    uint256 marketCount;
-    // market info by address
-    mapping(uint256 => MarketInfo) markets;
-    // purchases by market id
-    mapping(uint256 => mapping(uint256 => Purchase)) purchases;
-    // minimum amounts by token address
-    mapping(address => uint256) minAmounts;
-    // whitelist for sell tokens
-    mapping(address => bool) bSellTokens;
-    // whitelist for tokens paid to purchase
-    mapping(address => bool) bPaidTokens;
+    uint256 public marketCount;
     // limit for vestingTimes;
-    uint256 internal _maxVestingDays;
-    uint256 internal _performanceFee;
-    address internal _treasury;
-    uint256 internal _purchaseFee;
-    uint256 constant PERCENT_PRECISION = 10000;
+    uint256 private _maxVestingDays;
+    // performance ether fee amount
+    uint256 private _performanceFee;
+    // treasury address
+    address private _treasury;
+    // purchase fee percent
+    uint256 private _purchaseFee;
+    // market info by address
+    mapping(uint256 => MarketInfo) private markets;
+    // purchases by market id
+    mapping(uint256 => mapping(uint256 => Purchase)) private purchases;
+    // minimum amounts by token address
+    mapping(address => uint256) public minAmounts;
+    // whitelist for sell tokens
+    mapping(address => bool) public bSellTokens;
+    // whitelist for tokens paid to purchase
+    mapping(address => bool) public bPaidTokens;
+
     // events
-    event ListEvent(MarketInfo market);
-    event PurchaseEvent(Purchase purchase);
+    event ListEvent(
+        uint256 indexed marketId,
+        address indexed vendor,
+        uint256 vestingDays,
+        address token,
+        uint256 price,
+        uint256 amount,
+        AssetType assetType,
+        uint256 tokenId
+    );
+    event Delist(
+        uint256 indexed marketId,
+        address indexed vendor,
+        uint256 indexed canceledAmount
+    );
+    event PurchaseEvent(
+        uint256 indexed marketId,
+        uint256 indexed purchaseId,
+        address indexed buyer,
+        uint256 amount,
+        uint256 paidToken
+    );
+    event ClaimForBuyer(
+        uint256 indexed marketId,
+        uint256 indexed purchaseId,
+        uint256 claimAmount
+    );
+    event ClaimForVendor(
+        uint256 indexed marketId,
+        uint256 indexed purchaseId,
+        uint256 claimAmount
+    );
+
+    event EnableSellToken(address[] tokens, bool bEnable);
+    event EnablePaidToken(address[] tokens, bool bEnable);
+    event UpdateSetting(
+        uint256 indexed maxVestingDays,
+        uint256 indexed purchaseFee
+    );
+    event ServiceInfoChanged(address indexed addr, uint256 indexed fee);
 
     constructor() {}
 
@@ -112,7 +160,7 @@ contract BrewsMarketplace is
         require(bPaidTokens[paidToken], "invalid paid token");
         require(vestingDays <= _maxVestingDays, "invalid vesting days");
         _transferPerformanceFee();
-
+        uint8 sellTokenDecimals;
         if (assetType == AssetType.ERC20) {
             uint256 beforeAmt = IERC20Upgradeable(sellToken).balanceOf(
                 address(this)
@@ -126,6 +174,7 @@ contract BrewsMarketplace is
                 IERC20Upgradeable(sellToken).balanceOf(address(this)) -
                 beforeAmt;
             tokenId = 0;
+            sellTokenDecimals = IERC20MetadataUpgradeable(sellToken).decimals();
         } else if (assetType == AssetType.ERC721) {
             IERC721Upgradeable(sellToken).safeTransferFrom(
                 msg.sender,
@@ -155,16 +204,31 @@ contract BrewsMarketplace is
             reserve: sellAmount,
             purchaseCount: 0,
             assetType: assetType,
-            tokenId: tokenId
+            tokenId: tokenId,
+            multiplier: 10 **
+                (18 -
+                    IERC20MetadataUpgradeable(paidToken).decimals() +
+                    sellTokenDecimals)
         });
         markets[marketCount] = m;
-        emit ListEvent(m);
+        emit ListEvent(
+            marketCount,
+            msg.sender,
+            vestingDays,
+            sellToken,
+            price,
+            sellAmount,
+            assetType,
+            tokenId
+        );
     }
 
     function delist(uint256 marketId) external {
         MarketInfo memory m = markets[marketId];
+        require(m.vendor == msg.sender, "no vendor");
         require(m.reserve > 0, "no remaining token");
-        _withrawListedAsset(
+
+        _withdrawListedAsset(
             m.sellToken,
             m.vendor,
             m.reserve,
@@ -172,8 +236,14 @@ contract BrewsMarketplace is
             m.tokenId
         );
         markets[marketId].reserve = 0;
+        emit Delist(marketId, m.vendor, m.reserve);
     }
 
+    /**
+     * @notice buyer purchase listed token
+     * @param marketId market id
+     * @param amount token amount to purchase
+     */
     function purchase(
         uint256 marketId,
         uint256 amount
@@ -183,17 +253,8 @@ contract BrewsMarketplace is
         require(market.reserve >= amount, "insufficient listed amount");
         unchecked {
             markets[marketId].reserve = market.reserve - amount;
-        }
-        uint8 sellTokenDecimals;
-        if (market.assetType == AssetType.ERC20)
-            sellTokenDecimals = IERC20MetadataUpgradeable(market.sellToken)
-                .decimals();
-
-        uint256 denominator = (10 **
-            (18 -
-                IERC20MetadataUpgradeable(market.paidToken).decimals() +
-                sellTokenDecimals));
-        uint256 paidTokenAmount = (amount * market.price) / denominator;
+        }        
+        uint256 paidTokenAmount = (amount * market.price) / market.multiplier;
         uint256 fee = (_purchaseFee * paidTokenAmount) / PERCENT_PRECISION;
         paidTokenAmount -= fee;
 
@@ -201,7 +262,7 @@ contract BrewsMarketplace is
         uint256 claimedPaidToken;
         address to = address(this);
         if (market.vestingTime == 0) {
-            _withrawListedAsset(
+            _withdrawListedAsset(
                 market.sellToken,
                 msg.sender,
                 amount,
@@ -210,7 +271,7 @@ contract BrewsMarketplace is
             );
             claimed = amount;
             claimedPaidToken = paidTokenAmount;
-            // transfer to vendor for constant bond
+            // transfer paid token to vendor in the case of constant bond
             to = market.vendor;
         }
         IERC20Upgradeable(market.paidToken).safeTransferFrom(
@@ -233,7 +294,13 @@ contract BrewsMarketplace is
         });
         ++markets[marketId].purchaseCount;
         purchases[marketId][markets[marketId].purchaseCount] = p;
-        emit PurchaseEvent(p);
+        emit PurchaseEvent(
+            marketId,
+            markets[marketId].purchaseCount,
+            msg.sender,
+            amount,
+            paidTokenAmount
+        );
     }
 
     /**
@@ -241,7 +308,7 @@ contract BrewsMarketplace is
      * @param marketId market id
      * @param purchaseId purchase id
      */
-    function claimPurchase(
+    function claimForBuyer(
         uint256 marketId,
         uint256 purchaseId
     ) external payable nonReentrant {
@@ -259,7 +326,7 @@ contract BrewsMarketplace is
                 p.claimed;
         }
         require(claimable > 0, "can't claim");
-        _withrawListedAsset(
+        _withdrawListedAsset(
             m.sellToken,
             msg.sender,
             claimable,
@@ -267,9 +334,15 @@ contract BrewsMarketplace is
             m.tokenId
         );
         purchases[marketId][purchaseId].claimed = p.claimed + claimable;
+        emit ClaimForBuyer(marketId, purchaseId, claimable);
     }
 
-    function claimPaidToken(
+    /**
+     * @notice vendor claim token that buyer paid to purchase
+     * @param marketId market id
+     * @param purchaseId purchase id
+     */
+    function claimForVendor(
         uint256 marketId,
         uint256 purchaseId
     ) external payable nonReentrant {
@@ -291,6 +364,8 @@ contract BrewsMarketplace is
         purchases[marketId][purchaseId].claimedPaidToken =
             p.claimedPaidToken +
             claimable;
+
+        emit ClaimForVendor(marketId, purchaseId, claimable);
     }
 
     function getMarket(
@@ -338,6 +413,7 @@ contract BrewsMarketplace is
                 ++i;
             }
         }
+        emit EnableSellToken(sellTokens, bEnable);
     }
 
     function enablePaidTokens(
@@ -350,9 +426,37 @@ contract BrewsMarketplace is
                 ++i;
             }
         }
+        emit EnablePaidToken(paidTokens, bEnable);
     }
 
-    function _withrawListedAsset(
+    function setMarketSetting(
+        uint256 maxVestingDays,
+        uint256 purchaseFee
+    ) external onlyOwner {
+        _maxVestingDays = maxVestingDays;
+        require(purchaseFee <= MAX_FEE, "invalid purchase fee");
+        _purchaseFee = purchaseFee;
+        emit UpdateSetting(maxVestingDays, purchaseFee);
+    }
+
+    function setServiceInfo(address treasury, uint256 performanceFee) external {
+        require(msg.sender == treasury, "setServiceInfo: FORBIDDEN");
+        require(_treasury != address(0x0), "Invalid address");
+
+        _treasury = treasury;
+        performanceFee = performanceFee;
+
+        emit ServiceInfoChanged(treasury, performanceFee);
+    }
+
+    function setMinAmounts(
+        address token,
+        uint256 minAmount
+    ) external onlyOwner {
+        minAmounts[token] = minAmount;
+    }
+
+    function _withdrawListedAsset(
         address token,
         address to,
         uint256 amount,
