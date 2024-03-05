@@ -2,8 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract MockErc1155 is ERC1155 {
+contract MockErc1155 is ERC1155, Ownable {
     string public name = "Test Nft";
     string public symbol = "TNFT";
     uint256 public supply;
