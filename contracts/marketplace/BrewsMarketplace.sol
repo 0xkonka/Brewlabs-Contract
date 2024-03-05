@@ -233,11 +233,12 @@ contract BrewsMarketplace is
         );
     }
 
-    function delist(uint256 marketId) external {
+    function delist(uint256 marketId) external nonReentrant {
         MarketInfo memory m = markets[marketId];
         require(m.vendor == msg.sender, "no vendor");
         require(m.reserve > 0, "no remaining token");
 
+        markets[marketId].reserve = 0;
         _withdrawListedAsset(
             m.sellToken,
             m.vendor,
@@ -245,7 +246,7 @@ contract BrewsMarketplace is
             m.assetType,
             m.tokenId
         );
-        markets[marketId].reserve = 0;
+
         emit Delist(marketId, m.vendor, m.reserve);
     }
 
@@ -266,6 +267,7 @@ contract BrewsMarketplace is
         }
         uint256 paidTokenAmount = (amount * market.price) / market.multiplier;
         uint256 fee = (_purchaseFee * paidTokenAmount) / PERCENT_PRECISION;
+        // apply royalty for NFT purchase
         if (
             market.assetType != AssetType.ERC20 &&
             royaltyFees[market.sellToken] > 0
@@ -277,9 +279,13 @@ contract BrewsMarketplace is
                 royaltyFeeAddresses[market.sellToken],
                 royaltyFeeAmount
             );
-            paidTokenAmount = paidTokenAmount - royaltyFeeAmount - fee;
+            unchecked {
+                paidTokenAmount = paidTokenAmount - royaltyFeeAmount - fee;
+            }
         } else {
-            paidTokenAmount -= fee;
+            unchecked {
+                paidTokenAmount -= fee;
+            }
         }
 
         uint256 claimed;
@@ -465,7 +471,7 @@ contract BrewsMarketplace is
 
     function setServiceInfo(address treasury, uint256 performanceFee) external {
         require(msg.sender == treasury, "setServiceInfo: FORBIDDEN");
-        require(_treasury != address(0x0), "Invalid address");
+        require(treasury != address(0x0), "Invalid address");
 
         _treasury = treasury;
         performanceFee = performanceFee;
