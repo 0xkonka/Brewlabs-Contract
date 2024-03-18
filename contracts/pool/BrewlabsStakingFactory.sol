@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
 import "./BrewlabsStaking.sol";
-import "./interfaces/IBrewlabsStaking.sol";
+import "./IBrewlabsStaking.sol";
 
 contract BrewlabsStakingFactory {
     bytes32 public constant INIT_CODE_PAIR_HASH = keccak256(abi.encodePacked(type(BrewlabsStaking).creationCode));
