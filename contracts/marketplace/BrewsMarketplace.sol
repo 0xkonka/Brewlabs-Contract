@@ -470,7 +470,7 @@ contract BrewsMarketplace is
     }
 
     function setServiceInfo(address treasury, uint256 performanceFee) external {
-        require(msg.sender == treasury, "setServiceInfo: FORBIDDEN");
+        require(msg.sender == _treasury, "setServiceInfo: FORBIDDEN");
         require(treasury != address(0x0), "Invalid address");
 
         _treasury = treasury;
