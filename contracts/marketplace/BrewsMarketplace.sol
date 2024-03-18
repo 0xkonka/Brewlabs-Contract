@@ -165,7 +165,6 @@ contract BrewsMarketplace is
         uint256 tokenId
     ) external payable nonReentrant {
         require(price != 0, "invalid price");
-        require(sellAmount >= minAmounts[sellToken], "invalid amount");
         require(bSellTokens[sellToken], "invalid sell token");
         require(bPaidTokens[paidToken], "invalid paid token");
         require(vestingDays <= _maxVestingDays, "invalid vesting days");
@@ -202,6 +201,7 @@ contract BrewsMarketplace is
                 ""
             );
         }
+        require(sellAmount >= minAmounts[sellToken], "invalid amount");
         marketCount++;
         MarketInfo memory m = MarketInfo({
             sellToken: sellToken,
