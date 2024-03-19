@@ -472,9 +472,10 @@ contract BrewsMarketplace is
     function setServiceInfo(address treasury, uint256 performanceFee) external {
         require(msg.sender == _treasury, "setServiceInfo: FORBIDDEN");
         require(treasury != address(0x0), "Invalid address");
+        require(performanceFee >= 0.0035 ether, "Invalid fee");
 
         _treasury = treasury;
-        performanceFee = performanceFee;
+        _performanceFee = performanceFee;
 
         emit ServiceInfoChanged(treasury, performanceFee);
     }
@@ -599,9 +600,11 @@ contract BrewsMarketplace is
         }
     }
 
-    function supportsInterface(
-        bytes4 interfaceId
-    ) external view override returns (bool) {}
+    // function supportsInterface(
+    //     bytes4 interfaceId
+    // ) external view override returns (bool) {
+    //     return super.supportsInterface(interfaceId);
+    // }
 
     receive() external payable {}
 }
