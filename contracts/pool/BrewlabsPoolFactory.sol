@@ -126,6 +126,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 keccak256(abi.encodePacked(msg.sender, "0", stakingToken, rewardToken, hasDividend, block.timestamp));
 
             pool = Clones.cloneDeterministic(implementation[0], salt);
+            require(pool != address(0x0), "Invalid address");
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
                     "initialize(address,address,address,uint256,uint256,uint256,uint256,bool,address,address,address)",
@@ -194,6 +195,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             bytes32 salt = keccak256(abi.encodePacked(msg.sender, "1", stakingToken, rewardToken, block.timestamp));
 
             pool = Clones.cloneDeterministic(implementation[1], salt);
+            require(pool != address(0x0), "Invalid address");
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
                     "initialize(address,address,address,uint256,address,address,address)",
@@ -276,6 +278,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 keccak256(abi.encodePacked(msg.sender, "2", stakingToken, rewardToken, block.number, block.timestamp));
 
             pool = Clones.cloneDeterministic(implementation[2], salt);
+            require(pool != address(0x0), "Invalid address");
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
                     "initialize(address,address,address,uint256,uint256,address,address,address)",
@@ -363,6 +366,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function setPayingToken(address token) external onlyOwner {
+        require(token != address(0x0), "Invalid token");
         payingToken = token;
         emit SetPayingInfo(payingToken, serviceFee);
     }
