@@ -9,7 +9,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 contract BrewlabsPoolFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
 
-    uint public constant MAX_FEE_AMOUNT = 1 ether;
+    uint public constant MAX_FEE_AMOUNT = 0.0035 ether;
 
     mapping(uint256 => address) public implementation;
     mapping(uint256 => uint256) public version;
