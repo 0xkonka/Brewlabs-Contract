@@ -167,6 +167,10 @@ contract BrewsMarketplace is
         require(price != 0, "invalid price");
         require(bSellTokens[sellToken], "invalid sell token");
         require(bPaidTokens[paidToken], "invalid paid token");
+        require(
+            sellToken != paidToken,
+            "sellToken can't be same as paid token"
+        );
         require(vestingDays <= _maxVestingDays, "invalid vesting days");
         _transferPerformanceFee();
         uint8 sellTokenDecimals;
@@ -489,7 +493,11 @@ contract BrewsMarketplace is
         address feeAddress,
         uint256 fee
     ) external {
-        require(msg.sender == IOwnable(collection).owner(), "invalid owner");
+        // if collection is not ownable, our contract owner can set royalty
+        require(
+            msg.sender == owner() || msg.sender == IOwnable(collection).owner(),
+            "invalid owner"
+        );
         require(fee <= MAX_ROYALTY_FEE, "too big royalty");
         royaltyFeeAddresses[collection] = feeAddress;
         royaltyFees[collection] = fee;

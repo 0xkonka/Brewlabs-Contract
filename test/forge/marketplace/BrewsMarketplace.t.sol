@@ -7,6 +7,7 @@ import {BrewsMarketplace} from "../../../contracts/marketplace/BrewsMarketplace.
 import {MockErc20} from "../../../contracts/mocks/MockErc20.sol";
 import {MockErc721} from "../../../contracts/mocks/MockErc721.sol";
 import {MockErc1155} from "../../../contracts/mocks/MockErc1155.sol";
+import {MockCollectionNoOwnable} from "../../../contracts/mocks/MockCollectionNoOwnable.sol";
 
 import {Utils} from "../utils/Utils.sol";
 
@@ -294,6 +295,16 @@ contract BrewsMarketplaceTest is Test {
         vm.startPrank(vendor);
         vm.expectRevert(bytes("invalid owner"));
         marketplace.setRoyalty(address(sellERC1155), buyer2, 500);
+        MockErc721 sellERC721_2 = new MockErc721();
+        MockCollectionNoOwnable collectionWithoutOwnable = new MockCollectionNoOwnable();
+        assertEq(sellERC721_2.owner(), vendor);
+        marketplace.setRoyalty(address(sellERC721_2), buyer2, 500);        
+        vm.stopPrank();
+        vm.startPrank(deployer);
+        marketplace.setRoyalty(address(sellERC721_2), buyer2, 500);
+        marketplace.setRoyalty(address(collectionWithoutOwnable), buyer2, 500);        
+        vm.stopPrank();
+        vm.startPrank(vendor);
         sellERC1155.setApprovalForAll(address(marketplace), true);
         assertEq(sellERC1155.owner(), deployer);
         marketplace.listToken{value: 0.0035 ether}(
@@ -322,7 +333,7 @@ contract BrewsMarketplaceTest is Test {
         marketplace.claimForBuyer{value: 0.0035 ether}(1, 1);
         assertEq(sellERC1155.balanceOf(buyer1, 1), 1);
         vm.stopPrank();
-        vm.startPrank(vendor);        
+        vm.startPrank(vendor);
         marketplace.claimForVendor{value: 0.0035 ether}(1, 1);
         assertEq(
             paidToken1.balanceOf(vendor),
