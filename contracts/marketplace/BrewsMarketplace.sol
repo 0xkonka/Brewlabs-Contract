@@ -600,11 +600,9 @@ contract BrewsMarketplace is
         }
     }
 
-    // function supportsInterface(
-    //     bytes4 interfaceId
-    // ) external view override returns (bool) {
-    //     return super.supportsInterface(interfaceId);
-    // }
+    function supportsInterface(
+        bytes4 interfaceId
+    ) external view override returns (bool) {}
 
     receive() external payable {}
 }
