@@ -8,6 +8,8 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 contract BrewlabsPoolFactory is OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
+    uint public constant MAX_FEE_AMOUNT = 1 ether;
+
     mapping(uint256 => address) public implementation;
     mapping(uint256 => uint256) public version;
 
@@ -86,6 +88,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
 
     function initialize(address token, uint256 price, address poolOwner) external initializer {
         require(token != address(0x0), "Invalid address");
+        require(poolOwner != address(0x0), "Invalid address");
 
         __Ownable_init();
 
@@ -351,6 +354,8 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     }
 
     function setServiceFee(uint256 fee) external onlyOwner {
+        require( fee <= MAX_FEE_AMOUNT, "Fee mustn't exceed the maximum");
+
         serviceFee = fee;
         emit SetPayingInfo(payingToken, serviceFee);
     }
@@ -384,7 +389,9 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     function rescueTokens(address _token) external onlyOwner {
         if (_token == address(0x0)) {
             uint256 _ethAmount = address(this).balance;
-            payable(msg.sender).transfer(_ethAmount);
+            // payable(msg.sender).transfer(_ethAmount);
+            (bool success, ) = msg.sender.call{value: _ethAmount}("");
+            require(success, "Unable to send value, recipient may have reverted");
         } else {
             uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
             IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
@@ -392,11 +399,32 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     }
 
     function _transferServiceFee() internal {
+        uint256 actualFee;
         if (payingToken == address(0x0)) {
             require(msg.value >= serviceFee, "Not enough fee");
-            payable(treasury).transfer(serviceFee);
+            actualFee = serviceFee;
+            (bool success, ) = treasury.call{value: serviceFee}("");
+            require(success, "Unable to send value, recipient may have reverted");
+            // payable(treasury).transfer(serviceFee);
         } else {
             IERC20(payingToken).safeTransferFrom(msg.sender, treasury, serviceFee);
+            actualFee = IERC20(payingToken).balanceOf(address(this));
+            require(actualFee >= serviceFee, "Insufficient tokens received");
+        }
+
+        // Refund excess payment to the caller
+        if (payingToken == address(0x0)) {
+            uint256 excess = msg.value - actualFee;
+            if (excess > 0) {
+                // payable(msg.sender).transfer(excess);
+                (bool success, ) = msg.sender.call{value: excess}("");
+                require(success, "Unable to send value, recipient may have reverted");
+            }
+        } else {
+            uint256 excess = IERC20(payingToken).balanceOf(address(this)) - actualFee;
+            if (excess > 0) {
+                IERC20(payingToken).safeTransfer(msg.sender, excess);
+            }
         }
     }
 
