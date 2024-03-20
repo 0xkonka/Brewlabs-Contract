@@ -9,6 +9,7 @@ import {IERC1155Upgradeable} from "@openzeppelin/contracts-upgradeable/interface
 import {IERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC721Upgradeable.sol";
 import {IERC1155ReceiverUpgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC1155ReceiverUpgradeable.sol";
 import {IERC721ReceiverUpgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC721ReceiverUpgradeable.sol";
+import {AddressUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 interface IOwnable {
     function owner() external view returns (address);
@@ -550,9 +551,12 @@ contract BrewsMarketplace is
     function _transferPerformanceFee() internal {
         require(msg.value >= _performanceFee, "should pay small gas");
 
-        payable(_treasury).transfer(_performanceFee);
+        AddressUpgradeable.sendValue(payable(_treasury), _performanceFee);
         if (msg.value > _performanceFee) {
-            payable(msg.sender).transfer(msg.value - _performanceFee);
+            AddressUpgradeable.sendValue(
+                payable(msg.sender),
+                msg.value - _performanceFee
+            );
         }
     }
 
@@ -611,7 +615,7 @@ contract BrewsMarketplace is
         uint256 amount;
         if (_token == address(0x0)) {
             amount = address(this).balance;
-            payable(msg.sender).transfer(amount);
+            AddressUpgradeable.sendValue(payable(msg.sender), amount);
         } else {
             amount = IERC20Upgradeable(_token).balanceOf(address(this));
             IERC20Upgradeable(_token).safeTransfer(msg.sender, amount);
