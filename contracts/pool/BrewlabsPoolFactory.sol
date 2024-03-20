@@ -4,8 +4,9 @@ pragma solidity ^0.8.4;
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-contract BrewlabsPoolFactory is OwnableUpgradeable {
+contract BrewlabsPoolFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
 
     uint public constant MAX_FEE_AMOUNT = 1 ether;
@@ -91,6 +92,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         require(poolOwner != address(0x0), "Invalid address");
 
         __Ownable_init();
+        __ReentrancyGuard_init();
 
         swapAggregator = 0x260C865B96C6e70A25228635F8123C3A7ab0b4e2;
 
@@ -109,7 +111,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256 depositFee,
         uint256 withdrawFee,
         bool hasDividend
-    ) external payable returns (address pool) {
+    ) external payable nonReentrant returns (address pool)  {
         require(implementation[0] != address(0x0), "No implementation");
         require(isContract(stakingToken), "Invalid staking token");
         require(isContract(rewardToken), "Invalid reward token");
@@ -180,7 +182,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256[] memory rewardsPerBlock,
         uint256[] memory depositFees,
         uint256[] memory withdrawFees
-    ) external payable returns (address pool) {
+    ) external payable nonReentrant returns (address pool)  {
         require(implementation[1] != address(0x0), "No implementation");
         require(isContract(stakingToken), "Invalid staking token");
         require(isContract(rewardToken), "Invalid reward token");
@@ -263,7 +265,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256[] memory depositFees,
         uint256[] memory withdrawFees,
         uint256 penaltyFee
-    ) external payable returns (address pool) {
+    ) external payable nonReentrant returns (address pool) {
         require(implementation[2] != address(0x0), "No implementation");
         if (!whitelist[msg.sender]) {
             _transferServiceFee();
