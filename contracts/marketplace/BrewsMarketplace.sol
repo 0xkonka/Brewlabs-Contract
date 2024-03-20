@@ -266,6 +266,7 @@ contract BrewsMarketplace is
             markets[marketId].reserve = market.reserve - amount;
         }
         uint256 paidTokenAmount = (amount * market.price) / market.multiplier;
+        require(paidTokenAmount > 0, "small amount");
         uint256 fee = (_purchaseFee * paidTokenAmount) / PERCENT_PRECISION;
         // apply royalty for NFT purchase
         if (
