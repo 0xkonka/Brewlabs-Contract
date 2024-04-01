@@ -88,7 +88,6 @@ contract BrewlabsPoolFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     constructor() {}
 
     function initialize(address token, uint256 price, address poolOwner) external initializer {
-        require(token != address(0x0), "Invalid address");
         require(poolOwner != address(0x0), "Invalid address");
 
         __Ownable_init();
@@ -366,7 +365,6 @@ contract BrewlabsPoolFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function setPayingToken(address token) external onlyOwner {
-        require(token != address(0x0), "Invalid token");
         payingToken = token;
         emit SetPayingInfo(payingToken, serviceFee);
     }
