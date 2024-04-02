@@ -403,32 +403,12 @@ contract BrewlabsPoolFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function _transferServiceFee() internal {
-        uint256 actualFee;
         if (payingToken == address(0x0)) {
-            require(msg.value >= serviceFee, "Not enough fee");
-            actualFee = serviceFee;
+            require(msg.value == serviceFee, "Not enough fee");
             (bool success, ) = treasury.call{value: serviceFee}("");
             require(success, "Unable to send value, recipient may have reverted");
-            // payable(treasury).transfer(serviceFee);
         } else {
             IERC20(payingToken).safeTransferFrom(msg.sender, treasury, serviceFee);
-            actualFee = IERC20(payingToken).balanceOf(address(this));
-            require(actualFee >= serviceFee, "Insufficient tokens received");
-        }
-
-        // Refund excess payment to the caller
-        if (payingToken == address(0x0)) {
-            uint256 excess = msg.value - actualFee;
-            if (excess > 0) {
-                // payable(msg.sender).transfer(excess);
-                (bool success, ) = msg.sender.call{value: excess}("");
-                require(success, "Unable to send value, recipient may have reverted");
-            }
-        } else {
-            uint256 excess = IERC20(payingToken).balanceOf(address(this)) - actualFee;
-            if (excess > 0) {
-                IERC20(payingToken).safeTransfer(msg.sender, excess);
-            }
         }
     }
 
