@@ -4,9 +4,12 @@ pragma solidity ^0.8.4;
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-contract BrewlabsPoolFactory is OwnableUpgradeable {
+contract BrewlabsPoolFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
+
+    uint public constant MAX_FEE_AMOUNT = 0.0035 ether;
 
     mapping(uint256 => address) public implementation;
     mapping(uint256 => uint256) public version;
@@ -85,9 +88,10 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     constructor() {}
 
     function initialize(address token, uint256 price, address poolOwner) external initializer {
-        require(token != address(0x0), "Invalid address");
+        require(poolOwner != address(0x0), "Invalid address");
 
         __Ownable_init();
+        __ReentrancyGuard_init();
 
         swapAggregator = 0x260C865B96C6e70A25228635F8123C3A7ab0b4e2;
 
@@ -106,7 +110,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256 depositFee,
         uint256 withdrawFee,
         bool hasDividend
-    ) external payable returns (address pool) {
+    ) external payable nonReentrant returns (address pool)  {
         require(implementation[0] != address(0x0), "No implementation");
         require(isContract(stakingToken), "Invalid staking token");
         require(isContract(rewardToken), "Invalid reward token");
@@ -121,6 +125,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
                 keccak256(abi.encodePacked(msg.sender, "0", stakingToken, rewardToken, hasDividend, block.timestamp));
 
             pool = Clones.cloneDeterministic(implementation[0], salt);
+            require(pool != address(0x0), "Invalid address");
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
                     "initialize(address,address,address,uint256,uint256,uint256,uint256,bool,address,address,address)",
@@ -177,7 +182,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256[] memory rewardsPerBlock,
         uint256[] memory depositFees,
         uint256[] memory withdrawFees
-    ) external payable returns (address pool) {
+    ) external payable nonReentrant returns (address pool)  {
         require(implementation[1] != address(0x0), "No implementation");
         require(isContract(stakingToken), "Invalid staking token");
         require(isContract(rewardToken), "Invalid reward token");
@@ -189,6 +194,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
             bytes32 salt = keccak256(abi.encodePacked(msg.sender, "1", stakingToken, rewardToken, block.timestamp));
 
             pool = Clones.cloneDeterministic(implementation[1], salt);
+            require(pool != address(0x0), "Invalid address");
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
                     "initialize(address,address,address,uint256,address,address,address)",
@@ -260,7 +266,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
         uint256[] memory depositFees,
         uint256[] memory withdrawFees,
         uint256 penaltyFee
-    ) external payable returns (address pool) {
+    ) external payable nonReentrant returns (address pool) {
         require(implementation[2] != address(0x0), "No implementation");
         if (!whitelist[msg.sender]) {
             _transferServiceFee();
@@ -271,6 +277,7 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
                 keccak256(abi.encodePacked(msg.sender, "2", stakingToken, rewardToken, block.number, block.timestamp));
 
             pool = Clones.cloneDeterministic(implementation[2], salt);
+            require(pool != address(0x0), "Invalid address");
             (bool success,) = pool.call(
                 abi.encodeWithSignature(
                     "initialize(address,address,address,uint256,uint256,address,address,address)",
@@ -351,6 +358,8 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     }
 
     function setServiceFee(uint256 fee) external onlyOwner {
+        require( fee <= MAX_FEE_AMOUNT, "Fee mustn't exceed the maximum");
+
         serviceFee = fee;
         emit SetPayingInfo(payingToken, serviceFee);
     }
@@ -384,7 +393,9 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
     function rescueTokens(address _token) external onlyOwner {
         if (_token == address(0x0)) {
             uint256 _ethAmount = address(this).balance;
-            payable(msg.sender).transfer(_ethAmount);
+            // payable(msg.sender).transfer(_ethAmount);
+            (bool success, ) = msg.sender.call{value: _ethAmount}("");
+            require(success, "Unable to send value, recipient may have reverted");
         } else {
             uint256 _tokenAmount = IERC20(_token).balanceOf(address(this));
             IERC20(_token).safeTransfer(msg.sender, _tokenAmount);
@@ -393,8 +404,9 @@ contract BrewlabsPoolFactory is OwnableUpgradeable {
 
     function _transferServiceFee() internal {
         if (payingToken == address(0x0)) {
-            require(msg.value >= serviceFee, "Not enough fee");
-            payable(treasury).transfer(serviceFee);
+            require(msg.value == serviceFee, "Not enough fee");
+            (bool success, ) = treasury.call{value: serviceFee}("");
+            require(success, "Unable to send value, recipient may have reverted");
         } else {
             IERC20(payingToken).safeTransferFrom(msg.sender, treasury, serviceFee);
         }
