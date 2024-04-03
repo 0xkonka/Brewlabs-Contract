@@ -9,6 +9,7 @@ import {IERC1155Upgradeable} from "@openzeppelin/contracts-upgradeable/interface
 import {IERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC721Upgradeable.sol";
 import {IERC1155ReceiverUpgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC1155ReceiverUpgradeable.sol";
 import {IERC721ReceiverUpgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC721ReceiverUpgradeable.sol";
+import {AddressUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 interface IOwnable {
     function owner() external view returns (address);
@@ -75,6 +76,7 @@ contract BrewsMarketplace is
     uint256 private constant PERCENT_PRECISION = 10000;
     uint256 private constant MAX_FEE = 2000;
     uint256 private constant MAX_ROYALTY_FEE = 500;
+    uint256 private constant MAX_PERFORMANCE_FEE = 0.0035 ether;
 
     // variables
     uint256 public marketCount;
@@ -143,6 +145,13 @@ contract BrewsMarketplace is
         uint256 indexed purchaseFee
     );
     event ServiceInfoChanged(address indexed addr, uint256 indexed fee);
+    event SetRoyality(
+        address indexed collection,
+        address indexed addr,
+        uint256 indexed fee
+    );
+    event SetMinAmounts(address indexed token, uint256 indexed minAmount);
+    event RescueTokens(address indexed token, uint256 indexed amount);
 
     constructor() {}
 
@@ -167,6 +176,10 @@ contract BrewsMarketplace is
         require(price != 0, "invalid price");
         require(bSellTokens[sellToken], "invalid sell token");
         require(bPaidTokens[paidToken], "invalid paid token");
+        require(
+            sellToken != paidToken,
+            "sellToken can't be same as paid token"
+        );
         require(vestingDays <= _maxVestingDays, "invalid vesting days");
         _transferPerformanceFee();
         uint8 sellTokenDecimals;
@@ -266,6 +279,7 @@ contract BrewsMarketplace is
             markets[marketId].reserve = market.reserve - amount;
         }
         uint256 paidTokenAmount = (amount * market.price) / market.multiplier;
+        require(paidTokenAmount > 0, "small amount");
         uint256 fee = (_purchaseFee * paidTokenAmount) / PERCENT_PRECISION;
         // apply royalty for NFT purchase
         if (
@@ -463,8 +477,8 @@ contract BrewsMarketplace is
         uint256 maxVestingDays,
         uint256 purchaseFee
     ) external onlyOwner {
-        _maxVestingDays = maxVestingDays;
         require(purchaseFee <= MAX_FEE, "invalid purchase fee");
+        _maxVestingDays = maxVestingDays;
         _purchaseFee = purchaseFee;
         emit UpdateSetting(maxVestingDays, purchaseFee);
     }
@@ -472,9 +486,10 @@ contract BrewsMarketplace is
     function setServiceInfo(address treasury, uint256 performanceFee) external {
         require(msg.sender == _treasury, "setServiceInfo: FORBIDDEN");
         require(treasury != address(0x0), "Invalid address");
+        require(performanceFee <= MAX_PERFORMANCE_FEE, "Invalid fee");
 
         _treasury = treasury;
-        performanceFee = performanceFee;
+        _performanceFee = performanceFee;
 
         emit ServiceInfoChanged(treasury, performanceFee);
     }
@@ -487,10 +502,15 @@ contract BrewsMarketplace is
         address feeAddress,
         uint256 fee
     ) external {
-        require(msg.sender == IOwnable(collection).owner(), "invalid owner");
+        // if collection is not ownable, our contract owner can set royalty
+        require(
+            msg.sender == owner() || msg.sender == IOwnable(collection).owner(),
+            "invalid owner"
+        );
         require(fee <= MAX_ROYALTY_FEE, "too big royalty");
         royaltyFeeAddresses[collection] = feeAddress;
         royaltyFees[collection] = fee;
+        emit SetRoyality(collection, feeAddress, fee);
     }
 
     function setMinAmounts(
@@ -498,6 +518,7 @@ contract BrewsMarketplace is
         uint256 minAmount
     ) external onlyOwner {
         minAmounts[token] = minAmount;
+        emit SetMinAmounts(token, minAmount);
     }
 
     function _withdrawListedAsset(
@@ -530,9 +551,12 @@ contract BrewsMarketplace is
     function _transferPerformanceFee() internal {
         require(msg.value >= _performanceFee, "should pay small gas");
 
-        payable(_treasury).transfer(_performanceFee);
+        AddressUpgradeable.sendValue(payable(_treasury), _performanceFee);
         if (msg.value > _performanceFee) {
-            payable(msg.sender).transfer(msg.value - _performanceFee);
+            AddressUpgradeable.sendValue(
+                payable(msg.sender),
+                msg.value - _performanceFee
+            );
         }
     }
 
@@ -588,15 +612,15 @@ contract BrewsMarketplace is
             !bSellTokens[_token] && !bPaidTokens[_token],
             "can't be sell or paid tokens"
         );
+        uint256 amount;
         if (_token == address(0x0)) {
-            uint256 _ethAmount = address(this).balance;
-            payable(msg.sender).transfer(_ethAmount);
+            amount = address(this).balance;
+            AddressUpgradeable.sendValue(payable(msg.sender), amount);
         } else {
-            uint256 _tokenAmount = IERC20Upgradeable(_token).balanceOf(
-                address(this)
-            );
-            IERC20Upgradeable(_token).safeTransfer(msg.sender, _tokenAmount);
+            amount = IERC20Upgradeable(_token).balanceOf(address(this));
+            IERC20Upgradeable(_token).safeTransfer(msg.sender, amount);
         }
+        emit RescueTokens(_token, amount);
     }
 
     function supportsInterface(
