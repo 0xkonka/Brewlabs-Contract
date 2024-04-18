@@ -7,6 +7,7 @@ import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 
 import "../libs/IUniRouter02.sol";
 import "../libs/IWETH.sol";
+import "../libs/ArbSys.sol";
 
 // BrewlabsFarm is the master of brews. He can make brews and he is a fair guy.
 //
@@ -15,7 +16,7 @@ import "../libs/IWETH.sol";
 // distributed and the community can show to govern itself.
 //
 // Have fun reading it. Hopefully it's bug-free. God bless.
-contract BrewlabsFarm is Ownable, ReentrancyGuard {
+contract BrewlabsFarmOnARB is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // Info of each user.
@@ -103,6 +104,10 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     uint256 public paidRewards;
     uint256 private shouldTotalPaid;
 
+    // Arbitrum precompile
+    ArbSys constant arbsys =
+        ArbSys(address(0x0000000000000000000000000000000000000064));
+
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
     event Claim(address indexed user, uint256 indexed pid, uint256 amount);
@@ -151,7 +156,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         hasDividend = _hasDividend;
 
         feeAddress = msg.sender;
-        startBlock = block.number + 30 * BLOCKS_PER_DAY; // after 30 days
+        startBlock = arbsys.arbBlockNumber() + 30 * BLOCKS_PER_DAY; // after 30 days
     }
 
     mapping(IERC20 => bool) public poolExistence;
@@ -186,7 +191,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         if (_withUpdate) {
             massUpdatePools();
         }
-        uint256 blockNumber = block.number;
+        uint256 blockNumber = arbsys.arbBlockNumber();
         uint256 lastRewardBlock = blockNumber > startBlock
             ? blockNumber
             : startBlock;
@@ -241,7 +246,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             _withdrawFee <= PERCENT_PRECISION,
             "set: invalid withdraw fee basis points"
         );
-        uint256 blockNumber = block.number;
+        uint256 blockNumber = arbsys.arbBlockNumber();
         if (poolInfo[_pid].bonusEndBlock > blockNumber) {
             require(
                 poolInfo[_pid].startBlock + _duration * BLOCKS_PER_DAY >
@@ -335,13 +340,13 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         uint256 accTokenPerShare = pool.accTokenPerShare;
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
         if (
-            block.number > pool.lastRewardBlock &&
+            arbsys.arbBlockNumber() > pool.lastRewardBlock &&
             lpSupply > 0 &&
             totalAllocPoint > 0
         ) {
             uint256 multiplier = getMultiplier(
                 pool.lastRewardBlock,
-                block.number,
+                arbsys.arbBlockNumber(),
                 pool.bonusEndBlock
             );
             uint256 brewsReward = (multiplier *
@@ -364,7 +369,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
         if (reflectionToken == address(pool.lpToken))
             lpSupply = totalReflectionStaked;
         if (
-            block.number > pool.lastRewardBlock &&
+            arbsys.arbBlockNumber() > pool.lastRewardBlock &&
             lpSupply > 0 &&
             hasDividend &&
             totalAllocPoint > 0
@@ -401,7 +406,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     // Update reward variables of the given pool to be up-to-date.
     function updatePool(uint256 _pid) public {
         PoolInfo storage pool = poolInfo[_pid];
-        uint256 blockNumber = block.number;
+        uint256 blockNumber = arbsys.arbBlockNumber();
         if (blockNumber <= pool.lastRewardBlock) {
             return;
         }
@@ -531,7 +536,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
         emit Deposit(msg.sender, _pid, realAmount);
 
-        if (pool.bonusEndBlock <= block.number) {
+        if (pool.bonusEndBlock <= arbsys.arbBlockNumber()) {
             totalAllocPoint = totalAllocPoint - pool.allocPoint;
             pool.allocPoint = 0;
             rewardPerBlock = 0;
@@ -555,7 +560,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
 
         _transferPerformanceFee();
 
-        if (pool.bonusEndBlock < block.number) {
+        if (pool.bonusEndBlock < arbsys.arbBlockNumber()) {
             massUpdatePools();
 
             totalAllocPoint = totalAllocPoint - pool.allocPoint;
@@ -1026,9 +1031,9 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
     }
 
     function updateStartBlock(uint256 _startBlock) external onlyOwner {
-        require(startBlock > block.number, "farm is running now");
+        require(startBlock > arbsys.arbBlockNumber(), "farm is running now");
         require(
-            _startBlock > block.number,
+            _startBlock > arbsys.arbBlockNumber(),
             "should be greater than current block"
         );
 
@@ -1068,7 +1073,7 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
             }
         }
         require(
-            bonusEndBlock > block.number,
+            bonusEndBlock > arbsys.arbBlockNumber(),
             "pool was already finished"
         );
 
@@ -1089,13 +1094,13 @@ contract BrewlabsFarm is Ownable, ReentrancyGuard {
                 bonusEndBlock = poolInfo[i].bonusEndBlock;
             }
         }
-        if (bonusEndBlock <= block.number) return;
+        if (bonusEndBlock <= arbsys.arbBlockNumber()) return;
 
         uint256 remainRewards = availableRewardTokens() + paidRewards;
         if (remainRewards > shouldTotalPaid) {
             remainRewards = remainRewards - shouldTotalPaid;
 
-            uint256 remainBlocks = bonusEndBlock - block.number;
+            uint256 remainBlocks = bonusEndBlock - arbsys.arbBlockNumber();
             rewardPerBlock = remainRewards / remainBlocks;
             emit UpdateEmissionRate(msg.sender, rewardPerBlock);
         }
